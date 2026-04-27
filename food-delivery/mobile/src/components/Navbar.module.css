@@ -1,0 +1,58 @@
+.nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; height: 60px; background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  position: sticky; top: 0; z-index: 100; gap: 10px;
+}
+.logo { font-size: 20px; font-weight: 800; color: #ff6b35; flex-shrink: 0; }
+.locationWrapper { flex: 1; display: flex; justify-content: center; min-width: 0; }
+.right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.link { font-weight: 500; color: #444; font-size: 13px; white-space: nowrap; }
+.link:hover { color: #ff6b35; }
+.cartBtn {
+  background: #ff6b35; color: #fff; padding: 7px 13px;
+  border-radius: 24px; font-weight: 600; font-size: 16px;
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+}
+.badge {
+  background: #fff; color: #ff6b35; border-radius: 50%;
+  padding: 1px 5px; font-size: 11px; font-weight: 700;
+}
+.wallet { font-size: 12px; font-weight: 600; color: #059669; background: #d1fae5; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+.walletRow { font-size: 13px; color: #555; padding: 6px 4px; }
+.walletRow strong { color: #059669; }
+.userMenu { position: relative; }
+.avatarBtn {
+  display: flex; align-items: center; gap: 5px;
+  background: #f5f5f5; border-radius: 24px; padding: 5px 10px;
+  font-size: 13px; font-weight: 500; color: #333;
+}
+.avatar { font-size: 18px; }
+.userName { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.dropdown {
+  position: absolute; right: 0; top: calc(100% + 8px);
+  background: #fff; border-radius: 12px; min-width: 190px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12); padding: 12px; z-index: 200;
+}
+.dropdownHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.dropdownHeader strong { font-size: 13px; }
+.dropdownEmail { font-size: 11px; color: #888; margin-bottom: 10px; }
+.roleBadge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: capitalize; }
+.customer { background: #dbeafe; color: #1d4ed8; }
+.restaurant { background: #fef3c7; color: #92400e; }
+.delivery { background: #d1fae5; color: #065f46; }
+.admin { background: #fce7f3; color: #9d174d; }
+.hr { border: none; border-top: 1px solid #f0f0f0; margin: 8px 0; }
+.logoutBtn { width: 100%; text-align: left; padding: 8px 4px; font-size: 14px; color: #e53e3e; background: none; font-weight: 500; }
+
+/* Mobile */
+@media (max-width: 600px) {
+  .nav { padding: 0 12px; height: 56px; gap: 6px; }
+  .logo { font-size: 18px; }
+  .locationWrapper { display: none; }
+  .link { display: none; }
+  .wallet { display: none; }
+  .userName { display: none; }
+  .avatarBtn { padding: 5px 8px; }
+  .cartBtn { padding: 6px 10px; font-size: 15px; }
+}

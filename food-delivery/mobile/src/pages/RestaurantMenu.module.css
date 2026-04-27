@@ -1,0 +1,35 @@
+.page { max-width: 900px; margin: 0 auto; padding-bottom: 80px; }
+.header {
+  height: 220px;
+  background-size: cover;
+  background-position: center;
+  border-radius: 0 0 16px 16px;
+  position: relative;
+}
+.overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.75), transparent);
+  border-radius: 0 0 16px 16px;
+  display: flex; flex-direction: column;
+  justify-content: flex-end;
+  padding: 20px 24px;
+  color: #fff;
+}
+.back { background: rgba(255,255,255,0.2); color: #fff; border-radius: 8px; padding: 6px 14px; font-size: 14px; width: fit-content; margin-bottom: 8px; }
+.overlay h1 { font-size: 28px; font-weight: 700; }
+.meta { display: flex; gap: 16px; font-size: 14px; margin-top: 6px; opacity: 0.9; }
+.content { padding: 20px 16px; }
+.categories { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.catBtn { padding: 6px 18px; border-radius: 20px; background: #f0f0f0; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+.catBtn:hover { background: #ffe0d4; color: #ff6b35; }
+.catBtn.active { background: #ff6b35; color: #fff; }
+.menuGrid { display: flex; flex-direction: column; gap: 12px; }
+.loading { text-align: center; padding: 60px; color: #888; }
+.cartBar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: #ff6b35; color: #fff;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 32px;
+  font-weight: 600; font-size: 16px;
+}
+.cartBar button { background: #fff; color: #ff6b35; padding: 8px 20px; border-radius: 8px; font-weight: 700; }

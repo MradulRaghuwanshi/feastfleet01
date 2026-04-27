@@ -1,0 +1,62 @@
+.page { max-width: 800px; margin: 0 auto; padding: 24px 16px 40px; }
+.loading { text-align: center; padding: 60px; color: #888; }
+
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.agentInfo { display: flex; align-items: center; gap: 14px; }
+.agentAvatar { font-size: 48px; }
+.agentInfo h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.agentInfo p { font-size: 13px; color: #888; }
+.statusPill { padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; }
+.busy { background: #fee2e2; color: #991b1b; }
+.free { background: #d1fae5; color: #065f46; }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+@media (max-width: 500px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+.stat { background: #fff; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.statVal { display: block; font-size: 24px; font-weight: 800; color: #ff6b35; margin-bottom: 4px; }
+.statLabel { font-size: 12px; color: #888; }
+
+.tabs { display: flex; gap: 4px; background: #f5f5f5; border-radius: 12px; padding: 4px; margin-bottom: 20px; width: fit-content; }
+.tab { padding: 9px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #666; display: flex; align-items: center; gap: 6px; }
+.activeTab { background: #fff; color: #ff6b35; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+.tabBadge { background: #ff6b35; color: #fff; border-radius: 10px; padding: 1px 7px; font-size: 11px; }
+
+.orderList { display: flex; flex-direction: column; gap: 16px; }
+.orderCard { background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; gap: 12px; }
+.orderTop { display: flex; justify-content: space-between; align-items: center; }
+.orderId { font-size: 12px; font-weight: 700; color: #888; margin-right: 8px; }
+.statusBadge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
+.orderTime { font-size: 12px; color: #aaa; }
+
+.route { display: flex; flex-direction: column; gap: 0; background: #f9f9f9; border-radius: 10px; padding: 12px 14px; }
+.routePoint { display: flex; align-items: flex-start; gap: 10px; }
+.routeDot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+.routeLabel { font-size: 11px; color: #aaa; font-weight: 600; text-transform: uppercase; }
+.routeAddr { font-size: 13px; font-weight: 600; color: #333; }
+.routeLine { width: 2px; height: 16px; background: #ddd; margin-left: 5px; }
+
+.itemsSummary { display: flex; flex-wrap: wrap; gap: 6px; }
+.itemChip { background: #f0f0f0; border-radius: 20px; padding: 4px 10px; font-size: 12px; color: #555; }
+
+.orderFooter { display: flex; justify-content: space-between; align-items: center; }
+.customerChip { background: #f5f5f5; border-radius: 20px; padding: 5px 12px; font-size: 13px; color: #555; }
+.orderTotal { font-weight: 700; color: #ff6b35; font-size: 16px; }
+
+.progressBar { display: flex; gap: 4px; }
+.progressStep { flex: 1; height: 4px; border-radius: 2px; background: #e0e0e0; transition: background 0.3s; }
+.progressDone { background: #ff6b35; }
+
+.deliverBtn { background: #10b981; color: #fff; padding: 12px; border-radius: 10px; font-weight: 700; font-size: 15px; width: 100%; }
+.deliverBtn:hover:not(:disabled) { background: #059669; }
+.deliverBtn:disabled { opacity: 0.6; }
+.waitingChip { background: #fef3c7; color: #92400e; border-radius: 8px; padding: 10px 14px; font-size: 13px; font-weight: 500; text-align: center; }
+
+.empty { text-align: center; padding: 40px; color: #888; font-size: 16px; background: #f9f9f9; border-radius: 12px; }
+
+.mapBtn { width: 100%; margin-top: 10px; background: #3b82f6; color: #fff; border-radius: 8px; padding: 9px; font-size: 14px; font-weight: 600; }
+.trackingOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.trackingModal { background: #fff; border-radius: 16px; width: 100%; max-width: 820px; max-height: 92vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
+.trackingHeader { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #f0f0f0; }
+.trackingHeader h3 { font-size: 17px; font-weight: 700; }
+.trackingHeader button { background: #f0f0f0; border-radius: 50%; width: 32px; height: 32px; font-size: 16px; }
+.trackingNote { background: #eff6ff; color: #1d4ed8; font-size: 13px; padding: 10px 16px; font-weight: 500; }

@@ -1,0 +1,17 @@
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal { background: #fff; border-radius: 16px; padding: 28px; max-width: 440px; width: 100%; box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.header h3 { font-size: 20px; font-weight: 700; }
+.header button { background: #f0f0f0; border-radius: 50%; width: 30px; height: 30px; font-size: 14px; }
+.sub { font-size: 14px; color: #666; margin-bottom: 14px; }
+.orderPreview { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.itemTag { background: #f5f5f5; color: #555; font-size: 12px; padding: 3px 10px; border-radius: 10px; }
+.stars { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; }
+.star { font-size: 40px; background: none; color: #ddd; transition: color 0.15s; }
+.star.filled { color: #f59e0b; }
+.ratingLabel { text-align: center; font-size: 15px; font-weight: 600; color: #555; margin-bottom: 14px; min-height: 22px; }
+.modal textarea { width: 100%; border: 1.5px solid #e0e0e0; border-radius: 10px; padding: 12px; font-size: 14px; font-family: inherit; resize: vertical; }
+.modal textarea:focus { border-color: #ff6b35; outline: none; }
+.error { color: #e53e3e; font-size: 13px; margin-top: 6px; }
+.submitBtn { width: 100%; background: #ff6b35; color: #fff; padding: 13px; border-radius: 10px; font-size: 16px; font-weight: 700; margin-top: 14px; }
+.submitBtn:disabled { opacity: 0.6; }

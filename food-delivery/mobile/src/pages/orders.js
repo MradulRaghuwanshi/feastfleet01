@@ -1,0 +1,127 @@
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import ReviewModal from '../components/ReviewModal';
+import { getOrdersByCustomer } from '../firebase/services';
+import styles from './customer/MyOrders.module.css';
+
+const STATUS_COLOR = {
+  'Placed':           { bg: '#dbeafe', color: '#1d4ed8' },
+  'Confirmed':        { bg: '#fef3c7', color: '#92400e' },
+  'Preparing':        { bg: '#fde68a', color: '#78350f' },
+  'Out for Delivery': { bg: '#d1fae5', color: '#065f46' },
+  'Delivered':        { bg: '#dcfce7', color: '#166534' },
+};
+
+export default function MyOrders() {
+  const { user } = useAuth();
+  const { addItem, cart } = useCart();
+  const router = useRouter();
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [reviewOrder, setReviewOrder] = useState(null);
+  const [filter, setFilter] = useState('All');
+
+  const fetchOrders = () => {
+    getOrdersByCustomer(user.id)
+      .then(data => { setOrders(data); setLoading(false); });
+  };
+
+  useEffect(() => { fetchOrders(); }, [user.id]);
+
+  const handleReorder = (order) => {
+    order.items.forEach(item => addItem(item, order.restaurantId, order.restaurantName));
+    router.push('/checkout/');
+  };
+
+  const FILTERS = ['All', 'Active', 'Delivered'];
+  const filtered = orders.filter(o => {
+    if (filter === 'Active') return o.status !== 'Delivered';
+    if (filter === 'Delivered') return o.status === 'Delivered';
+    return true;
+  });
+
+  return (
+    <div className={styles.page}>
+      <h2>My Orders</h2>
+
+      <div className={styles.filters}>
+        {FILTERS.map(f => (
+          <button key={f} className={`${styles.chip} ${filter === f ? styles.active : ''}`}
+            onClick={() => setFilter(f)}>{f}</button>
+        ))}
+      </div>
+
+      {loading ? <p className={styles.loading}>Loading orders...</p> : filtered.length === 0 ? (
+        <div className={styles.empty}>
+          <p>No orders here</p>
+          <button onClick={() => router.push('/')}>Start Ordering</button>
+        </div>
+      ) : (
+        <div className={styles.list}>
+          {filtered.map(order => {
+            const sc = STATUS_COLOR[order.status] || {};
+            return (
+              <div key={order.id} className={styles.card}>
+                <div className={styles.cardTop}>
+                  <div>
+                    <h3>{order.restaurantName}</h3>
+                    <p className={styles.orderId}>#{order.id}</p>
+                    {order.deliveryOtp && order.status === 'Out for Delivery' && (
+                      <p className={styles.otpInfo}>🔐 OTP: <strong>{order.deliveryOtp}</strong></p>
+                    )}
+                    <p className={styles.date}>{new Date(order.placedAt).toLocaleString()}</p>
+                  </div>
+                  <span className={styles.statusBadge} style={{ background: sc.bg, color: sc.color }}>
+                    {order.status}
+                  </span>
+                </div>
+
+                <div className={styles.items}>
+                  {order.items.map(i => (
+                    <span key={i.id} className={styles.itemChip}>{i.name} ×{i.quantity}</span>
+                  ))}
+                </div>
+
+                <div className={styles.cardBottom}>
+                  <div className={styles.priceInfo}>
+                    <span className={styles.total}>₹{order.total.toFixed(0)}</span>
+                    {order.promoCode && <span className={styles.promoTag}>🏷️ {order.promoCode}</span>}
+                    {order.discount > 0 && <span className={styles.savedTag}>Saved ₹{order.discount.toFixed(0)}</span>}
+                    {(order.platformFee > 0 || order.packagingFee > 0 || order.gstAmount > 0) && (
+                      <span className={styles.feesTag}>
+                        +Fees ₹{(order.platformFee + order.packagingFee + order.gstAmount).toFixed(0)}
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.actions}>
+                    <button className={styles.trackBtn}
+                      onClick={() => router.push(`/order-confirmation/?id=${order.id}`)}>
+                      {order.status === 'Delivered' ? 'View Details' : '📍 Track'}
+                    </button>
+                    <button className={styles.reorderBtn} onClick={() => handleReorder(order)}>
+                      🔄 Reorder
+                    </button>
+                    {order.status === 'Delivered' && !order.reviewed && (
+                      <button className={styles.reviewBtn} onClick={() => setReviewOrder(order)}>
+                        ⭐ Review
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {reviewOrder && (
+        <ReviewModal order={reviewOrder}
+          onClose={() => setReviewOrder(null)}
+          onSubmitted={() => { setReviewOrder(null); fetchOrders(); }} />
+      )}
+    </div>
+  );
+}
+

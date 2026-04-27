@@ -1,0 +1,136 @@
+﻿import React, { useState } from 'react';
+import styles from './LocationPicker.module.css';
+
+async function geocode(query) {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5`,
+    { headers: { 'Accept-Language': 'en' } }
+  );
+  return res.json();
+}
+
+async function reverseGeocode(lat, lng) {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+    { headers: { 'Accept-Language': 'en' } }
+  );
+  const data = await res.json();
+  const addr = data.address || {};
+  return {
+    lat: parseFloat(lat), lng: parseFloat(lng),
+    address: [addr.house_number, addr.road, addr.suburb || addr.neighbourhood,
+      addr.city || addr.town || addr.village, addr.state, addr.postcode
+    ].filter(Boolean).join(', ') || data.display_name,
+    city: addr.city || addr.town || addr.village || '',
+    postcode: addr.postcode || ''
+  };
+}
+
+export default function LocationPicker({ initialLocation, onConfirm, onClose }) {
+  const [search, setSearch]     = useState('');
+  const [results, setResults]   = useState([]);
+  const [selected, setSelected] = useState(initialLocation || null);
+  const [loading, setLoading]   = useState(false);
+  const [manualLat, setManualLat] = useState(initialLocation?.lat || '');
+  const [manualLng, setManualLng] = useState(initialLocation?.lng || '');
+
+  const handleSearch = async () => {
+    if (!search.trim()) return;
+    setLoading(true);
+    const data = await geocode(search);
+    setResults(data);
+    setLoading(false);
+  };
+
+  const selectResult = async (r) => {
+    setLoading(true);
+    const loc = await reverseGeocode(r.lat, r.lon);
+    setSelected(loc);
+    setManualLat(r.lat);
+    setManualLng(r.lon);
+    setResults([]);
+    setSearch('');
+    setLoading(false);
+  };
+
+  const handleManualCoords = async () => {
+    if (!manualLat || !manualLng) return;
+    setLoading(true);
+    const loc = await reverseGeocode(manualLat, manualLng);
+    setSelected(loc);
+    setLoading(false);
+  };
+
+  const mapUrl = selected
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${selected.lng - 0.01},${selected.lat - 0.01},${selected.lng + 0.01},${selected.lat + 0.01}&layer=mapnik&marker=${selected.lat},${selected.lng}`
+    : `https://www.openstreetmap.org/export/embed.html?bbox=72.8,19.0,72.95,19.15&layer=mapnik`;
+
+  return (
+    <div className={styles.overlay}>
+      <div className={styles.modal}>
+        <div className={styles.header}>
+          <h3>Set Delivery Location</h3>
+          <button onClick={onClose} className={styles.closeBtn}>x</button>
+        </div>
+
+        {/* Search */}
+        <div className={styles.searchRow}>
+          <input
+            type="text"
+            placeholder="Search for an address..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+          />
+          <button onClick={handleSearch} disabled={loading}>
+            {loading ? '...' : 'Search'}
+          </button>
+        </div>
+
+        {results.length > 0 && (
+          <ul className={styles.results}>
+            {results.map((r, i) => (
+              <li key={i} onClick={() => selectResult(r)}>{r.display_name}</li>
+            ))}
+          </ul>
+        )}
+
+        {/* Map preview */}
+        <div className={styles.mapWrapper}>
+          <iframe
+            title="Location Map"
+            src={mapUrl}
+            className={styles.mapFrame}
+            frameBorder="0"
+            scrolling="no"
+          />
+        </div>
+
+        {/* Manual coordinates */}
+        <div className={styles.coordRow}>
+          <input type="number" placeholder="Latitude" value={manualLat}
+            onChange={e => setManualLat(e.target.value)} step="0.0001" />
+          <input type="number" placeholder="Longitude" value={manualLng}
+            onChange={e => setManualLng(e.target.value)} step="0.0001" />
+          <button onClick={handleManualCoords} disabled={loading}>Set</button>
+        </div>
+
+        {/* Selected address */}
+        {selected && (
+          <div className={styles.addressPreview}>
+            <span>&#128205;</span>
+            <span>{selected.address}</span>
+          </div>
+        )}
+
+        <button
+          className={styles.confirmBtn}
+          onClick={() => selected && onConfirm(selected)}
+          disabled={!selected || loading}
+        >
+          Confirm Location
+        </button>
+      </div>
+    </div>
+  );
+}

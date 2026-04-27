@@ -1,0 +1,64 @@
+.page { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
+.page h2 { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+.layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
+.left { display: flex; flex-direction: column; gap: 12px; }
+
+.cartSection { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+.cartSection h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+.cartSection h3 span { color: #ff6b35; }
+.cartItem { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f5f5f5; }
+.cartItem img { width: 48px; height: 42px; object-fit: cover; border-radius: 7px; flex-shrink: 0; }
+.itemInfo { flex: 1; min-width: 0; }
+.itemName { font-size: 13px; font-weight: 500; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.itemPrice { font-size: 13px; font-weight: 600; color: #ff6b35; }
+.qtyControls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.qtyControls button { background: #ff6b35; color: #fff; width: 24px; height: 24px; border-radius: 50%; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.qtyControls span { font-weight: 700; min-width: 16px; text-align: center; font-size: 14px; }
+
+.promoSection { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+.promoSection h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+.promoRow { display: flex; gap: 8px; }
+.promoRow input { flex: 1; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 9px 10px; font-size: 14px; font-family: inherit; min-width: 0; }
+.promoRow input:focus { border-color: #ff6b35; outline: none; }
+.promoRow button { background: #ff6b35; color: #fff; border-radius: 8px; padding: 9px 14px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+.promoError { color: #e53e3e; font-size: 12px; margin-top: 6px; }
+.promoSuccess { color: #059669; font-size: 12px; margin-top: 6px; font-weight: 600; }
+.promoHints { margin-top: 8px; font-size: 12px; color: #aaa; display: flex; gap: 6px; flex-wrap: wrap; }
+.promoHints span { background: #f0f0f0; padding: 3px 8px; border-radius: 6px; cursor: pointer; color: #555; font-weight: 600; }
+
+.walletSection { background: #fff; border-radius: 12px; padding: 12px 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+.walletLabel { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.walletLabel input { width: 16px; height: 16px; accent-color: #ff6b35; }
+.walletSaving { font-size: 12px; color: #059669; font-weight: 600; margin-top: 6px; }
+
+.billSection { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+.billSection h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+.billRow { display: flex; justify-content: space-between; font-size: 13px; color: #555; padding: 4px 0; }
+.discount { color: #059669; font-weight: 600; }
+.totalRow { font-weight: 700; font-size: 15px; color: #222; border-top: 2px solid #f0f0f0; padding-top: 8px; margin-top: 4px; }
+.free { color: #aaa; text-decoration: line-through; }
+
+.form { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); display: flex; flex-direction: column; gap: 14px; }
+.form h3 { font-size: 16px; font-weight: 700; }
+.customerInfo { display: flex; align-items: center; gap: 10px; background: #f9f9f9; padding: 10px; border-radius: 10px; }
+.customerInfo span { font-size: 26px; }
+.customerInfo strong { display: block; font-size: 13px; }
+.customerInfo p { color: #888; font-size: 11px; margin-top: 2px; }
+.form label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 500; color: #444; }
+.form textarea { border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 10px 12px; font-size: 14px; font-family: inherit; resize: vertical; }
+.form textarea:focus { border-color: #ff6b35; outline: none; }
+.addressRow { display: flex; flex-direction: column; gap: 8px; }
+.mapBtn { background: #fff5f0; color: #ff6b35; border: 1.5px solid #ff6b35; border-radius: 8px; padding: 7px 12px; font-size: 13px; font-weight: 600; align-self: flex-start; }
+.placeBtn { background: #ff6b35; color: #fff; padding: 13px; border-radius: 10px; font-size: 15px; font-weight: 700; margin-top: 4px; }
+.placeBtn:disabled { opacity: 0.6; }
+.error { color: #e53e3e; font-size: 13px; }
+.empty { text-align: center; padding: 60px 20px; }
+.emptyIcon { font-size: 56px; margin-bottom: 14px; }
+.empty p { font-size: 18px; color: #888; margin-bottom: 20px; }
+.empty button { background: #ff6b35; color: #fff; padding: 12px 24px; border-radius: 10px; font-size: 15px; font-weight: 600; }
+
+@media (max-width: 480px) {
+  .page h2 { font-size: 18px; }
+  .form textarea { font-size: 16px; }
+}

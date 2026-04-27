@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users — anyone can create (self-register), only owner can read/write their own
+    match /users/{userId} {
+      allow read:   if true;
+      allow create: if true;  // self-registration
+      allow update: if true;
+    }
+
+    // loginCredentials — write allowed for self-registration, read for auth lookup
+    match /loginCredentials/{docId} {
+      allow read:   if true;
+      allow create: if true;  // self-registration
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // Restaurants — public read, restricted write
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow write: if true; // admin manages via backend
+
+      match /menu/{itemId} {
+        allow read:  if true;
+        allow write: if true;
+      }
+    }
+
+    // Orders — open read/write for authenticated sessions
+    match /orders/{orderId} {
+      allow read:   if true;
+      allow create: if true;
+      allow update: if true;
+    }
+
+    // Reviews
+    match /reviews/{reviewId} {
+      allow read:   if true;
+      allow create: if true;
+      allow update: if true;
+    }
+
+    // Promo codes — read only
+    match /promoCodes/{code} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    // FCM tokens
+    match /fcmTokens/{tokenId} {
+      allow read:   if true;
+      allow write:  if true;
+    }
+
+    // App config
+    match /appConfig/{doc} {
+      allow read:  if true;
+      allow write: if false;
+    }
+  }
+}

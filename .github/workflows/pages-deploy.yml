@@ -34,7 +34,7 @@ jobs:
     - name: Install and Build
       run: |
         cd food-delivery/frontend
-        npm ci
+        npm install
         npm run build
     
     - name: Setup Pages

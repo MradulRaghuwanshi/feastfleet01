@@ -1,2 +1,2 @@
-﻿/api/*  https://your-backend-url.herokuapp.com/api/:splat  200
+﻿# Backend API proxy (update with real URL when ready)\n/api/*  https://your-backend-url.herokuapp.com/api/:splat  200
 /* /index.html 200

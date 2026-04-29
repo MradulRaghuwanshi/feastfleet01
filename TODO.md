@@ -1,11 +1,11 @@
-# Netlify Deploy Progress
+# Netlify Deploy Fix TODO - Fresh Build
 
 **Completed:**
-- [x] 1. Create netlify.toml ✅
-- [x] 2. Update _redirects backend proxy ✅
-- [x] 3. Git commit & push ✅
+- [x] Config & initial deploy
+- [x] Git pushes for auto-deploy
 
-**Todo:**
-- [ ] 4. Wait for Netlify auto-deploy (check Netlify dashboard)
-- [ ] 5. Test live URL (routing/SPA works, API needs backend)
-- [ ] 6. Update README with live Netlify URL
+**In Progress:**
+- [ ] 1. cd food-delivery/frontend && npm install && npm run build
+- [ ] 2. Update netlify-ready with new build/*
+- [ ] 3. git add/commit/push
+- [ ] 4. Verify live site matches localhost

@@ -3,9 +3,9 @@
 **Completed:**
 - [x] 1. Create netlify.toml ✅
 - [x] 2. Update _redirects backend proxy ✅
+- [x] 3. Git commit & push ✅
 
 **Todo:**
-- [ ] 3. git add . && git commit -m \"Netlify deploy ready\" && git push origin main
-- [ ] 4. Wait for Netlify auto-deploy / verify site
-- [ ] 5. Test live URL (routing works, API pending backend)
+- [ ] 4. Wait for Netlify auto-deploy (check Netlify dashboard)
+- [ ] 5. Test live URL (routing/SPA works, API needs backend)
 - [ ] 6. Update README with live Netlify URL

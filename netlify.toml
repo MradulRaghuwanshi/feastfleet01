@@ -1,1 +1,3 @@
-[build]\n  publish = "food-delivery/frontend/netlify-ready"
+[build]
+  publish = "food-delivery/frontend/netlify-ready"
+

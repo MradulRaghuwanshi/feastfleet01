@@ -12,7 +12,9 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "proxy": "http://localhost:5000",
   "browserslist": {
@@ -24,5 +26,8 @@
       "last 1 chrome version"
     ]
   },
-  "homepage": "https://MradulRaghuwanshi.github.io/feastfleet01"
+  "homepage": "https://feastfleet.tech",
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
+  }
 }

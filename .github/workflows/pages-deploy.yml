@@ -32,23 +32,25 @@ jobs:
         cache-dependency-path: food-delivery/frontend/package-lock.json
     
     - name: Install and Build
+      working-directory: food-delivery/frontend
       run: |
-        cd food-delivery/frontend
-        npm install
+        npm install --legacy-peer-deps
         npm run build
+      env:
+        PUBLIC_URL: https://feastfleet.tech
+        CI: false
+    
+    - name: Create 404.html for SPA routing
+      working-directory: food-delivery/frontend
+      run: cp build/index.html build/404.html
     
     - name: Setup Pages
       uses: actions/configure-pages@v4
     
-    - name: Copy build to dist
-      run: |
-        rm -rf food-delivery/frontend/netlify-ready/*
-        cp -r food-delivery/frontend/build/* food-delivery/frontend/netlify-ready/
-    
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
-        path: './food-delivery/frontend/netlify-ready'
+        path: './food-delivery/frontend/build'
     
     - name: Deploy to GitHub Pages
       id: deployment

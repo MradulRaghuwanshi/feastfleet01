@@ -37,7 +37,6 @@ jobs:
         npm install --legacy-peer-deps
         npm run build
       env:
-        PUBLIC_URL: https://feastfleet.tech
         CI: false
     
     - name: Setup Pages

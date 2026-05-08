@@ -36,11 +36,24 @@ export default function Checkout() {
   const packagingFee = appConfig?.packagingFee ?? 15;
   const gstPercent = appConfig?.gstPercent ?? 5;
   const gstAmount = +(subtotal * gstPercent / 100).toFixed(0);
-  const deliveryFee = promo?.type === 'delivery' ? 0 : (cart.restaurantHasOwnDelivery ? 0 : (appConfig?.defaultDeliveryFee ?? 29));
+  const deliveryTierFee = (s) => {
+    const x = Number(s);
+    if (x < 100) return 40;
+    if (x < 150) return 30;
+    if (x < 200) return 20;
+    if (x < 300) return 10;
+    return 0;
+  };
+
+  const deliveryFee = promo?.type === 'delivery'
+    ? 0
+    : (cart.restaurantHasOwnDelivery ? 0 : deliveryTierFee(subtotal));
+
   const discount = promo
     ? promo.type === 'percent' ? Math.min(+(subtotal * promo.value / 100).toFixed(0), 100)
     : promo.type === 'flat'   ? promo.value : 0
     : 0;
+
   const afterDiscount = subtotal + platformCommission + packagingFee + gstAmount + deliveryFee - discount;
   const walletDeduction = useWallet ? Math.min(user?.wallet || 0, afterDiscount) : 0;
   const total = Math.max(0, afterDiscount - walletDeduction);
@@ -73,8 +86,9 @@ export default function Checkout() {
         packagingFee,
         gstPercent,
         gstAmount,
-        deliveryFee: promo?.type === 'delivery' ? 0 : (cart.restaurantHasOwnDelivery ? 0 : (appConfig?.defaultDeliveryFee ?? 29)),
+        deliveryFee,
         discount: +discount.toFixed(0),
+
         walletUsed: +walletDeduction.toFixed(0),
         total: +total.toFixed(0),
         promoCode: promo?.code || null,

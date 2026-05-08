@@ -1,0 +1,104 @@
+apply plugin: "com.android.application"
+apply plugin: "com.facebook.react"
+apply plugin: "com.google.gms.google-services"
+
+/**
+ * This is the configuration block to customize your React Native Android app.
+ * By default, it is empty, but you can read more about the options here:
+ * https://reactnative.dev/docs/build-config-android
+ */
+react {
+    /* Folders */
+    //   The root of your project, i.e. where "package.json" lives. Default is '..'
+    // root = file("../")
+    //   The folder where the react-native CLI is. Default is ""
+    // reactNativeDir = file("../node_modules/react-native")
+    //   The folder where the react-native CLI configuration is. Default is ""
+    // codegenDir = file("../node_modules/@react-native/codegen")
+    //   The cli.js file which is the main entry point of the project. Default is ""
+    // cliFile = file("../node_modules/react-native/cli.js")
+
+    /* Variants */
+    //   The list of variants to watch that will trigger a rebuild. Default is ['debug']
+    // debugVariants = ["debug"]
+
+    /* Bundling */
+    //   A list of extra flags to pass to the "bundle" commands.
+    //   See https://github.com/react-native-community/cli/blob/main/docs/commands.md#bundle
+    // extraPackagerArgs = []
+
+    /* Hermes Commands */
+    //   The hermes compiler command to run. By default it is 'hermesc'
+    // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
+    //   The list of flags to pass to the Hermes compiler.
+    // hermesFlags = ["-O", "-output-source-map"]
+}
+
+/**
+ * Set this to true to Run Proguard on Release builds to control the size of the APK.
+ */
+def enableProguardInReleaseBuilds = false
+
+/**
+ * The preferred build flavor of JavaScriptCore (JSC)
+ *
+ * For example, to use the international variant, you can use:
+ * `def jscVariant = 'org.webkit:android-jsc-intl:+'`
+ *
+ * The international variant includes ICU i18n library and necessary data
+ * allowing to use e.g. `Date.toLocaleString` and `String.localeCompare` that
+ * give correct results when using with locales other than en-US. Note that
+ * this variant is about 6MiB larger per architecture than default.
+ */
+def jscVariant = 'org.webkit:android-jsc:+'
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    namespace "com.feastfleet.app"
+    defaultConfig {
+        applicationId "com.feastfleet.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        resValue "string", "build_config_package", "com.feastfleet.app"
+    }
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            // Caution! In production, you need to generate your own keystore file.
+            // see https://reactnative.dev/docs/signed-apk-android.
+            signingConfig signingConfigs.debug
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+dependencies {
+    // The version of react-native is set by the native Gradle plugin
+    implementation("com.facebook.react:react-android")
+    implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
+    implementation("com.google.firebase:firebase-analytics")
+
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android")
+    } else {
+        implementation jscVariant
+    }
+}
+
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)

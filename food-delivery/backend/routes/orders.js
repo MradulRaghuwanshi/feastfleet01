@@ -5,7 +5,8 @@ const { db, admin } = require('../firebase/admin');
 
 const STATUS_FLOW = ['Placed', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered'];
 
-
+const COINS_PER_100_RS = 5;
+const FEASTCOINS_REDEEM_RATE = 1; // 1 feastcoin == ₹1 (so 100 coins == ₹100 discount)
 
 router.post('/', async (req, res) => {
   try {
@@ -25,8 +26,13 @@ router.post('/', async (req, res) => {
       });
 
     const subtotal = enrichedItems.reduce((s, i) => s + i.price * i.quantity, 0);
-    let discount = 0, deliveryFee = restaurant.hasOwnDelivery ? 0 : restaurant.deliveryFee;
+
+    const { getDeliveryFeeForTier } = require('../lib/orderEconomics');
+    let discount = 0;
+    // Tier-based delivery fee for platform-delivered restaurants
+    let deliveryFee = restaurant.hasOwnDelivery ? 0 : getDeliveryFeeForTier(subtotal);
     let appliedPromo = null;
+
 
       if (promoCode) {
         const promo = promoCodes.find(p => p.code === promoCode.toUpperCase() && p.active);
@@ -58,11 +64,16 @@ router.post('/', async (req, res) => {
       const platformCommissionPercent = restaurant.hasOwnDelivery ? 5 : 15;
       const platformCommission = +(subtotal * platformCommissionPercent / 100).toFixed(2);
 
+      // Platform delivery restaurants: start UNASSIGNED
+      const deliveryOtp = String(Math.floor(1000 + Math.random() * 9000));
+      const deliveryOtpVerified = false;
+
       const order = {
         id: `ord-${uuidv4().slice(0,6).toUpperCase()}`,
         customerId: customerId || 'guest', customerName,
         restaurantId, restaurantName: restaurant.name,
-        deliveryAgentId: agent?.id || null, deliveryAgentName: agent?.name || 'Unassigned',
+        deliveryAgentId: restaurant.hasOwnDelivery ? agent?.id || null : null,
+        deliveryAgentName: restaurant.hasOwnDelivery ? (agent?.name || 'Restaurant Delivery') : 'Unassigned',
         items: enrichedItems,
         subtotal: +subtotal.toFixed(2), platformFee: pf, packagingFee: pkf, gstPercent: gstPercent ?? 5, gstAmount: ga,
         deliveryFee, discount, walletUsed,
@@ -70,10 +81,13 @@ router.post('/', async (req, res) => {
         platformCommissionPercent,
         total: Math.max(0, total),
         promoCode: appliedPromo, deliveryAddress, status: 'Placed', reviewed: false,
+        deliveryOtp,
+        deliveryOtpVerified,
         deliveryLat: deliveryLat || null, deliveryLng: deliveryLng || null,
         placedAt: new Date().toISOString(),
         statusHistory: [{ status: 'Placed', time: new Date().toISOString() }]
       };
+
       orders.push(order);
       return res.status(201).json(order);
     }
@@ -92,8 +106,13 @@ router.post('/', async (req, res) => {
     });
 
     const subtotal = enrichedItems.reduce((s, i) => s + i.price * i.quantity, 0);
-    let discount = 0, deliveryFee = restaurant.hasOwnDelivery ? 0 : restaurant.deliveryFee;
+
+    const { getDeliveryFeeForTier } = require('../lib/orderEconomics');
+    let discount = 0;
+    // Tier-based delivery fee for platform-delivered restaurants
+    let deliveryFee = restaurant.hasOwnDelivery ? 0 : getDeliveryFeeForTier(subtotal);
     let appliedPromo = null;
+
 
     if (promoCode) {
       const promoDoc = await db.collection('promoCodes').doc(promoCode.toUpperCase()).get();
@@ -126,23 +145,15 @@ router.post('/', async (req, res) => {
     const ga = gstAmount ?? +(subtotal * (gstPercent ?? 5) / 100).toFixed(2);
     const total = +(subtotal + pf + pkf + ga - discount + deliveryFee - walletUsed).toFixed(2);
 
-    // Assign delivery agent only for platform delivery restaurants
+    // Platform delivery restaurants: start UNASSIGNED (OTP + pickup/drop will be shown only after acceptance)
     let deliveryAgentId = null;
     let deliveryAgentName = 'Unassigned';
-    if (!restaurant.hasOwnDelivery) {
-      try {
-        const agentsSnap = await db.collection('users').where('role', '==', 'delivery').limit(1).get();
-        if (!agentsSnap.empty) {
-          const agent = agentsSnap.docs[0].data();
-          deliveryAgentId = agentsSnap.docs[0].id;
-          deliveryAgentName = agent.name;
-        }
-      } catch (error) {
-        console.warn('Could not assign delivery agent:', error.message);
-      }
-    } else {
+    if (restaurant.hasOwnDelivery) {
       deliveryAgentName = 'Restaurant Delivery';
     }
+
+
+    const deliveryOtp = String(Math.floor(1000 + Math.random() * 9000));
 
     const orderData = {
       customerId: customerId || 'guest',
@@ -151,6 +162,10 @@ router.post('/', async (req, res) => {
       restaurantName: restaurant.name,
       deliveryAgentId,
       deliveryAgentName,
+      deliveryOtp,
+      deliveryOtpVerified: false,
+      deliveryOtpExpiresAt: null,
+
       items: enrichedItems,
       subtotal: +subtotal.toFixed(2),
       platformFee: pf,
@@ -261,6 +276,133 @@ router.get('/:id', async (req, res) => {
     res.json({ id: doc.id, ...doc.data() });
   } catch (error) {
     console.error('Get order error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/:id/accept', async (req, res) => {
+  try {
+    const { agentId, agentName } = req.body;
+    if (!agentId) return res.status(400).json({ error: 'agentId required' });
+
+    if (!db) {
+      const { orders, users } = require('../data/db');
+      const order = orders.find(o => o.id === req.params.id);
+      if (!order) return res.status(404).json({ error: 'Order not found' });
+
+      // Only allow accepting when unassigned
+      if (order.deliveryAgentId && order.deliveryAgentId !== agentId) {
+        return res.status(409).json({ error: 'Order already accepted by another agent' });
+      }
+
+      order.deliveryAgentId = agentId;
+      const agent = users.find(u => u.id === agentId);
+      order.deliveryAgentName = agent?.name || agentName || 'Delivery Partner';
+
+      if (order.status === 'Placed') order.status = 'Confirmed';
+      return res.json(order);
+    }
+
+    const doc = await db.collection('orders').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Order not found' });
+
+    const order = doc.data();
+
+    if (order.deliveryAgentId && order.deliveryAgentId !== agentId) {
+      return res.status(409).json({ error: 'Order already accepted by another agent' });
+    }
+
+    const updates = {
+      deliveryAgentId: agentId,
+      deliveryAgentName: agentName || 'Delivery Partner',
+      status: order.status === 'Placed' ? 'Confirmed' : order.status,
+      statusHistory: (order.statusHistory || []).concat([{ status: order.status === 'Placed' ? 'Confirmed' : order.status, time: new Date().toISOString() }]),
+      acceptedAt: new Date().toISOString(),
+    };
+
+    await db.collection('orders').doc(req.params.id).update(updates);
+
+    const updatedSnap = await db.collection('orders').doc(req.params.id).get();
+    return res.json({ id: updatedSnap.id, ...updatedSnap.data() });
+  } catch (error) {
+    console.error('Accept order error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch('/:id/verify-otp', async (req, res) => {
+  try {
+    const { otp } = req.body;
+    if (!otp) return res.status(400).json({ error: 'otp required' });
+
+    if (!db) {
+      const { orders } = require('../data/db');
+      const order = orders.find(o => o.id === req.params.id);
+      if (!order) return res.status(404).json({ error: 'Order not found' });
+
+      if (String(order.deliveryOtp) !== String(otp)) return res.status(401).json({ error: 'Invalid OTP' });
+      if (order.deliveryOtpVerified) return res.status(409).json({ error: 'OTP already verified' });
+
+      order.deliveryOtpVerified = true;
+      order.status = 'Out for Delivery';
+      order.statusHistory.push({ status: 'Out for Delivery', time: new Date().toISOString() });
+
+      return res.json(order);
+    }
+
+    const doc = await db.collection('orders').doc(req.params.id).get();
+    if (!doc.exists) return res.status(404).json({ error: 'Order not found' });
+
+    const order = doc.data();
+
+    if (order.deliveryOtpVerified) return res.status(409).json({ error: 'OTP already verified' });
+    if (!order.deliveryOtp || String(order.deliveryOtp) !== String(otp)) {
+      return res.status(401).json({ error: 'Invalid OTP' });
+    }
+
+    // Optional: ensure only accepted agent can verify
+    const { agentId } = req.body;
+    if (agentId && order.deliveryAgentId && order.deliveryAgentId !== agentId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const updatedStatus = 'Out for Delivery';
+
+    await db.collection('orders').doc(req.params.id).update({
+      deliveryOtpVerified: true,
+      deliveryOtpVerifiedAt: new Date().toISOString(),
+      status: updatedStatus,
+      statusHistory: (order.statusHistory || []).concat([{ status: updatedStatus, time: new Date().toISOString() }])
+    });
+
+    // Notify customer that delivery started
+    try {
+      if (admin.messaging) {
+        const custId = order.customerId;
+        const tokensSnap = await db.collection('fcmTokens').where('userId', '==', custId).get();
+        const tokens = tokensSnap.docs.map(d => d.data().token).filter(Boolean);
+        if (tokens.length) {
+          await admin.messaging().sendEachForMulticast({
+            notification: {
+              title: '✅ Delivery started',
+              body: `Your order #${req.params.id.slice(0, 6)} is out for delivery.`
+            },
+            data: {
+              type: 'delivery_started',
+              orderId: req.params.id
+            },
+            tokens
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Could not send delivery started notification:', e.message);
+    }
+
+    const updatedSnap = await db.collection('orders').doc(req.params.id).get();
+    return res.json({ id: updatedSnap.id, ...updatedSnap.data() });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -2,6 +2,7 @@
   "name": "food-delivery-frontend",
   "version": "1.0.0",
   "private": true,
+  "homepage": "https://feastfleet.tech",
   "dependencies": {
     "firebase": "^12.11.0",
     "react": "^18.2.0",
@@ -26,7 +27,6 @@
       "last 1 chrome version"
     ]
   },
-  "homepage": "https://feastfleet.tech",
   "devDependencies": {
     "gh-pages": "^6.3.0"
   }

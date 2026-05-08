@@ -1,8 +1,0 @@
-[build]
-  publish = "netlify-site"
-  command = "echo 'No build step required'"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200

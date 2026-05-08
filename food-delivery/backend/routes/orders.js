@@ -3,7 +3,15 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { db, admin } = require('../firebase/admin');
 
-const STATUS_FLOW = ['Placed', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered'];
+const STATUS_FLOW = [
+  'Order Placed',
+  'Restaurant Accepted',
+  'Delivery Partner Assigned',
+  'Pickup OTP Verified',
+  'Order Picked Up',
+  'On The Way',
+  'Delivered'
+];
 
 const COINS_PER_100_RS = 5;
 const FEASTCOINS_REDEEM_RATE = 1; // 1 feastcoin == ₹1 (so 100 coins == ₹100 discount)
@@ -29,8 +37,7 @@ router.post('/', async (req, res) => {
 
     const { getDeliveryFeeForTier } = require('../lib/orderEconomics');
     let discount = 0;
-    // Tier-based delivery fee for platform-delivered restaurants
-    let deliveryFee = restaurant.hasOwnDelivery ? 0 : getDeliveryFeeForTier(subtotal);
+    let deliveryFee = getDeliveryFeeForTier(subtotal);
     let appliedPromo = null;
 
 
@@ -54,14 +61,13 @@ router.post('/', async (req, res) => {
         }
       }
 
-      const pf = platformFee ?? 10;
-      const pkf = packagingFee ?? 15;
+      const pf = platformFee ?? 8;
+      const pkf = packagingFee ?? 10;
       const ga = gstAmount ?? +(subtotal * (gstPercent ?? 5) / 100).toFixed(2);
       const total = +(subtotal + pf + pkf + ga - discount + deliveryFee - walletUsed).toFixed(2);
       const agent = users.find(u => u.role === 'delivery');
 
-      // Platform commission: 5% if restaurant has own delivery, 15% otherwise
-      const platformCommissionPercent = restaurant.hasOwnDelivery ? 5 : 15;
+      const platformCommissionPercent = 15;
       const platformCommission = +(subtotal * platformCommissionPercent / 100).toFixed(2);
 
       // Platform delivery restaurants: start UNASSIGNED
@@ -72,20 +78,22 @@ router.post('/', async (req, res) => {
         id: `ord-${uuidv4().slice(0,6).toUpperCase()}`,
         customerId: customerId || 'guest', customerName,
         restaurantId, restaurantName: restaurant.name,
-        deliveryAgentId: restaurant.hasOwnDelivery ? agent?.id || null : null,
-        deliveryAgentName: restaurant.hasOwnDelivery ? (agent?.name || 'Restaurant Delivery') : 'Unassigned',
+        deliveryAgentId: null,
+        deliveryAgentName: 'Unassigned',
         items: enrichedItems,
         subtotal: +subtotal.toFixed(2), platformFee: pf, packagingFee: pkf, gstPercent: gstPercent ?? 5, gstAmount: ga,
         deliveryFee, discount, walletUsed,
         platformCommission,
         platformCommissionPercent,
+        feastCoinsEarned: Math.floor(subtotal / 100) * 5,
+        netSettlementAmount: +(subtotal - platformCommission).toFixed(2),
         total: Math.max(0, total),
-        promoCode: appliedPromo, deliveryAddress, status: 'Placed', reviewed: false,
+        promoCode: appliedPromo, deliveryAddress, status: 'Order Placed', reviewed: false,
         deliveryOtp,
         deliveryOtpVerified,
         deliveryLat: deliveryLat || null, deliveryLng: deliveryLng || null,
         placedAt: new Date().toISOString(),
-        statusHistory: [{ status: 'Placed', time: new Date().toISOString() }]
+        statusHistory: [{ status: 'Order Placed', time: new Date().toISOString() }]
       };
 
       orders.push(order);
@@ -109,8 +117,7 @@ router.post('/', async (req, res) => {
 
     const { getDeliveryFeeForTier } = require('../lib/orderEconomics');
     let discount = 0;
-    // Tier-based delivery fee for platform-delivered restaurants
-    let deliveryFee = restaurant.hasOwnDelivery ? 0 : getDeliveryFeeForTier(subtotal);
+    let deliveryFee = getDeliveryFeeForTier(subtotal);
     let appliedPromo = null;
 
 
@@ -140,8 +147,8 @@ router.post('/', async (req, res) => {
       }
     }
 
-    const pf = platformFee ?? 10;
-    const pkf = packagingFee ?? 15;
+    const pf = platformFee ?? 8;
+    const pkf = packagingFee ?? 10;
     const ga = gstAmount ?? +(subtotal * (gstPercent ?? 5) / 100).toFixed(2);
     const total = +(subtotal + pf + pkf + ga - discount + deliveryFee - walletUsed).toFixed(2);
 
@@ -175,18 +182,19 @@ router.post('/', async (req, res) => {
       deliveryFee,
       discount,
       walletUsed,
-      // Platform commission: 5% if restaurant has own delivery, 15% otherwise
-      platformCommission: +(subtotal * (restaurant.hasOwnDelivery ? 5 : 15) / 100).toFixed(2),
-      platformCommissionPercent: restaurant.hasOwnDelivery ? 5 : 15,
+      platformCommission: +(subtotal * 15 / 100).toFixed(2),
+      platformCommissionPercent: 15,
+      feastCoinsEarned: Math.floor(subtotal / 100) * 5,
+      netSettlementAmount: +(subtotal - (subtotal * 15 / 100)).toFixed(2),
       total: Math.max(0, total),
       promoCode: appliedPromo,
       deliveryAddress,
-      status: 'Placed',
+      status: 'Order Placed',
       reviewed: false,
       deliveryLat: deliveryLat || null,
       deliveryLng: deliveryLng || null,
       placedAt: new Date().toISOString(),
-      statusHistory: [{ status: 'Placed', time: new Date().toISOString() }]
+      statusHistory: [{ status: 'Order Placed', time: new Date().toISOString() }]
     };
 
     const orderRef = await db.collection('orders').add(orderData);
@@ -299,7 +307,9 @@ router.post('/:id/accept', async (req, res) => {
       const agent = users.find(u => u.id === agentId);
       order.deliveryAgentName = agent?.name || agentName || 'Delivery Partner';
 
-      if (order.status === 'Placed') order.status = 'Confirmed';
+      if (['Placed', 'Order Placed', 'Restaurant Accepted'].includes(order.status)) order.status = 'Delivery Partner Assigned';
+      order.assignmentStatus = 'assigned';
+      order.assignedAt = new Date().toISOString();
       return res.json(order);
     }
 
@@ -315,9 +325,10 @@ router.post('/:id/accept', async (req, res) => {
     const updates = {
       deliveryAgentId: agentId,
       deliveryAgentName: agentName || 'Delivery Partner',
-      status: order.status === 'Placed' ? 'Confirmed' : order.status,
-      statusHistory: (order.statusHistory || []).concat([{ status: order.status === 'Placed' ? 'Confirmed' : order.status, time: new Date().toISOString() }]),
+      status: ['Placed', 'Order Placed', 'Restaurant Accepted'].includes(order.status) ? 'Delivery Partner Assigned' : order.status,
+      statusHistory: (order.statusHistory || []).concat([{ status: 'Delivery Partner Assigned', time: new Date().toISOString() }]),
       acceptedAt: new Date().toISOString(),
+      assignmentStatus: 'assigned',
     };
 
     await db.collection('orders').doc(req.params.id).update(updates);
@@ -344,8 +355,14 @@ router.patch('/:id/verify-otp', async (req, res) => {
       if (order.deliveryOtpVerified) return res.status(409).json({ error: 'OTP already verified' });
 
       order.deliveryOtpVerified = true;
-      order.status = 'Out for Delivery';
-      order.statusHistory.push({ status: 'Out for Delivery', time: new Date().toISOString() });
+      order.pickupOtpVerified = true;
+      order.pickupOtpVerifiedAt = new Date().toISOString();
+      order.status = 'On The Way';
+      order.statusHistory.push(
+        { status: 'Pickup OTP Verified', time: new Date().toISOString() },
+        { status: 'Order Picked Up', time: new Date().toISOString() },
+        { status: 'On The Way', time: new Date().toISOString() }
+      );
 
       return res.json(order);
     }
@@ -366,13 +383,19 @@ router.patch('/:id/verify-otp', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const updatedStatus = 'Out for Delivery';
+    const updatedStatus = 'On The Way';
 
     await db.collection('orders').doc(req.params.id).update({
       deliveryOtpVerified: true,
+      pickupOtpVerified: true,
       deliveryOtpVerifiedAt: new Date().toISOString(),
+      pickupOtpVerifiedAt: new Date().toISOString(),
       status: updatedStatus,
-      statusHistory: (order.statusHistory || []).concat([{ status: updatedStatus, time: new Date().toISOString() }])
+      statusHistory: (order.statusHistory || []).concat([
+        { status: 'Pickup OTP Verified', time: new Date().toISOString() },
+        { status: 'Order Picked Up', time: new Date().toISOString() },
+        { status: updatedStatus, time: new Date().toISOString() }
+      ])
     });
 
     // Notify customer that delivery started

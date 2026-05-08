@@ -68,9 +68,6 @@ export default function MyOrders() {
                   <div>
                     <h3>{order.restaurantName}</h3>
                     <p className={styles.orderId}>#{order.id}</p>
-                    {order.deliveryOtp && order.status === 'Out for Delivery' && (
-                      <p className={styles.otpInfo}>🔐 OTP: <strong>{order.deliveryOtp}</strong></p>
-                    )}
                     <p className={styles.date}>{new Date(order.placedAt).toLocaleString()}</p>
                   </div>
                   <span className={styles.statusBadge} style={{ background: sc.bg, color: sc.color }}>

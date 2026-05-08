@@ -5,7 +5,14 @@ import styles from './OrderConfirmation.module.css';
 
 const LiveTrackingMap = React.lazy(() => import('../../components/LiveTrackingMap'));
 
-const STATUS_STEPS = ['Placed', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered'];
+const STATUS_STEPS = ['Order Placed', 'Restaurant Accepted', 'Delivery Partner Assigned', 'On The Way', 'Delivered'];
+const LEGACY_STATUS = {
+  Placed: 'Order Placed',
+  Confirmed: 'Restaurant Accepted',
+  Preparing: 'Restaurant Accepted',
+  'Out for Delivery': 'On The Way',
+  Delivered: 'Delivered',
+};
 
 export default function OrderConfirmation() {
   const { id } = useParams();
@@ -19,7 +26,8 @@ export default function OrderConfirmation() {
 
   if (!order) return <p className={styles.loading}>Loading...</p>;
 
-  const currentStep = STATUS_STEPS.indexOf(order.status);
+  const status = LEGACY_STATUS[order.status] || order.status;
+  const currentStep = Math.max(0, STATUS_STEPS.indexOf(status));
   const isActive = order.status !== 'Delivered';
 
   return (
@@ -44,21 +52,16 @@ export default function OrderConfirmation() {
         <div className={styles.details}>
           <div><span>Restaurant</span><span>{order.restaurantName}</span></div>
           <div><span>Delivery Partner</span><span>{order.deliveryAgentName}</span></div>
-          {order.deliveryOtp && order.status === 'Out for Delivery' && (
-            <div className={styles.otpBox}>
-              <span>🔐 Delivery OTP: <strong>{order.deliveryOtp}</strong></span>
-              <small>Share with delivery partner</small>
-            </div>
-          )}
           <div><span>Deliver to</span><span>{order.deliveryAddress}</span></div>
           <div className={styles.feeBreakdown}>
             <div><span>Subtotal</span><span>₹{order.subtotal?.toFixed(0)}</span></div>
+            {order.gstAmount > 0 && <div><span>Taxes</span><span>₹{order.gstAmount?.toFixed(0)}</span></div>}
             {order.platformFee > 0 && <div><span>Platform Fee</span><span>₹{order.platformFee}</span></div>}
             {order.packagingFee > 0 && <div><span>Packaging Fee</span><span>₹{order.packagingFee}</span></div>}
            
             <div><span>Delivery Fee</span><span>₹{order.deliveryFee?.toFixed(0)}</span></div>
             {order.discount > 0 && <div className={styles.discountRow}><span>Discount</span><span>-₹{order.discount?.toFixed(0)}</span></div>}
-            {order.walletUsed > 0 && <div className={styles.discountRow}><span>Wallet</span><span>-₹{order.walletUsed?.toFixed(0)}</span></div>}
+            {order.feastCoinRedemption > 0 && <div className={styles.discountRow}><span>Feast Coins</span><span>-₹{order.feastCoinRedemption?.toFixed(0)}</span></div>}
             <div className={styles.totalRow}><span>Total</span><span className={styles.totalAmt}>₹{order.total.toFixed(0)}</span></div>
           </div>
         </div>
@@ -90,4 +93,3 @@ export default function OrderConfirmation() {
     </div>
   );
 }
-

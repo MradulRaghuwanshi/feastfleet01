@@ -2,24 +2,51 @@
 import { useAuth } from '../../context/AuthContext';
 import ReviewSection from '../../components/ReviewSection';
 import LiveTrackingMap from '../../components/LiveTrackingMap';
-import { listenToOrdersByRestaurant, getRestaurant, updateOrderStatus, toggleRestaurantStatus, toggleMenuItemAvailability, updateRestaurant } from '../../firebase/services';
+import {
+  acceptRestaurantOrder,
+  getVisiblePickupOtp,
+  listenToOrdersByRestaurant,
+  getRestaurant,
+  normalizeOrderStatus,
+  ORDER_STATUS,
+  toggleRestaurantStatus,
+  toggleMenuItemAvailability,
+  updateRestaurant,
+} from '../../firebase/services';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import styles from './Dashboard.module.css';
 
-const STATUS_FLOW = ['Placed', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered'];
 const NEXT_ACTION = {
-  Placed:    { label: 'Accept Order',     next: 'Confirmed' },
-  Confirmed: { label: 'Start Preparing',  next: 'Preparing' },
-  Preparing: { label: 'Ready for Pickup', next: 'Out for Delivery' },
+  [ORDER_STATUS.PLACED]: { label: 'Accept Order', next: ORDER_STATUS.RESTAURANT_ACCEPTED },
 };
 const STATUS_COLOR = {
-  Placed:              '#dbeafe',
-  Confirmed:           '#fef3c7',
-  Preparing:           '#ede9fe',
-  'Out for Delivery':  '#ffedd5',
-  Delivered:           '#d1fae5',
+  [ORDER_STATUS.PLACED]:              '#dbeafe',
+  [ORDER_STATUS.RESTAURANT_ACCEPTED]: '#fef3c7',
+  [ORDER_STATUS.DELIVERY_ASSIGNED]:   '#ede9fe',
+  [ORDER_STATUS.ON_THE_WAY]:          '#ffedd5',
+  [ORDER_STATUS.DELIVERED]:           '#d1fae5',
 };
+
+function PickupOtp({ order, user }) {
+  const [otp, setOtp] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    getVisiblePickupOtp(order, user)
+      .then(value => { if (alive) setOtp(value); })
+      .catch(() => { if (alive) setOtp(''); });
+    return () => { alive = false; };
+  }, [order, user]);
+
+  if (!otp) return null;
+  return (
+    <div className={styles.pickupOtp}>
+      <span>Pickup OTP</span>
+      <strong>{otp}</strong>
+    </div>
+  );
+}
 
 export default function RestaurantDashboard() {
   const { user } = useAuth();
@@ -67,7 +94,9 @@ export default function RestaurantDashboard() {
   if (!restaurant) return <div className={styles.loading}>Restaurant data unavailable.</div>;
 
   const advanceStatus = async (orderId, nextStatus) => {
-    await updateOrderStatus(orderId, nextStatus);
+    if (nextStatus === ORDER_STATUS.RESTAURANT_ACCEPTED) {
+      await acceptRestaurantOrder(orderId, user.id);
+    }
   };
 
   const toggleRestStatus = async () => {
@@ -187,8 +216,8 @@ export default function RestaurantDashboard() {
     fetchRestaurant();
   };
 
-  const activeOrders = orders.filter(o => o.status !== 'Delivered');
-  const todayRevenue = orders.filter(o => o.status === 'Delivered').reduce((s, o) => s + (o.total || 0), 0);
+  const activeOrders = orders.filter(o => normalizeOrderStatus(o.status) !== ORDER_STATUS.DELIVERED);
+  const todayRevenue = orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED).reduce((s, o) => s + (o.total || 0), 0);
   const categories   = restaurant?.menu ? ['All', ...new Set(restaurant.menu.map(i => i.category))] : ['All'];
   const filteredMenu = restaurant?.menu?.filter(i => posCategory === 'All' || i.category === posCategory) || [];
 
@@ -241,6 +270,7 @@ export default function RestaurantDashboard() {
           setTrackingOrderId={setTrackingOrderId}
           STATUS_COLOR={STATUS_COLOR}
           NEXT_ACTION={NEXT_ACTION}
+          user={user}
         />
       )}
 
@@ -325,10 +355,10 @@ export default function RestaurantDashboard() {
 }
 
 // ── Live Orders Tab ──────────────────────────────────────────────────────────
-function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, STATUS_COLOR, NEXT_ACTION }) {
+function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, STATUS_COLOR, NEXT_ACTION, user }) {
   const [filter, setFilter] = useState('active');
-  const active    = orders.filter(o => o.status !== 'Delivered');
-  const completed = orders.filter(o => o.status === 'Delivered');
+  const active    = orders.filter(o => normalizeOrderStatus(o.status) !== ORDER_STATUS.DELIVERED);
+  const completed = orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED);
   const display   = filter === 'active' ? active : completed;
 
   return (
@@ -353,13 +383,14 @@ function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, STATUS_COLOR
       ) : (
         <div className={styles.orderGrid}>
           {display.map(order => {
-            const action = NEXT_ACTION[order.status];
+            const status = normalizeOrderStatus(order.status);
+            const action = NEXT_ACTION[status];
             const placedTime = order.placedAt?.seconds
               ? new Date(order.placedAt.seconds * 1000).toLocaleTimeString()
               : new Date(order.placedAt).toLocaleTimeString();
             return (
               <div key={order.id} className={styles.orderCard}
-                style={{ borderTop: `4px solid ${STATUS_COLOR[order.status] || '#eee'}` }}>
+                style={{ borderTop: `4px solid ${STATUS_COLOR[status] || '#eee'}` }}>
                 <div className={styles.orderHeader}>
                   <div>
                     <span className={styles.orderId}>#{order.id?.slice(0, 8)?.toUpperCase()}</span>
@@ -367,8 +398,8 @@ function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, STATUS_COLOR
                       <span className={styles.orderTypeBadge}>{order.orderType}</span>
                     )}
                     <span className={styles.orderStatus}
-                      style={{ background: STATUS_COLOR[order.status] }}>
-                      {order.status}
+                      style={{ background: STATUS_COLOR[status] }}>
+                      {status}
                     </span>
                   </div>
                   <span className={styles.orderTime}>{placedTime}</span>
@@ -387,6 +418,12 @@ function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, STATUS_COLOR
                   ))}
                 </div>
                 <p className={styles.deliveryAddr}>📍 {order.deliveryAddress}</p>
+                <PickupOtp order={order} user={user} />
+                <div className={styles.settlementMini}>
+                  <span>Gross food: &#8377;{(order.subtotal || 0).toFixed(0)}</span>
+                  <span>Commission: &#8377;{(order.platformCommission || ((order.subtotal || 0) * 0.15)).toFixed(0)}</span>
+                  <strong>Net: &#8377;{(order.netSettlementAmount || ((order.subtotal || 0) * 0.85)).toFixed(0)}</strong>
+                </div>
                 <div className={styles.orderActions}>
                   {action && (
                     <button className={styles.actionBtn}
@@ -394,7 +431,7 @@ function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, STATUS_COLOR
                       {action.label} →
                     </button>
                   )}
-                  {order.status === 'Out for Delivery' && (
+                  {status === ORDER_STATUS.ON_THE_WAY && (
                     <button className={styles.trackBtn}
                       onClick={() => setTrackingOrderId(order.id)}>
                       Track Live
@@ -909,9 +946,13 @@ function ItemForm({ item, setItem, categories, onSave, onCancel, saving, title }
 
 // ── Analytics Tab ────────────────────────────────────────────────────────────
 function AnalyticsTab({ orders, restaurant }) {
-  const delivered = orders.filter(o => o.status === 'Delivered');
+  const delivered = orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED);
   const totalRev  = delivered.reduce((s, o) => s + (o.total || 0), 0);
   const avgOrder  = delivered.length ? (totalRev / delivered.length).toFixed(0) : 0;
+  const grossFood = delivered.reduce((s, o) => s + (o.subtotal || 0), 0);
+  const platformCommission = delivered.reduce((s, o) => s + (o.platformCommission || ((o.subtotal || 0) * 0.15)), 0);
+  const netSettlement = delivered.reduce((s, o) => s + (o.netSettlementAmount || ((o.subtotal || 0) * 0.85)), 0);
+  const pendingPayouts = delivered.filter(o => (o.settlementStatus || 'pending') === 'pending').reduce((s, o) => s + (o.netSettlementAmount || ((o.subtotal || 0) * 0.85)), 0);
 
   // Top items
   const itemCount = {};
@@ -929,28 +970,28 @@ function AnalyticsTab({ orders, restaurant }) {
     <div className={styles.analyticsTab}>
       <div className={styles.analyticsGrid}>
         <div className={styles.analyticsCard}>
-          <p className={styles.analyticsVal}>&#8377;{totalRev.toFixed(0)}</p>
-          <p className={styles.analyticsLabel}>Total Revenue</p>
+          <p className={styles.analyticsVal}>&#8377;{grossFood.toFixed(0)}</p>
+          <p className={styles.analyticsLabel}>Gross Food Amount</p>
         </div>
         <div className={styles.analyticsCard}>
-          <p className={styles.analyticsVal}>{orders.length}</p>
-          <p className={styles.analyticsLabel}>Total Orders</p>
+          <p className={styles.analyticsVal}>&#8377;{platformCommission.toFixed(0)}</p>
+          <p className={styles.analyticsLabel}>Platform Commission</p>
+        </div>
+        <div className={styles.analyticsCard}>
+          <p className={styles.analyticsVal}>&#8377;{netSettlement.toFixed(0)}</p>
+          <p className={styles.analyticsLabel}>Net Settlement</p>
+        </div>
+        <div className={styles.analyticsCard}>
+          <p className={styles.analyticsVal}>&#8377;{pendingPayouts.toFixed(0)}</p>
+          <p className={styles.analyticsLabel}>Pending Payouts</p>
         </div>
         <div className={styles.analyticsCard}>
           <p className={styles.analyticsVal}>{delivered.length}</p>
-          <p className={styles.analyticsLabel}>Delivered</p>
+          <p className={styles.analyticsLabel}>Delivered Orders</p>
         </div>
         <div className={styles.analyticsCard}>
           <p className={styles.analyticsVal}>&#8377;{avgOrder}</p>
           <p className={styles.analyticsLabel}>Avg Order Value</p>
-        </div>
-        <div className={styles.analyticsCard}>
-          <p className={styles.analyticsVal}>&#9733; {restaurant?.rating}</p>
-          <p className={styles.analyticsLabel}>Rating</p>
-        </div>
-        <div className={styles.analyticsCard}>
-          <p className={styles.analyticsVal}>{restaurant?.menu?.length || 0}</p>
-          <p className={styles.analyticsLabel}>Menu Items</p>
         </div>
       </div>
 
@@ -998,5 +1039,3 @@ function AnalyticsTab({ orders, restaurant }) {
     </div>
   );
 }
-
-

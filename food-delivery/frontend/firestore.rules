@@ -1,6 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userRole() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
+    }
+
+    function isAdmin() {
+      return userRole() == 'admin';
+    }
 
     // Users — anyone can create (self-register), only owner can read/write their own
     match /users/{userId} {
@@ -33,6 +46,42 @@ service cloud.firestore {
       allow read:   if true;
       allow create: if true;
       allow update: if true;
+    }
+
+    // Feast Coins wallet and immutable wallet history
+    match /wallets/{walletId} {
+      allow read:   if signedIn() && (request.auth.uid == walletId || isAdmin());
+      allow create: if signedIn() && request.auth.uid == walletId;
+      allow update: if signedIn() && (request.auth.uid == walletId || isAdmin());
+
+      match /transactions/{transactionId} {
+        allow read:   if signedIn() && (request.auth.uid == walletId || isAdmin());
+        allow create: if signedIn() && request.auth.uid == walletId;
+        allow update, delete: if false;
+      }
+
+      match /monthlyArchives/{archiveId} {
+        allow read:   if signedIn() && (request.auth.uid == walletId || isAdmin());
+        allow create: if signedIn() && request.auth.uid == walletId;
+        allow update, delete: if false;
+      }
+    }
+
+    // Financial ledgers generated when orders are delivered
+    match /earnings/{earningId} {
+      allow read:  if signedIn() && (resource.data.deliveryAgentId == request.auth.uid || isAdmin());
+      allow create: if signedIn() && (request.resource.data.deliveryAgentId == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+    }
+
+    match /deliveryPartnerStats/{partnerId} {
+      allow read:  if signedIn() && (partnerId == request.auth.uid || isAdmin());
+      allow create, update: if signedIn() && (partnerId == request.auth.uid || isAdmin());
+    }
+
+    match /settlements/{settlementId} {
+      allow read:  if signedIn() && (isAdmin() || resource.data.restaurantOwnerId == request.auth.uid);
+      allow create, update: if isAdmin();
     }
 
     // Reviews

@@ -1,18 +1,55 @@
-﻿import React, { useEffect, useState, useCallback, Suspense } from 'react';
+﻿import React, { useEffect, useState, Suspense } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { listenToOrdersByAgent, updateOrderStatus } from '../../firebase/services';
+import {
+  acceptBroadcastOrder,
+  getVisiblePickupOtp,
+  listenToDeliveryWorkQueue,
+  normalizeOrderStatus,
+  ORDER_STATUS,
+  PLATFORM_FEES,
+  updateOrderStatus,
+  verifyPickupOtp,
+} from '../../firebase/services';
 import styles from './Dashboard.module.css';
 
 const LiveTrackingMap = React.lazy(() => import('../../components/LiveTrackingMap'));
 
-const STATUS_FLOW  = ['Placed', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered'];
+const STATUS_FLOW  = [ORDER_STATUS.PLACED, ORDER_STATUS.RESTAURANT_ACCEPTED, ORDER_STATUS.DELIVERY_ASSIGNED, ORDER_STATUS.ON_THE_WAY, ORDER_STATUS.DELIVERED];
 const STATUS_COLOR = {
-  'Placed':           { bg: '#dbeafe', color: '#1d4ed8' },
-  'Confirmed':        { bg: '#fef3c7', color: '#92400e' },
-  'Preparing':        { bg: '#ede9fe', color: '#5b21b6' },
-  'Out for Delivery': { bg: '#ffedd5', color: '#c2410c' },
-  'Delivered':        { bg: '#d1fae5', color: '#065f46' },
+  [ORDER_STATUS.PLACED]:              { bg: '#dbeafe', color: '#1d4ed8' },
+  [ORDER_STATUS.RESTAURANT_ACCEPTED]: { bg: '#fef3c7', color: '#92400e' },
+  [ORDER_STATUS.DELIVERY_ASSIGNED]:   { bg: '#ede9fe', color: '#5b21b6' },
+  [ORDER_STATUS.ON_THE_WAY]:          { bg: '#ffedd5', color: '#c2410c' },
+  [ORDER_STATUS.DELIVERED]:           { bg: '#d1fae5', color: '#065f46' },
 };
+
+const dateOf = (value) => value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
+const isSameDay = (a, b) => a.toDateString() === b.toDateString();
+const isThisWeek = (date) => Date.now() - date.getTime() <= 7 * 24 * 60 * 60 * 1000;
+const isThisMonth = (date) => {
+  const now = new Date();
+  return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+};
+
+function PickupOtp({ order, user }) {
+  const [otp, setOtp] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    getVisiblePickupOtp(order, user)
+      .then(value => { if (alive) setOtp(value); })
+      .catch(() => { if (alive) setOtp(''); });
+    return () => { alive = false; };
+  }, [order, user]);
+
+  if (!otp) return null;
+  return (
+    <div className={styles.pickupOtpBox}>
+      <span>Pickup OTP</span>
+      <strong>{otp}</strong>
+    </div>
+  );
+}
 
 export default function DeliveryDashboard() {
   const { user } = useAuth();
@@ -22,45 +59,55 @@ export default function DeliveryDashboard() {
   const [updating, setUpdating] = useState(null);
   const [trackingOrderId, setTrackingOrderId] = useState(null);
 
-  const fetchOrders = useCallback(() => {}, []);
-
   useEffect(() => {
-    const unsub = listenToOrdersByAgent(user.id, data => {
+    const unsub = listenToDeliveryWorkQueue(user.id, data => {
       setOrders(data); setLoading(false);
     });
     return unsub;
   }, [user.id]);
 
-  const updateStatus = async (orderId, nextStatus) => {
+  const acceptOrder = async (orderId) => {
     setUpdating(orderId);
-    await updateOrderStatus(orderId, nextStatus);
-    setUpdating(null);
+    try {
+      await acceptBroadcastOrder(orderId, user);
+    } catch (error) {
+      alert(error.message || 'Order was already accepted');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const markDelivered = async (orderId) => {
+    setUpdating(orderId);
+    try {
+      await updateOrderStatus(orderId, ORDER_STATUS.DELIVERED, user.id);
+    } catch (error) {
+      alert(error.message || 'Could not mark delivered');
+    } finally {
+      setUpdating(null);
+    }
   };
 
   const verifyOtp = async (orderId, otp) => {
     setUpdating(orderId);
     try {
-      const res = await fetch(`/api/orders/${orderId}/verify-otp`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otp })
-      });
-      if (res.ok) {
-        // Status will update via realtime listener
-        console.log('OTP verified, order delivered');
-      } else {
-        alert('Invalid OTP');
-      }
+      await verifyPickupOtp(orderId, otp, user.id);
     } catch (error) {
-      alert('Verification failed');
+      alert(error.message || 'Pickup verification failed');
+    } finally {
+      setUpdating(null);
     }
-    setUpdating(null);
   };
 
-  const activeOrders    = orders.filter(o => o.status !== 'Delivered');
-  const deliveredOrders = orders.filter(o => o.status === 'Delivered');
-  const displayOrders   = tab === 'active' ? activeOrders : deliveredOrders;
-  const earnings        = deliveredOrders.length * 40; // ₹40 per delivery
+  const requestOrders = orders.filter(o => !o.deliveryAgentId && normalizeOrderStatus(o.status) !== ORDER_STATUS.DELIVERED);
+  const activeOrders = orders.filter(o => o.deliveryAgentId === user.id && normalizeOrderStatus(o.status) !== ORDER_STATUS.DELIVERED);
+  const deliveredOrders = orders.filter(o => o.deliveryAgentId === user.id && normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED);
+  const displayOrders = tab === 'requests' ? requestOrders : tab === 'active' ? activeOrders : deliveredOrders;
+  const earnings = deliveredOrders.length * PLATFORM_FEES.deliveryEarning;
+  const today = new Date();
+  const dailyEarnings = deliveredOrders.filter(o => isSameDay(dateOf(o.deliveredAt || o.placedAt), today)).length * PLATFORM_FEES.deliveryEarning;
+  const weeklyEarnings = deliveredOrders.filter(o => isThisWeek(dateOf(o.deliveredAt || o.placedAt))).length * PLATFORM_FEES.deliveryEarning;
+  const monthlyEarnings = deliveredOrders.filter(o => isThisMonth(dateOf(o.deliveredAt || o.placedAt))).length * PLATFORM_FEES.deliveryEarning;
 
   if (loading) return <p className={styles.loading}>Loading your deliveries...</p>;
 
@@ -76,20 +123,30 @@ export default function DeliveryDashboard() {
           </div>
         </div>
         <div className={`${styles.statusPill} ${activeOrders.length > 0 ? styles.busy : styles.free}`}>
-          {activeOrders.length > 0 ? `🔴 On Delivery (${activeOrders.length})` : '🟢 Available'}
+          {activeOrders.length > 0 ? `On Delivery (${activeOrders.length})` : 'Available'}
         </div>
       </div>
 
       {/* Stats */}
       <div className={styles.stats}>
+        <div className={styles.stat}><span className={styles.statVal}>{requestOrders.length}</span><span className={styles.statLabel}>Requests</span></div>
         <div className={styles.stat}><span className={styles.statVal}>{activeOrders.length}</span><span className={styles.statLabel}>Active</span></div>
-        <div className={styles.stat}><span className={styles.statVal}>{deliveredOrders.length}</span><span className={styles.statLabel}>Delivered</span></div>
-        <div className={styles.stat}><span className={styles.statVal}>₹{earnings}</span><span className={styles.statLabel}>Earnings</span></div>
-        <div className={styles.stat}><span className={styles.statVal}>{orders.length > 0 ? '4.8 ⭐' : '—'}</span><span className={styles.statLabel}>Rating</span></div>
+        <div className={styles.stat}><span className={styles.statVal}>{deliveredOrders.length}</span><span className={styles.statLabel}>Completed</span></div>
+        <div className={styles.stat}><span className={styles.statVal}>₹{earnings}</span><span className={styles.statLabel}>Total Earnings</span></div>
+      </div>
+
+      <div className={styles.earningsStrip}>
+        <span>Today ₹{dailyEarnings}</span>
+        <span>Week ₹{weeklyEarnings}</span>
+        <span>Month ₹{monthlyEarnings}</span>
+        <span>Pending settlement ₹{earnings}</span>
       </div>
 
       {/* Tabs */}
       <div className={styles.tabs}>
+        <button className={`${styles.tab} ${tab === 'requests' ? styles.activeTab : ''}`} onClick={() => setTab('requests')}>
+          Requests {requestOrders.length > 0 && <span className={styles.tabBadge}>{requestOrders.length}</span>}
+        </button>
         <button className={`${styles.tab} ${tab === 'active' ? styles.activeTab : ''}`} onClick={() => setTab('active')}>
           Active {activeOrders.length > 0 && <span className={styles.tabBadge}>{activeOrders.length}</span>}
         </button>
@@ -100,15 +157,19 @@ export default function DeliveryDashboard() {
 
       {displayOrders.length === 0 ? (
         <div className={styles.empty}>
-          <p>{tab === 'active' ? '✅ No active deliveries right now' : '📦 No deliveries yet'}</p>
+          <p>{tab === 'requests' ? 'No broadcast requests right now' : tab === 'active' ? 'No active deliveries right now' : 'No completed deliveries yet'}</p>
         </div>
       ) : (
         <div className={styles.orderList}>
           {displayOrders.map(order => {
-            const sc = STATUS_COLOR[order.status] || {};
-            const currentIdx = STATUS_FLOW.indexOf(order.status);
-            const nextStatus = STATUS_FLOW[currentIdx + 1];
-            const canAdvance = order.status === 'Out for Delivery';
+            const status = normalizeOrderStatus(order.status);
+            const sc = STATUS_COLOR[status] || {};
+            const currentIdx = Math.max(0, STATUS_FLOW.indexOf(status));
+            const isRequest = !order.deliveryAgentId;
+            const restaurantAccepted = Boolean(order.restaurantAcceptedAt) || ['Confirmed', 'Preparing'].includes(order.status);
+            const canVerifyPickup = order.deliveryAgentId === user.id && restaurantAccepted && !order.pickupOtpVerified && status !== ORDER_STATUS.ON_THE_WAY && status !== ORDER_STATUS.DELIVERED;
+            const canDeliver = order.deliveryAgentId === user.id && status === ORDER_STATUS.ON_THE_WAY;
+            const placedAt = dateOf(order.placedAt);
 
             return (
               <div key={order.id} className={styles.orderCard}>
@@ -116,10 +177,10 @@ export default function DeliveryDashboard() {
                   <div>
                     <span className={styles.orderId}>#{order.id}</span>
                     <span className={styles.statusBadge} style={{ background: sc.bg, color: sc.color }}>
-                      {order.status}
+                      {status}
                     </span>
                   </div>
-                  <span className={styles.orderTime}>{new Date(order.placedAt).toLocaleTimeString()}</span>
+                  <span className={styles.orderTime}>{placedAt.toLocaleTimeString()}</span>
                 </div>
 
                 <div className={styles.route}>
@@ -157,20 +218,32 @@ export default function DeliveryDashboard() {
                   ))}
                 </div>
 
-                {/* Map button — always visible for active orders */}
-                {order.status !== 'Delivered' && (
-                  <button className={styles.mapBtn} onClick={() => setTrackingOrderId(order.id)}>
-                    �️ View Route Map
+                {isRequest && (
+                  <button
+                    className={styles.acceptBtn}
+                    onClick={() => acceptOrder(order.id)}
+                    disabled={updating === order.id}
+                  >
+                    {updating === order.id ? 'Accepting...' : 'Accept Order'}
                   </button>
                 )}
 
-                {order.status === 'Out for Delivery' && (
+                {/* Map button — always visible for active orders */}
+                {!isRequest && status !== ORDER_STATUS.DELIVERED && (
+                  <button className={styles.mapBtn} onClick={() => setTrackingOrderId(order.id)}>
+                    View Route Map
+                  </button>
+                )}
+
+                {canVerifyPickup && (
                   <div className={styles.otpSection}>
-                    <label>Customer OTP 🔐</label>
+                    <PickupOtp order={order} user={user} />
+                    <label>Enter Pickup OTP</label>
                     <input 
-                      type="number" 
-                      placeholder="1234"
-                      maxLength={4}
+                      type="text" 
+                      inputMode="numeric"
+                      placeholder="6-digit OTP"
+                      maxLength={6}
                       className={styles.otpInput}
                       onKeyPress={(e) => e.key === 'Enter' && verifyOtp(order.id, e.target.value)}
                     />
@@ -182,12 +255,21 @@ export default function DeliveryDashboard() {
                       }}
                       disabled={updating === order.id}
                     >
-                      {updating === order.id ? 'Verifying...' : '✅ Verify & Deliver'}
+                      {updating === order.id ? 'Verifying...' : 'Verify Pickup'}
                     </button>
                   </div>
                 )}
-                {order.status === 'Preparing' && (
-                  <div className={styles.waitingChip}>⏳ Waiting for restaurant to prepare...</div>
+                {canDeliver && (
+                  <button
+                    className={styles.deliverBtn}
+                    onClick={() => markDelivered(order.id)}
+                    disabled={updating === order.id}
+                  >
+                    {updating === order.id ? 'Updating...' : `Mark Delivered · Earn ₹${PLATFORM_FEES.deliveryEarning}`}
+                  </button>
+                )}
+                {!isRequest && status === ORDER_STATUS.DELIVERY_ASSIGNED && !restaurantAccepted && (
+                  <div className={styles.waitingChip}>Waiting for restaurant acceptance.</div>
                 )}
               </div>
             );

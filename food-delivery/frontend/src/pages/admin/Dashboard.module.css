@@ -47,6 +47,8 @@
 .filterBar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 .searchInput { border: 1.5px solid #e0e0e0; border-radius: 10px; padding: 9px 12px; font-size: 13px; font-family: inherit; width: 100%; max-width: 380px; }
 .searchInput:focus { border-color: #ff6b35; outline: none; }
+.assignSelect { border: 1px solid #e5e7eb; border-radius: 8px; padding: 7px 9px; min-width: 160px; font-size: 12px; background: #fff; font-family: inherit; }
+.assignSelect:disabled { opacity: 0.55; background: #f8fafc; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { padding: 5px 12px; border-radius: 18px; background: #f0f0f0; font-size: 12px; font-weight: 500; transition: all 0.2s; }
 .chip:hover { background: #ffe0d0; color: #ff6b35; }

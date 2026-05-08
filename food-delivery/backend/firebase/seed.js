@@ -16,8 +16,8 @@ if (!db) {
 
 // ─── Raw data ─────────────────────────────────────────────────────────────────
 const USERS = [
-  { id: 'u1', name: 'Priya Sharma',       email: 'customer@demo.com',  password: 'password123', role: 'customer',   phone: '+91 98765 43210', avatar: '👩', wallet: 150, favourites: ['r1','r3'] },
-  { id: 'u2', name: 'Rahul Verma',        email: 'customer2@demo.com', password: 'password123', role: 'customer',   phone: '+91 91234 56789', avatar: '👨', wallet: 75,  favourites: ['r2'] },
+  { id: 'u1', name: 'Priya Sharma',       email: 'customer@demo.com',  password: 'password123', role: 'customer',   phone: '+91 98765 43210', avatar: '👩', wallet: 150, feastCoins: 150, favourites: ['r1','r3'] },
+  { id: 'u2', name: 'Rahul Verma',        email: 'customer2@demo.com', password: 'password123', role: 'customer',   phone: '+91 91234 56789', avatar: '👨', wallet: 75,  feastCoins: 75, favourites: ['r2'] },
   { id: 'u3', name: 'Spice Garden HQ',    email: 'owner@demo.com',     password: 'password123', role: 'restaurant', restaurantId: 'r1',       avatar: '🍛', wallet: 0,   favourites: [] },
   { id: 'u4', name: 'Burger Junction HQ', email: 'owner2@demo.com',    password: 'password123', role: 'restaurant', restaurantId: 'r2',       avatar: '🍔', wallet: 0,   favourites: [] },
   { id: 'u5', name: 'Arjun Patel',        email: 'delivery@demo.com',  password: 'password123', role: 'delivery',   phone: '+91 99887 76655', avatar: '🚴', vehicle: 'Bike MH-12 AB 1234', wallet: 0, favourites: [] },
@@ -246,10 +246,10 @@ async function seed() {
     seededAt:        new Date().toISOString(),
     
     // Fee Configuration (Admin editable)
-    platformFee:       10,    // ₹10 flat platform fee per order
+    platformFee:       8,     // ₹8 flat platform fee per order
     gstPercent:        5,     // 5% GST on subtotal
-    packagingFee:      15,    // ₹15 packaging charge
-    defaultDeliveryFee:29,    // Default delivery fee
+    packagingFee:      10,    // ₹10 packaging charge
+    defaultDeliveryFee:30,    // Maximum tier delivery fee
     defaultMinOrder:   149,   // Default minimum order value
   });
 

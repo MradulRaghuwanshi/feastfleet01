@@ -1,7 +1,8 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { listenToWallet } from '../firebase/services';
 import LocationBar from './LocationBar';
 import styles from './Navbar.module.css';
 
@@ -10,8 +11,15 @@ export default function Navbar() {
   const { totalItems } = useCart();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [wallet, setWallet] = useState(null);
 
   const handleLogout = () => { logout(); navigate('/'); setMenuOpen(false); };
+  const feastCoins = wallet?.isVirtual ? (user?.feastCoins ?? user?.wallet ?? 0) : (wallet?.currentBalance ?? user?.feastCoins ?? user?.wallet ?? 0);
+
+  useEffect(() => {
+    if (user?.role !== 'customer' || !user?.id) return undefined;
+    return listenToWallet(user.id, setWallet);
+  }, [user?.id, user?.role]);
 
   return (
     <nav className={styles.nav}>
@@ -26,9 +34,7 @@ export default function Navbar() {
           <>
             <Link to="/favourites" className={styles.link} title="Favourites">❤️</Link>
             <Link to="/orders" className={styles.link}>My Orders</Link>
-            {user.wallet > 0 && (
-              <span className={styles.wallet}>💰 ₹{user.wallet.toFixed(0)}</span>
-            )}
+            <Link to="/wallet" className={styles.wallet}>🪙 {Math.floor(feastCoins)} Coins</Link>
             <Link to="/checkout" className={styles.cartBtn}>
               🛒 {totalItems > 0 && <span className={styles.badge}>{totalItems}</span>}
             </Link>
@@ -48,8 +54,8 @@ export default function Navbar() {
                 <span className={`${styles.roleBadge} ${styles[user?.role]}`}>{user?.role}</span>
               </div>
               <div className={styles.dropdownEmail}>{user?.email}</div>
-              {user?.wallet !== undefined && user.wallet > 0 && (
-                <div className={styles.walletRow}>💰 Wallet: <strong>₹{user.wallet.toFixed(0)}</strong></div>
+              {user?.role === 'customer' && (
+                <div className={styles.walletRow}>Feast Coins: <strong>{Math.floor(feastCoins)}</strong></div>
               )}
               <hr className={styles.hr} />
               <button className={styles.logoutBtn} onClick={handleLogout}>🚪 Sign Out</button>

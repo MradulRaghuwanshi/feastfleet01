@@ -14,6 +14,7 @@ import Checkout from './pages/customer/Checkout';
 import OrderConfirmation from './pages/customer/OrderConfirmation';
 import MyOrders from './pages/customer/MyOrders';
 import Favourites from './pages/customer/Favourites';
+import Wallet from './pages/customer/Wallet';
 import RestaurantDashboard from './pages/restaurant/Dashboard';
 import DeliveryDashboard from './pages/delivery/Dashboard';
 import AdminDashboard from './pages/admin/Dashboard';
@@ -84,6 +85,7 @@ function AppRoutes() {
         <Route path="/order-confirmation/:id" element={<OrderConfirmation />} />
         <Route path="/orders"                 element={<MyOrders />} />
         <Route path="/favourites"             element={<Favourites />} />
+        <Route path="/wallet"                 element={<Wallet />} />
         <Route path="*"                       element={<Navigate to="/" />} />
       </Routes>
       <BottomNav />

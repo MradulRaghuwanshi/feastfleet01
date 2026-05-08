@@ -106,7 +106,7 @@ export function AuthProvider({ children }) {
     const profile = {
       id: uid, name, email, phone,
       role: 'customer', avatar,
-      wallet: 0, favourites: [],
+      wallet: 0, feastCoins: 0, favourites: [],
       createdAt: new Date().toISOString()
     };
 

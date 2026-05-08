@@ -4,15 +4,18 @@ import {
   listenToAllOrders, getAllUsers, getRestaurants, getAllPromos,
   addRestaurant, updateRestaurant, deleteRestaurant,
   addPromo, updatePromo, deletePromo,
-  getAppConfig, updateAppConfig
+  getAppConfig, updateAppConfig,
+  normalizeOrderStatus,
+  ORDER_STATUS,
+  reassignDeliveryPartner
 } from '../../firebase/services';
 import DeliveryPartners from './DeliveryPartners';
 import styles from './Dashboard.module.css';
 
-const TABS = ['Overview', 'Orders', 'Restaurants', 'Promos', 'Users', 'Delivery Partners', 'Settings'];
+const TABS = ['Overview', 'Orders', 'Restaurants', 'Promos', 'Users', 'Delivery Partners', 'Wallets', 'Settlements', 'Settings'];
 
 function tabIcon(t) {
-  return { Overview:'📊', Orders:'📦', Restaurants:'🍽️', Promos:'🏷️', Users:'👥', 'Delivery Partners':'🚴', Settings:'⚙️' }[t];
+  return { Overview:'📊', Orders:'📦', Restaurants:'🍽️', Promos:'🏷️', Users:'👥', 'Delivery Partners':'🚴', Wallets:'🪙', Settlements:'₹', Settings:'⚙️' }[t];
 }
 
 export default function AdminDashboard() {
@@ -42,9 +45,9 @@ export default function AdminDashboard() {
   }, [loadData]);
 
   const totalRevenue   = orders.reduce((s, o) => s + (o.total || 0), 0);
-  const activeOrders   = orders.filter(o => o.status !== 'Delivered').length;
+  const activeOrders   = orders.filter(o => normalizeOrderStatus(o.status) !== ORDER_STATUS.DELIVERED).length;
   const totalCustomers = users.filter(u => u.role === 'customer').length;
-  const deliveredCount = orders.filter(o => o.status === 'Delivered').length;
+  const deliveredCount = orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED).length;
 
   if (loading) return (
     <div className={styles.loadingPage}>
@@ -89,7 +92,7 @@ export default function AdminDashboard() {
         </div>
 
         {tab === 'Overview'     && <Overview orders={orders} totalRevenue={totalRevenue} activeOrders={activeOrders} totalCustomers={totalCustomers} deliveredCount={deliveredCount} restaurants={restaurants} users={users} />}
-        {tab === 'Orders'       && <Orders orders={orders} />}
+        {tab === 'Orders'       && <Orders orders={orders} users={users} adminId={user.id} />}
         {tab === 'Restaurants'  && <Restaurants restaurants={restaurants} onEdit={setEditRestaurant} onDelete={async (id) => { await deleteRestaurant(id); loadData(); }} />}
         {tab === 'Promos' && <Promos promos={promos}
           onToggle={async (code, active) => {
@@ -112,6 +115,8 @@ export default function AdminDashboard() {
         />}
         {tab === 'Users'        && <Users users={users} />}
         {tab === 'Delivery Partners' && <DeliveryPartners users={users} orders={orders} onUpdate={loadData} />}
+        {tab === 'Wallets'      && <Wallets users={users} orders={orders} />}
+        {tab === 'Settlements'  && <Settlements orders={orders} />}
         {tab === 'Settings'     && <Settings config={appConfig} onSave={async (data) => { await updateAppConfig(data); setAppConfig({ ...appConfig, ...data }); }} />}
       </main>
 
@@ -155,7 +160,13 @@ export default function AdminDashboard() {
 
 function Overview({ orders, totalRevenue, activeOrders, totalCustomers, deliveredCount, restaurants, users }) {
   const recentOrders = orders.slice(0, 5);
-  const STATUS_COLOR = { Placed:'#dbeafe', Confirmed:'#fef3c7', Preparing:'#ede9fe', 'Out for Delivery':'#ffedd5', Delivered:'#d1fae5' };
+  const STATUS_COLOR = {
+    [ORDER_STATUS.PLACED]:'#dbeafe',
+    [ORDER_STATUS.RESTAURANT_ACCEPTED]:'#fef3c7',
+    [ORDER_STATUS.DELIVERY_ASSIGNED]:'#ede9fe',
+    [ORDER_STATUS.ON_THE_WAY]:'#ffedd5',
+    [ORDER_STATUS.DELIVERED]:'#d1fae5',
+  };
 
   return (
     <div>
@@ -179,7 +190,7 @@ function Overview({ orders, totalRevenue, activeOrders, totalCustomers, delivere
                 <td>{o.customerName}</td>
                 <td>{o.restaurantName}</td>
                 <td>₹{o.total}</td>
-                <td><span className={styles.statusPill} style={{ background: STATUS_COLOR[o.status] || '#f0f0f0' }}>{o.status}</span></td>
+                <td><span className={styles.statusPill} style={{ background: STATUS_COLOR[normalizeOrderStatus(o.status)] || '#f0f0f0' }}>{normalizeOrderStatus(o.status)}</span></td>
               </tr>
             ))}
           </tbody>
@@ -203,17 +214,37 @@ function StatCard({ icon, label, value, color }) {
 
 /* ── Orders ──────────────────────────────────────────────────────────────── */
 
-function Orders({ orders }) {
+function Orders({ orders, users, adminId }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
-  const STATUS_COLOR = { Placed:'#dbeafe', Confirmed:'#fef3c7', Preparing:'#ede9fe', 'Out for Delivery':'#ffedd5', Delivered:'#d1fae5' };
-  const STATUSES = ['All', 'Placed', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered'];
+  const [updating, setUpdating] = useState('');
+  const deliveryPartners = users.filter(u => u.role === 'delivery');
+  const STATUS_COLOR = {
+    [ORDER_STATUS.PLACED]:'#dbeafe',
+    [ORDER_STATUS.RESTAURANT_ACCEPTED]:'#fef3c7',
+    [ORDER_STATUS.DELIVERY_ASSIGNED]:'#ede9fe',
+    [ORDER_STATUS.ON_THE_WAY]:'#ffedd5',
+    [ORDER_STATUS.DELIVERED]:'#d1fae5',
+  };
+  const STATUSES = ['All', ORDER_STATUS.PLACED, ORDER_STATUS.RESTAURANT_ACCEPTED, ORDER_STATUS.DELIVERY_ASSIGNED, ORDER_STATUS.ON_THE_WAY, ORDER_STATUS.DELIVERED];
 
   const filtered = orders.filter(o => {
     const matchSearch = !search || o.customerName?.toLowerCase().includes(search.toLowerCase()) || o.restaurantName?.toLowerCase().includes(search.toLowerCase()) || o.id?.includes(search);
-    const matchFilter = filter === 'All' || o.status === filter;
+    const matchFilter = filter === 'All' || normalizeOrderStatus(o.status) === filter;
     return matchSearch && matchFilter;
   });
+
+  const handleReassign = async (order, agentId) => {
+    setUpdating(order.id);
+    try {
+      const agent = deliveryPartners.find(p => p.id === agentId) || null;
+      await reassignDeliveryPartner(order.id, agent, adminId);
+    } catch (error) {
+      alert(error.message || 'Unable to reassign order');
+    } finally {
+      setUpdating('');
+    }
+  };
 
   return (
     <div>
@@ -224,20 +255,34 @@ function Orders({ orders }) {
         </div>
       </div>
       <table className={styles.table}>
-        <thead><tr><th>Order ID</th><th>Customer</th><th>Restaurant</th><th>Items</th><th>Total</th><th>Promo</th><th>Status</th><th>Date</th></tr></thead>
+        <thead><tr><th>Order ID</th><th>Customer</th><th>Restaurant</th><th>Items</th><th>Total</th><th>Promo</th><th>Status</th><th>Delivery Partner</th><th>Date</th></tr></thead>
         <tbody>
-          {filtered.map(o => (
-            <tr key={o.id}>
-              <td className={styles.mono}>#{o.id?.slice(0,8)?.toUpperCase()}</td>
-              <td>{o.customerName}</td>
-              <td>{o.restaurantName}</td>
-              <td>{o.items?.length} items</td>
-              <td>₹{o.total}</td>
-              <td>{o.promoCode ? <span className={styles.promoTag}>{o.promoCode}</span> : '—'}</td>
-              <td><span className={styles.statusPill} style={{ background: STATUS_COLOR[o.status] || '#f0f0f0' }}>{o.status}</span></td>
-              <td className={styles.dateCell}>{o.placedAt ? new Date(o.placedAt?.seconds ? o.placedAt.seconds*1000 : o.placedAt).toLocaleDateString('en-IN') : '—'}</td>
-            </tr>
-          ))}
+          {filtered.map(o => {
+            const status = normalizeOrderStatus(o.status);
+            return (
+              <tr key={o.id}>
+                <td className={styles.mono}>#{o.id?.slice(0,8)?.toUpperCase()}</td>
+                <td>{o.customerName}</td>
+                <td>{o.restaurantName}</td>
+                <td>{o.items?.length} items</td>
+                <td>₹{o.total}</td>
+                <td>{o.promoCode ? <span className={styles.promoTag}>{o.promoCode}</span> : '—'}</td>
+                <td><span className={styles.statusPill} style={{ background: STATUS_COLOR[status] || '#f0f0f0' }}>{status}</span></td>
+                <td>
+                  <select
+                    className={styles.assignSelect}
+                    value={o.deliveryAgentId || ''}
+                    disabled={updating === o.id || status === ORDER_STATUS.DELIVERED}
+                    onChange={e => handleReassign(o, e.target.value)}
+                  >
+                    <option value="">Broadcast / Unassigned</option>
+                    {deliveryPartners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </td>
+                <td className={styles.dateCell}>{o.placedAt ? new Date(o.placedAt?.seconds ? o.placedAt.seconds*1000 : o.placedAt).toLocaleDateString('en-IN') : '—'}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {filtered.length === 0 && <p className={styles.empty}>No orders found</p>}
@@ -327,14 +372,88 @@ function Users({ users }) {
   );
 }
 
+function Wallets({ users, orders }) {
+  const customers = users.filter(u => u.role === 'customer');
+  const totalCoins = customers.reduce((sum, u) => sum + Number(u.feastCoins ?? u.wallet ?? 0), 0);
+  const earned = orders.reduce((sum, o) => sum + Number(o.feastCoinsEarned || 0), 0);
+  const redeemed = orders.reduce((sum, o) => sum + Number(o.feastCoinRedemption || 0), 0);
+
+  return (
+    <div>
+      <div className={styles.statsGrid}>
+        <StatCard icon="🪙" label="Coins in Circulation" value={totalCoins.toFixed(0)} color="#f59e0b" />
+        <StatCard icon="+" label="Coins Earned" value={earned.toFixed(0)} color="#10b981" />
+        <StatCard icon="₹" label="Coins Redeemed" value={`₹${redeemed.toFixed(0)}`} color="#ef4444" />
+        <StatCard icon="👥" label="Wallet Customers" value={customers.length} color="#3b82f6" />
+      </div>
+      <table className={styles.table}>
+        <thead><tr><th>Customer</th><th>Email</th><th>Current Balance</th><th>Earned From Orders</th><th>Redeemed</th></tr></thead>
+        <tbody>
+          {customers.map(customer => {
+            const customerOrders = orders.filter(o => o.customerId === customer.id);
+            return (
+              <tr key={customer.id}>
+                <td>{customer.name}</td>
+                <td className={styles.mono}>{customer.email}</td>
+                <td>{Number(customer.feastCoins ?? customer.wallet ?? 0).toFixed(0)} coins</td>
+                <td>{customerOrders.reduce((s, o) => s + Number(o.feastCoinsEarned || 0), 0)} coins</td>
+                <td>₹{customerOrders.reduce((s, o) => s + Number(o.feastCoinRedemption || 0), 0).toFixed(0)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Settlements({ orders }) {
+  const delivered = orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED);
+  const gross = delivered.reduce((sum, o) => sum + Number(o.subtotal || 0), 0);
+  const commission = delivered.reduce((sum, o) => sum + Number(o.platformCommission || ((o.subtotal || 0) * 0.15)), 0);
+  const net = delivered.reduce((sum, o) => sum + Number(o.netSettlementAmount || ((o.subtotal || 0) * 0.85)), 0);
+  const deliveryEarnings = delivered.reduce((sum, o) => sum + Number(o.deliveryEarningAmount || (o.deliveryAgentId ? 40 : 0)), 0);
+
+  return (
+    <div>
+      <div className={styles.statsGrid}>
+        <StatCard icon="₹" label="Gross Food" value={`₹${gross.toFixed(0)}`} color="#3b82f6" />
+        <StatCard icon="%" label="Platform Commission" value={`₹${commission.toFixed(0)}`} color="#ef4444" />
+        <StatCard icon="🏦" label="Restaurant Payouts" value={`₹${net.toFixed(0)}`} color="#10b981" />
+        <StatCard icon="🚴" label="Delivery Earnings" value={`₹${deliveryEarnings.toFixed(0)}`} color="#f59e0b" />
+      </div>
+      <table className={styles.table}>
+        <thead><tr><th>Order</th><th>Restaurant</th><th>Gross</th><th>Commission</th><th>Net Settlement</th><th>Status</th></tr></thead>
+        <tbody>
+          {delivered.map(o => {
+            const grossAmount = Number(o.subtotal || 0);
+            const platformCommission = Number(o.platformCommission || (grossAmount * 0.15));
+            const netSettlement = Number(o.netSettlementAmount || (grossAmount - platformCommission));
+            return (
+              <tr key={o.id}>
+                <td className={styles.mono}>#{o.id?.slice(0,8)?.toUpperCase()}</td>
+                <td>{o.restaurantName}</td>
+                <td>₹{grossAmount.toFixed(0)}</td>
+                <td>₹{platformCommission.toFixed(0)}</td>
+                <td>₹{netSettlement.toFixed(0)}</td>
+                <td><span className={styles.statusPill}>{o.settlementStatus || 'pending'}</span></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /* ── Settings ────────────────────────────────────────────────────────────── */
 
 function Settings({ config, onSave }) {
   const [form, setForm] = useState({
     platformFee: 8,
-   
-    packagingFee: 5,
-    defaultDeliveryFee: 29,
+    gstPercent: 5,
+    packagingFee: 10,
+    defaultDeliveryFee: 30,
     defaultMinOrder: 149,
   });
   const [saving, setSaving] = useState(false);
@@ -344,9 +463,9 @@ function Settings({ config, onSave }) {
     if (config) {
       setForm({
         platformFee: config.platformFee ?? 8,
-       
-        packagingFee: config.packagingFee ?? 5,
-        defaultDeliveryFee: config.defaultDeliveryFee ?? 29,
+        gstPercent: config.gstPercent ?? 5,
+        packagingFee: config.packagingFee ?? 10,
+        defaultDeliveryFee: config.defaultDeliveryFee ?? 30,
         defaultMinOrder: config.defaultMinOrder ?? 149,
       });
     }
@@ -494,4 +613,3 @@ function AddPromoModal({ onClose, onSave }) {
     </div>
   );
 }
-

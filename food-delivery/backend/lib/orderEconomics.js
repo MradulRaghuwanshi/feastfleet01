@@ -8,52 +8,61 @@ function round2(n) {
 
 function getTier(subtotal) {
   if (subtotal < 100) return 'Below ₹100';
-  if (subtotal < 150) return '₹100 – ₹149';
-  if (subtotal < 200) return '₹150 – ₹199';
-  if (subtotal < 300) return '₹200 – ₹299';
-  return '₹300 and above';
+  if (subtotal < 150) return '₹100-₹149';
+  if (subtotal < 250) return '₹150-₹249';
+  return '₹250 and above';
 }
 
 function getDeliveryFeeForTier(subtotal) {
-  // Based on examples:
-  // 75 -> 40
-  // 124 -> 30
-  // 175 -> 20
-  // 250 -> 10
-  // 350 -> 0
-  if (subtotal < 100) return 40;
-  if (subtotal < 150) return 30;
-  if (subtotal < 200) return 20;
-  if (subtotal < 300) return 10;
+  if (subtotal < 100) return 30;
+  if (subtotal < 150) return 20;
+  if (subtotal < 250) return 10;
   return 0;
+}
+
+function calculateFeastCoinsEarned(subtotal) {
+  return Math.floor(Number(subtotal || 0) / 100) * 5;
+}
+
+function calculateBill({ subtotal, discount = 0, feastCoinRedemption = 0, gstPercent = 5 } = {}) {
+  const foodSubtotal = round2(Number(subtotal || 0));
+  const platformFee = 8;
+  const packagingFee = 10;
+  const gstAmount = round2(foodSubtotal * Number(gstPercent || 0) / 100);
+  const deliveryFee = getDeliveryFeeForTier(foodSubtotal);
+  const safeDiscount = Math.min(round2(discount), foodSubtotal);
+  const payableBeforeCoins = round2(foodSubtotal + gstAmount + platformFee + packagingFee + deliveryFee - safeDiscount);
+  const coinsUsed = Math.min(Math.max(0, Number(feastCoinRedemption || 0)), payableBeforeCoins);
+  const total = Math.max(0, round2(payableBeforeCoins - coinsUsed));
+  const platformCommission = round2(foodSubtotal * 0.15);
+
+  return {
+    subtotal: foodSubtotal,
+    gstPercent,
+    gstAmount,
+    platformFee,
+    packagingFee,
+    deliveryFee,
+    discount: safeDiscount,
+    feastCoinRedemption: coinsUsed,
+    total,
+    feastCoinsEarned: calculateFeastCoinsEarned(foodSubtotal),
+    platformCommission,
+    platformCommissionPercent: 15,
+    netSettlementAmount: round2(foodSubtotal - platformCommission),
+  };
 }
 
 function calculate_order(subtotal) {
   const orderSubtotal = Number(subtotal);
 
   const tier = getTier(orderSubtotal);
-  const delivery_fee = getDeliveryFeeForTier(orderSubtotal);
-
-  // Examples imply:
-  // commission = 15% of subtotal
-  // pg_fee = 2.5% of subtotal
-  const commission = round2(orderSubtotal * 0.15);
-  const pg_fee = round2(orderSubtotal * 0.025);
-
-  // Profit and customer_total in the examples match:
-  // profit = commission + pg_fee + delivery_fee - 25
-  // customer_total = subtotal + commission + pg_fee + delivery_fee + 4.87
-  // To keep the implementation stable and deterministic, derive the constant from the first example.
-  // Example (75): commission 11.25, pg_fee 1.88, delivery 40 => sum=53.13, profit=27.38
-  // => constant = 53.13 - 27.38 = 25.75
-  // Example (75): customer_total 133
-  // subtotal + commission + pg_fee + delivery = 75 + 53.13 = 128.13
-  // => constant = 133 - 128.13 = 4.87
-  const profitConstant = 25.75;
-  const customerTotalConstant = 4.87;
-
-  const profit = round2(commission + pg_fee + delivery_fee - profitConstant);
-  const customer_total = Math.round((orderSubtotal + commission + pg_fee + delivery_fee + customerTotalConstant) * 1) / 1;
+  const bill = calculateBill({ subtotal: orderSubtotal });
+  const commission = bill.platformCommission;
+  const pg_fee = 0;
+  const delivery_fee = bill.deliveryFee;
+  const profit = commission + delivery_fee;
+  const customer_total = bill.total;
 
   return {
     commission,
@@ -86,5 +95,6 @@ module.exports = {
   is_profitable,
   getTier,
   getDeliveryFeeForTier,
+  calculateBill,
+  calculateFeastCoinsEarned,
 };
-

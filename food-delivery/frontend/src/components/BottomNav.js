@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import styles from './BottomNav.module.css';
 
@@ -16,6 +16,9 @@ export default function BottomNav() {
       <NavLink to="/checkout" className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ''}`}>
         <span className={styles.cartIcon}>🛒{totalItems > 0 && <span className={styles.badge}>{totalItems}</span>}</span>
         <span>Cart</span>
+      </NavLink>
+      <NavLink to="/wallet" className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ''}`}>
+        <span>🪙</span><span>Coins</span>
       </NavLink>
       <NavLink to="/favourites" className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ''}`}>
         <span>❤️</span><span>Saved</span>

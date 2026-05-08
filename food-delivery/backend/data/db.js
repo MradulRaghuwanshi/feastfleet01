@@ -1,7 +1,7 @@
 // ─── Sample Users ─────────────────────────────────────────────────────────────
 const users = [
-  { id: 'u1', name: 'Priya Sharma',      email: 'customer@demo.com',  password: 'password123', role: 'customer',   phone: '+91 98765 43210', avatar: '👩', wallet: 150.00, favourites: ['r1','r3'] },
-  { id: 'u2', name: 'Rahul Verma',       email: 'customer2@demo.com', password: 'password123', role: 'customer',   phone: '+91 91234 56789', avatar: '👨', wallet: 75.00,  favourites: ['r2'] },
+  { id: 'u1', name: 'Priya Sharma',      email: 'customer@demo.com',  password: 'password123', role: 'customer',   phone: '+91 98765 43210', avatar: '👩', wallet: 150.00, feastCoins: 150, favourites: ['r1','r3'] },
+  { id: 'u2', name: 'Rahul Verma',       email: 'customer2@demo.com', password: 'password123', role: 'customer',   phone: '+91 91234 56789', avatar: '👨', wallet: 75.00, feastCoins: 75,  favourites: ['r2'] },
   { id: 'u3', name: 'Spice Garden HQ',   email: 'owner@demo.com',     password: 'password123', role: 'restaurant', restaurantId: 'r1', avatar: '🍛', wallet: 0, favourites: [] },
   { id: 'u4', name: 'Burger Junction HQ',email: 'owner2@demo.com',    password: 'password123', role: 'restaurant', restaurantId: 'r2', avatar: '🍔', wallet: 0, favourites: [] },
   { id: 'u5', name: 'Arjun Patel',       email: 'delivery@demo.com',  password: 'password123', role: 'delivery',   phone: '+91 99887 76655', avatar: '🚴', vehicle: 'Bike MH-12 AB 1234', wallet: 0, favourites: [] },

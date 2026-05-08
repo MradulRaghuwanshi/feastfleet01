@@ -1,10 +1,10 @@
-﻿import React, { useState, useEffect, Suspense } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useDeliveryLocation } from '../../context/LocationContext';
 import LocationPicker from '../../components/LocationPicker';
-import { placeOrder, validatePromo, deductWallet, getRestaurant, getAppConfig } from '../../firebase/services';
+import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES } from '../../firebase/services';
 import styles from './Checkout.module.css';
 
 export default function Checkout() {
@@ -17,45 +17,33 @@ export default function Checkout() {
   const [promoInput, setPromoInput] = useState('');
   const [promo, setPromo] = useState(null);
   const [promoError, setPromoError] = useState('');
-  const [useWallet, setUseWallet] = useState(false);
+  const [useFeastCoins, setUseFeastCoins] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPicker, setShowPicker] = useState(false);
-  const [appConfig, setAppConfig] = useState(null);
+  const [wallet, setWallet] = useState(null);
 
   useEffect(() => {
     if (location?.address) setDeliveryAddress(location.address);
   }, [location]);
 
   useEffect(() => {
-    getAppConfig().then(setAppConfig).catch(() => setAppConfig(null));
-  }, []);
+    if (!user?.id) return undefined;
+    return listenToWallet(user.id, setWallet);
+  }, [user?.id]);
 
-  const platformCommissionPercent = cart.restaurantHasOwnDelivery ? 5 : 15;
-  const platformCommission = +(subtotal * platformCommissionPercent / 100).toFixed(0);
-  const packagingFee = appConfig?.packagingFee ?? 5;
-  
-  const deliveryTierFee = (s) => {
-    const x = Number(s);
-    if (x < 100) return 40;
-    if (x < 150) return 30;
-    if (x < 200) return 20;
-    if (x < 300) return 10;
-    return 0;
-  };
-
-  const deliveryFee = promo?.type === 'delivery'
-    ? 0
-    : (cart.restaurantHasOwnDelivery ? 0 : deliveryTierFee(subtotal));
-
-  const discount = promo
-    ? promo.type === 'percent' ? Math.min(+(subtotal * promo.value / 100).toFixed(0), 100)
-    : promo.type === 'flat'   ? promo.value : 0
-    : 0;
-
-  const afterDiscount = subtotal + platformCommission + packagingFee  + deliveryFee - discount;
-  const walletDeduction = useWallet ? Math.min(user?.wallet || 0, afterDiscount) : 0;
-  const total = Math.max(0, afterDiscount - walletDeduction);
+  const walletBalance = wallet?.isVirtual ? (user?.feastCoins ?? user?.wallet ?? 0) : (wallet?.currentBalance ?? user?.feastCoins ?? user?.wallet ?? 0);
+  const bill = calculateBill({
+    items: cart.items,
+    subtotal,
+    promo,
+    feastCoinBalance: walletBalance,
+    redeemFeastCoins: useFeastCoins,
+  });
+  const canRedeemCoins = walletBalance >= PLATFORM_FEES.minimumCoinRedemption;
+  const expiryDays = wallet?.expiresAt
+    ? Math.max(0, Math.ceil((new Date(wallet.expiresAt) - new Date()) / (24 * 60 * 60 * 1000)))
+    : null;
 
   const applyPromo = async () => {
     setPromoError(''); setPromo(null);
@@ -79,21 +67,25 @@ export default function Checkout() {
         deliveryAgentId: cart.restaurantHasOwnDelivery ? null : 'u5',
         deliveryAgentName: cart.restaurantHasOwnDelivery ? 'Restaurant Delivery' : 'Arjun Patel',
         items: cart.items.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity, image: i.image || '' })),
-        subtotal: +subtotal.toFixed(0),
-        platformCommission,
-        platformCommissionPercent,
-        packagingFee,
-        deliveryFee,
-        discount: +discount.toFixed(0),
-
-        walletUsed: +walletDeduction.toFixed(0),
-        total: +total.toFixed(0),
+        subtotal: +bill.subtotal.toFixed(2),
+        platformCommission: bill.platformCommission,
+        platformCommissionPercent: bill.commissionPercent,
+        packagingFee: bill.packagingFee,
+        platformFee: bill.platformFee,
+        gstPercent: bill.gstPercent,
+        gstAmount: bill.gstAmount,
+        deliveryFee: bill.deliveryFee,
+        discount: +bill.discount.toFixed(2),
+        walletUsed: 0,
+        feastCoinRedemption: bill.feastCoinRedemption,
+        feastCoinsEarned: bill.coinsEarned,
+        total: +bill.finalPayable.toFixed(2),
         promoCode: promo?.code || null,
+        redeemFeastCoins: useFeastCoins,
         deliveryAddress,
         deliveryLat: location?.lat || null,
         deliveryLng: location?.lng || null,
       };
-      if (useWallet && walletDeduction > 0) await deductWallet(user.id, walletDeduction);
       const order = await placeOrder(orderData);
       clearCart();
       navigate(`/order-confirmation/${order.id}`);
@@ -152,26 +144,40 @@ export default function Checkout() {
           </div>
 
           {/* Wallet */}
-          {user?.wallet > 0 && (
+          {walletBalance > 0 && (
             <div className={styles.walletSection}>
               <label className={styles.walletLabel}>
-                <input type="checkbox" checked={useWallet} onChange={e => setUseWallet(e.target.checked)} />
-                <span>💰 Use wallet balance <strong>(₹{user.wallet.toFixed(0)} available)</strong></span>
+                <input
+                  type="checkbox"
+                  checked={useFeastCoins}
+                  disabled={!canRedeemCoins}
+                  onChange={e => setUseFeastCoins(e.target.checked)}
+                />
+                <span>Use Feast Coins <strong>({walletBalance.toFixed(0)} coins available)</strong></span>
               </label>
-              {useWallet && <p className={styles.walletSaving}>Saving ₹{walletDeduction.toFixed(0)} from wallet</p>}
+              {canRedeemCoins ? (
+                <p className={styles.walletSaving}>
+                  Redeeming {bill.feastCoinRedemption.toFixed(0)} coins. You will earn {bill.coinsEarned} coins on this order.
+                  {expiryDays !== null && ` Expires in ${expiryDays} day${expiryDays === 1 ? '' : 's'}.`}
+                </p>
+              ) : (
+                <p className={styles.walletMuted}>Minimum {PLATFORM_FEES.minimumCoinRedemption} coins required to redeem.</p>
+              )}
             </div>
           )}
 
           {/* Bill Summary */}
           <div className={styles.billSection}>
             <h4>Bill Summary</h4>
-            <div className={styles.billRow}><span>Subtotal</span><span>₹{subtotal.toFixed(0)}</span></div>
-            <div className={styles.billRow}><span>Platform Commission ({platformCommissionPercent}%)</span><span>₹{platformCommission}</span></div>
-            <div className={styles.billRow}><span>Packaging Fee</span><span>₹{packagingFee}</span></div>
-            <div className={styles.billRow}><span>Delivery Fee</span><span>{deliveryFee === 0 ? <s className={styles.free}>₹{appConfig?.defaultDeliveryFee ?? 29}</s> : `₹${deliveryFee}`}</span></div>
-            {discount > 0 && <div className={`${styles.billRow} ${styles.discount}`}><span>Discount ({promo?.code})</span><span>-₹{discount.toFixed(0)}</span></div>}
-            {walletDeduction > 0 && <div className={`${styles.billRow} ${styles.discount}`}><span>Wallet</span><span>-₹{walletDeduction.toFixed(0)}</span></div>}
-            <div className={`${styles.billRow} ${styles.totalRow}`}><span>Total</span><span>₹{total.toFixed(0)}</span></div>
+            <div className={styles.billRow}><span>Item subtotal</span><span>₹{bill.subtotal.toFixed(0)}</span></div>
+            <div className={styles.billRow}><span>Taxes ({bill.gstPercent}%)</span><span>₹{bill.gstAmount.toFixed(0)}</span></div>
+            <div className={styles.billRow}><span>Platform Fee</span><span>₹{bill.platformFee}</span></div>
+            <div className={styles.billRow}><span>Packaging Fee</span><span>₹{bill.packagingFee}</span></div>
+            <div className={styles.billRow}><span>Delivery Fee</span><span>{bill.deliveryFee === 0 ? <span className={styles.free}>Free</span> : `₹${bill.deliveryFee}`}</span></div>
+            {bill.discount > 0 && <div className={`${styles.billRow} ${styles.discount}`}><span>Discount ({promo?.code})</span><span>-₹{bill.discount.toFixed(0)}</span></div>}
+            {bill.feastCoinRedemption > 0 && <div className={`${styles.billRow} ${styles.discount}`}><span>Feast Coins</span><span>-₹{bill.feastCoinRedemption.toFixed(0)}</span></div>}
+            <div className={styles.billRow}><span>Coins earned</span><span>{bill.coinsEarned} coins</span></div>
+            <div className={`${styles.billRow} ${styles.totalRow}`}><span>Final payable</span><span>₹{bill.finalPayable.toFixed(0)}</span></div>
           </div>
         </div>
 
@@ -193,7 +199,7 @@ export default function Checkout() {
           </label>
           {error && <p className={styles.error}>{error}</p>}
           <button type="submit" className={styles.placeBtn} disabled={loading}>
-            {loading ? 'Placing Order...' : `Place Order · ₹${total.toFixed(0)}`}
+            {loading ? 'Placing Order...' : `Place Order · ₹${bill.finalPayable.toFixed(0)}`}
           </button>
         </form>
       </div>

@@ -80,6 +80,32 @@ export default function LiveTrackingMap({ orderId, role, agentId, onAgentLocatio
   const centerLng = ((restaurant?.lng || 72.877) + (customer?.lng || 72.877)) / 2;
   const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${centerLng - 0.02},${centerLat - 0.02},${centerLng + 0.02},${centerLat + 0.02}&layer=mapnik&marker=${centerLat},${centerLng}`;
 
+  // ETA logic:
+  // - restaurant preparation: 15 minutes (fixed)
+  // - travel time after pickup: estimate ~ 2 minutes per ~1km (approx)
+  // Since we don’t have exact distance/time routing, we approximate distance from lat/lng.
+  const toRad = (v) => (v * Math.PI) / 180;
+  const haversineKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const distanceKm = restaurant?.lat && customer?.lat
+    ? haversineKm(restaurant.lat, restaurant.lng, customer.lat, customer.lng)
+    : 1;
+
+  const travelMinutes = Math.max(2, Math.round(distanceKm * 2)); // ~2 min per km
+  const prepMinutes = 15;
+  const totalEtaMinutes = prepMinutes + travelMinutes;
+
+
   return (
     <div className={styles.wrapper}>
       {/* Status bar */}
@@ -112,8 +138,14 @@ export default function LiveTrackingMap({ orderId, role, agentId, onAgentLocatio
         </div>
       </div>
 
+      {/* ETA */}
+      <div className={styles.etaRow} style={{ padding: '8px 12px', fontWeight: 600, color: '#111827' }}>
+        ETA: ~{totalEtaMinutes} minutes
+      </div>
+
       {/* Info cards */}
       <div className={styles.infoRow}>
+
         <div className={styles.infoCard}>
           <div className={styles.infoIcon} style={{ background: '#fff5f0', color: '#ff6b35' }}>R</div>
           <div>

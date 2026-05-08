@@ -7,6 +7,40 @@
   margin: 0 -16px 24px;
   color: #fff;
 }
+
+.downloadSection {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.downloadBtn {
+  background: rgba(255, 255, 255, 0.2);
+  /* backdrop-filter: blur(10px); */
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.downloadBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.3);
+}
+
+.downloadText {
+  font-size: 12px;
+  opacity: 0.8;
+  margin: 0;
+}
 .heroText h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
 .heroText p  { font-size: 14px; opacity: 0.85; margin-bottom: 14px; }
 .searchBox {

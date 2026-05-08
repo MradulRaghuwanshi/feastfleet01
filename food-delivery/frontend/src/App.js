@@ -7,6 +7,7 @@ import { LocationProvider } from './context/LocationContext';
 import Login from './pages/Login';
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
+import PWAInstall from './components/PWAInstall';
 import Home from './pages/customer/Home';
 import RestaurantMenu from './pages/customer/RestaurantMenu';
 import Checkout from './pages/customer/Checkout';
@@ -98,6 +99,7 @@ export default function App() {
           <CartProvider>
             <BrowserRouter basename={process.env.PUBLIC_URL || '/'}>
               <AppRoutes />
+              <PWAInstall />
             </BrowserRouter>
           </CartProvider>
         </LocationProvider>

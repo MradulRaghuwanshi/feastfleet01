@@ -31,11 +31,18 @@ router.post('/agent', async (req, res) => {
 
 // GET /api/tracking/:orderId  — get full tracking data for an order
 router.get('/:orderId', async (req, res) => {
+  const requesterAgentId = req.query.agentId || req.headers['x-agent-id'] || null;
   try {
     if (!db) {
       const { orders, restaurants } = require('../data/db');
       const order = orders.find(o => o.id === req.params.orderId);
       if (!order) return res.status(404).json({ error: 'Order not found' });
+
+      // Restrict visibility to accepted delivery agent only
+      if (order.deliveryAgentId && requesterAgentId && order.deliveryAgentId !== requesterAgentId) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
 
       const restaurant = restaurants.find(r => r.id === order.restaurantId);
       const agentLoc = agentLocations[order.deliveryAgentId] || null;

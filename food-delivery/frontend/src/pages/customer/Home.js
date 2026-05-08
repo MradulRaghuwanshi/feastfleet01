@@ -50,6 +50,36 @@ export default function Home() {
       <div className={styles.hero}>
         <h1>Hungry? We've got you covered.</h1>
         <p>Order from the best restaurants near you</p>
+        <div className={styles.downloadSection}>
+          <button className={styles.downloadBtn} onClick={async () => {
+            const promptEvent = window.deferredPrompt;
+            if (promptEvent) {
+              promptEvent.prompt();
+              const { outcome } = await promptEvent.userChoice;
+              if (outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+              } else {
+                console.log('User dismissed the install prompt');
+              }
+              window.deferredPrompt = null;
+            } else {
+              // Fallback: Provide better installation instructions
+              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+              const isAndroid = /Android/.test(navigator.userAgent);
+
+              if (isIOS) {
+                alert('To install FeastFleet on iOS:\n\n1. Tap the Share button (📤) at the bottom\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" in the top right\n\nThe app will appear on your home screen!');
+              } else if (isAndroid) {
+                alert('To install FeastFleet on Android:\n\n1. Tap the menu (⋮) in the top right\n2. Tap "Add to Home screen" or "Install app"\n3. Follow the prompts to install\n\nOr refresh the page and look for the install banner at the top.');
+              } else {
+                alert('To install FeastFleet:\n\n• Chrome: Look for "Install FeastFleet" in the address bar\n• Firefox: Tap the menu (⋮) → "Install This Site as an App"\n• Edge: Tap the app icon in the address bar\n\nOr refresh the page and try again.');
+              }
+            }
+          }}>
+            📱 Install App
+          </button>
+          <p className={styles.downloadText}>Install FeastFleet for a native experience.</p>
+        </div>
       </div>
 
       {promos.length > 0 && (

@@ -9,7 +9,39 @@
   box-shadow: 0 20px 60px rgba(0,0,0,0.15);
 }
 .brand { font-size: 24px; font-weight: 800; color: #ff6b35; text-align: center; margin-bottom: 4px; }
-.tagline { font-size: 13px; color: #aaa; text-align: center; margin-bottom: 20px; }
+.tagline { font-size: 13px; color: #aaa; text-align: center; margin-bottom: 12px; }
+
+.downloadSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.downloadAppBtn {
+  background: #ff6b35;
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.downloadAppBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(255, 107, 53, 0.22);
+}
+
+.downloadHint {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  max-width: 320px;
+}
 
 .tabs { display: flex; background: #f5f5f5; border-radius: 12px; padding: 4px; margin-bottom: 20px; }
 .tabBtn { flex: 1; padding: 9px; border-radius: 9px; font-size: 14px; font-weight: 600; background: none; color: #888; transition: all 0.2s; }

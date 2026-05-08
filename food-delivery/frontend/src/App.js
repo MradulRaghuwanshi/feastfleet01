@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
@@ -96,7 +96,7 @@ export default function App() {
       <AuthProvider>
         <LocationProvider>
           <CartProvider>
-            <BrowserRouter>
+            <BrowserRouter basename={process.env.PUBLIC_URL || '/'}>
               <AppRoutes />
             </BrowserRouter>
           </CartProvider>

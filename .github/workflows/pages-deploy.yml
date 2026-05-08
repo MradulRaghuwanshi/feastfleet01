@@ -40,19 +40,22 @@ jobs:
         PUBLIC_URL: https://feastfleet.tech
         CI: false
     
-    - name: Create 404.html for SPA routing
-      working-directory: food-delivery/frontend
-      run: cp build/index.html build/404.html
-    
     - name: Setup Pages
       uses: actions/configure-pages@v4
-    
+    - name: Ensure SPA fallback
+      working-directory: food-delivery/frontend
+      run: |
+        if [ -f build/index.html ]; then
+          cp build/index.html build/404.html
+        else
+          echo "build/index.html not found; build may have failed" && exit 1
+        fi
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
         path: './food-delivery/frontend/build'
-    
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v4
+
 

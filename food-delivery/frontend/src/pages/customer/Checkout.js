@@ -34,8 +34,7 @@ export default function Checkout() {
   const platformCommissionPercent = cart.restaurantHasOwnDelivery ? 5 : 15;
   const platformCommission = +(subtotal * platformCommissionPercent / 100).toFixed(0);
   const packagingFee = appConfig?.packagingFee ?? 5;
-  // const gstPercent = appConfig?.gstFee ?? 5;
-  const gstAmount = +(subtotal * gstPercent / 100).toFixed(0);
+  
   const deliveryTierFee = (s) => {
     const x = Number(s);
     if (x < 100) return 40;
@@ -54,7 +53,7 @@ export default function Checkout() {
     : promo.type === 'flat'   ? promo.value : 0
     : 0;
 
-  const afterDiscount = subtotal + platformCommission + packagingFee + gstAmount + deliveryFee - discount;
+  const afterDiscount = subtotal + platformCommission + packagingFee  + deliveryFee - discount;
   const walletDeduction = useWallet ? Math.min(user?.wallet || 0, afterDiscount) : 0;
   const total = Math.max(0, afterDiscount - walletDeduction);
 
@@ -84,8 +83,6 @@ export default function Checkout() {
         platformCommission,
         platformCommissionPercent,
         packagingFee,
-        gstPercent,
-        gstAmount,
         deliveryFee,
         discount: +discount.toFixed(0),
 
@@ -171,7 +168,6 @@ export default function Checkout() {
             <div className={styles.billRow}><span>Subtotal</span><span>₹{subtotal.toFixed(0)}</span></div>
             <div className={styles.billRow}><span>Platform Commission ({platformCommissionPercent}%)</span><span>₹{platformCommission}</span></div>
             <div className={styles.billRow}><span>Packaging Fee</span><span>₹{packagingFee}</span></div>
-            <div className={styles.billRow}><span>GST ({gstPercent}%)</span><span>₹{gstAmount}</span></div>
             <div className={styles.billRow}><span>Delivery Fee</span><span>{deliveryFee === 0 ? <s className={styles.free}>₹{appConfig?.defaultDeliveryFee ?? 29}</s> : `₹${deliveryFee}`}</span></div>
             {discount > 0 && <div className={`${styles.billRow} ${styles.discount}`}><span>Discount ({promo?.code})</span><span>-₹{discount.toFixed(0)}</span></div>}
             {walletDeduction > 0 && <div className={`${styles.billRow} ${styles.discount}`}><span>Wallet</span><span>-₹{walletDeduction.toFixed(0)}</span></div>}

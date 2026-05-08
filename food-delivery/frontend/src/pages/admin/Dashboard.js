@@ -331,9 +331,9 @@ function Users({ users }) {
 
 function Settings({ config, onSave }) {
   const [form, setForm] = useState({
-    platformFee: 10,
-    gstPercent: 5,
-    packagingFee: 15,
+    platformFee: 8,
+   
+    packagingFee: 5,
     defaultDeliveryFee: 29,
     defaultMinOrder: 149,
   });
@@ -343,9 +343,9 @@ function Settings({ config, onSave }) {
   useEffect(() => {
     if (config) {
       setForm({
-        platformFee: config.platformFee ?? 10,
-        gstPercent: config.gstPercent ?? 5,
-        packagingFee: config.packagingFee ?? 15,
+        platformFee: config.platformFee ?? 8,
+       
+        packagingFee: config.packagingFee ?? 5,
         defaultDeliveryFee: config.defaultDeliveryFee ?? 29,
         defaultMinOrder: config.defaultMinOrder ?? 149,
       });

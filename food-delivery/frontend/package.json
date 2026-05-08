@@ -27,6 +27,10 @@
       "last 1 chrome version"
     ]
   },
+<<<<<<< HEAD
+=======
+  "homepage": "https://feastfleet.tech/", 
+>>>>>>> dc4b8cd (9 bje)
   "devDependencies": {
     "gh-pages": "^6.3.0"
   }

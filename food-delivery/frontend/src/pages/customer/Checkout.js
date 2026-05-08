@@ -33,8 +33,8 @@ export default function Checkout() {
 
   const platformCommissionPercent = cart.restaurantHasOwnDelivery ? 5 : 15;
   const platformCommission = +(subtotal * platformCommissionPercent / 100).toFixed(0);
-  const packagingFee = appConfig?.packagingFee ?? 15;
-  const gstPercent = appConfig?.gstPercent ?? 5;
+  const packagingFee = appConfig?.packagingFee ?? 5;
+  // const gstPercent = appConfig?.gstFee ?? 5;
   const gstAmount = +(subtotal * gstPercent / 100).toFixed(0);
   const deliveryTierFee = (s) => {
     const x = Number(s);

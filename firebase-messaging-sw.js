@@ -19,8 +19,6 @@ messaging.onBackgroundMessage((payload) => {
   const { title, body } = payload.notification;
   self.registration.showNotification(title, {
     body,
-    icon: '/logo192.png',
-    badge: '/logo192.png',
     tag: 'promo-notification',
     data: payload.data,
     actions: [

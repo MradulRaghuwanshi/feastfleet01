@@ -247,7 +247,7 @@ async function seed() {
     
     // Fee Configuration (Admin editable)
     platformFee:       8,     // ₹8 flat platform fee per order
-    gstPercent:        5,     // 5% GST on subtotal
+    gstPercent:        0,
     packagingFee:      10,    // ₹10 packaging charge
     defaultDeliveryFee:30,    // Maximum tier delivery fee
     defaultMinOrder:   149,   // Default minimum order value

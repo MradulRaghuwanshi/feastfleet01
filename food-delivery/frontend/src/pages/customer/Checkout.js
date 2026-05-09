@@ -72,8 +72,6 @@ export default function Checkout() {
         platformCommissionPercent: bill.commissionPercent,
         packagingFee: bill.packagingFee,
         platformFee: bill.platformFee,
-        gstPercent: bill.gstPercent,
-        gstAmount: bill.gstAmount,
         deliveryFee: bill.deliveryFee,
         discount: +bill.discount.toFixed(2),
         walletUsed: 0,
@@ -170,7 +168,6 @@ export default function Checkout() {
           <div className={styles.billSection}>
             <h4>Bill Summary</h4>
             <div className={styles.billRow}><span>Item subtotal</span><span>₹{bill.subtotal.toFixed(0)}</span></div>
-            <div className={styles.billRow}><span>Taxes ({bill.gstPercent}%)</span><span>₹{bill.gstAmount.toFixed(0)}</span></div>
             <div className={styles.billRow}><span>Platform Fee</span><span>₹{bill.platformFee}</span></div>
             <div className={styles.billRow}><span>Packaging Fee</span><span>₹{bill.packagingFee}</span></div>
             <div className={styles.billRow}><span>Delivery Fee</span><span>{bill.deliveryFee === 0 ? <span className={styles.free}>Free</span> : `₹${bill.deliveryFee}`}</span></div>

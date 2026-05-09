@@ -451,7 +451,6 @@ function Settlements({ orders }) {
 function Settings({ config, onSave }) {
   const [form, setForm] = useState({
     platformFee: 8,
-    gstPercent: 5,
     packagingFee: 10,
     defaultDeliveryFee: 30,
     defaultMinOrder: 149,
@@ -463,7 +462,6 @@ function Settings({ config, onSave }) {
     if (config) {
       setForm({
         platformFee: config.platformFee ?? 8,
-        gstPercent: config.gstPercent ?? 5,
         packagingFee: config.packagingFee ?? 10,
         defaultDeliveryFee: config.defaultDeliveryFee ?? 30,
         defaultMinOrder: config.defaultMinOrder ?? 149,
@@ -473,7 +471,7 @@ function Settings({ config, onSave }) {
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(form);
+    await onSave({ ...form, gstPercent: 0 });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -487,10 +485,6 @@ function Settings({ config, onSave }) {
         <label>Platform Fee (₹)
           <input type="number" min="0" value={form.platformFee} onChange={e => setForm({...form, platformFee:+e.target.value})} />
           <small>Flat fee added to every order</small>
-        </label>
-        <label>GST (%)
-          <input type="number" min="0" max="100" step="0.1" value={form.gstPercent} onChange={e => setForm({...form, gstPercent:+e.target.value})} />
-          <small>Percentage of subtotal</small>
         </label>
         <label>Packaging Fee (₹)
           <input type="number" min="0" value={form.packagingFee} onChange={e => setForm({...form, packagingFee:+e.target.value})} />

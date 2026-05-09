@@ -49,8 +49,7 @@ export default function POS() {
 
   const calculateTotal = () => {
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const tax = subtotal * 0.18; // 18% GST
-    return { subtotal, tax, total: subtotal + tax };
+    return { subtotal, total: subtotal };
   };
 
   const groupedMenu = restaurant?.menu?.reduce((groups, item) => {
@@ -74,7 +73,6 @@ export default function POS() {
       deliveryFee: 0,
       discount: 0,
       walletUsed: 0,
-      tax: +(subtotal * 0.18).toFixed(2),
       total,
       status: 'Confirmed',
       orderType,
@@ -94,7 +92,7 @@ export default function POS() {
 
   if (loading) return <p>Loading POS...</p>;
 
-  const { subtotal, tax, total } = calculateTotal();
+  const { subtotal, total } = calculateTotal();
 
   return (
     <div className={styles.page}>
@@ -151,7 +149,6 @@ export default function POS() {
           </div>
           <div className={styles.totals}>
             <div>Subtotal: ₹{subtotal.toFixed(2)}</div>
-            <div>Tax (18%): ₹{tax.toFixed(2)}</div>
             <div>Total: ₹{total.toFixed(2)}</div>
           </div>
           <button className={styles.placeOrder} onClick={placeOrder}>Place Order</button>

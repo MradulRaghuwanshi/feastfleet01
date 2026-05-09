@@ -8,7 +8,7 @@
 - [x] 4. Update `frontend/src/pages/admin/Dashboard.js` — add "Settings" tab with fee config form
 - [x] 5. Update `frontend/src/pages/admin/Dashboard.module.css` — add Settings form styles
 - [x] 6. Update `frontend/src/pages/customer/Checkout.js` — fetch appConfig, calculate & display all fees dynamically
-- [x] 7. Update `backend/routes/orders.js` — accept and persist platformFee, gstAmount, packagingFee in order creation
+- [x] 7. Update `backend/routes/orders.js` — accept and persist platformFee and packagingFee in order creation
 - [x] 8. Update `frontend/src/pages/customer/OrderConfirmation.js` — show fee breakdown in order details
 - [x] 9. Update `frontend/src/pages/customer/MyOrders.js` — show fee details / savings info
 - [x] 10. Add CSS styles for fee breakdown displays
@@ -17,7 +17,7 @@
 
 ### Admin Dashboard (Settings Tab)
 - New **Settings** tab in admin sidebar with ⚙️ icon
-- Editable fields: Platform Fee, GST %, Packaging Fee, Default Delivery Fee, Default Min Order
+- Editable fields: Platform Fee, Packaging Fee, Default Delivery Fee, Default Min Order
 - Save button persists to Firestore `appConfig/general` document
 - Success toast notification on save
 
@@ -26,15 +26,14 @@
 - Calculates fees dynamically:
   - `platformFee` (flat, default ₹10)
   - `packagingFee` (flat, default ₹15)
-  - `gstAmount` = subtotal × gstPercent / 100 (default 5%)
   - `deliveryFee` from appConfig or restaurant data
-- Bill summary shows all line items: Subtotal, Platform Fee, Packaging Fee, GST, Delivery Fee, Discount, Wallet, Total
+- Bill summary shows all line items: Subtotal, Platform Fee, Packaging Fee, Delivery Fee, Discount, Wallet, Total
 - Order payload includes all fee fields for backend persistence
 
 ### Backend Orders API
-- Accepts `platformFee`, `packagingFee`, `gstPercent`, `gstAmount` in POST `/api/orders`
+- Accepts `platformFee` and `packagingFee` in POST `/api/orders`
 - Includes fees in both in-memory fallback and Firebase order documents
-- Total calculation: `subtotal + platformFee + packagingFee + gstAmount + deliveryFee - discount - walletUsed`
+- Total calculation: `subtotal + platformFee + packagingFee + deliveryFee - discount - walletUsed`
 
 ### Order Confirmation & My Orders
 - Order confirmation page shows full fee breakdown (subtotal, fees, discounts, total)
@@ -44,7 +43,6 @@
 ## Default Fee Values (in seed.js)
 ```js
 platformFee: 10,
-gstPercent: 5,
 packagingFee: 15,
 defaultDeliveryFee: 29,
 defaultMinOrder: 149
@@ -54,4 +52,3 @@ defaultMinOrder: 149
 1. Re-seed the database OR manually update the `appConfig/general` document in Firestore to include the fee fields
 2. Log in as admin (`admin@fooddash.in` / `admin@123`) and navigate to the **Settings** tab
 3. Adjust fees as needed — changes reflect immediately on customer checkout
-

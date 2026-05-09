@@ -63,8 +63,8 @@ router.post('/', async (req, res) => {
 
       const pf = platformFee ?? 8;
       const pkf = packagingFee ?? 10;
-      const ga = gstAmount ?? +(subtotal * (gstPercent ?? 5) / 100).toFixed(2);
-      const total = +(subtotal + pf + pkf + ga - discount + deliveryFee - walletUsed).toFixed(2);
+      const ga = 0;
+      const total = +(subtotal + pf + pkf - discount + deliveryFee - walletUsed).toFixed(2);
       const agent = users.find(u => u.role === 'delivery');
 
       const platformCommissionPercent = 15;
@@ -81,7 +81,7 @@ router.post('/', async (req, res) => {
         deliveryAgentId: null,
         deliveryAgentName: 'Unassigned',
         items: enrichedItems,
-        subtotal: +subtotal.toFixed(2), platformFee: pf, packagingFee: pkf, gstPercent: gstPercent ?? 5, gstAmount: ga,
+        subtotal: +subtotal.toFixed(2), platformFee: pf, packagingFee: pkf, gstPercent: 0, gstAmount: ga,
         deliveryFee, discount, walletUsed,
         platformCommission,
         platformCommissionPercent,
@@ -149,8 +149,8 @@ router.post('/', async (req, res) => {
 
     const pf = platformFee ?? 8;
     const pkf = packagingFee ?? 10;
-    const ga = gstAmount ?? +(subtotal * (gstPercent ?? 5) / 100).toFixed(2);
-    const total = +(subtotal + pf + pkf + ga - discount + deliveryFee - walletUsed).toFixed(2);
+    const ga = 0;
+    const total = +(subtotal + pf + pkf - discount + deliveryFee - walletUsed).toFixed(2);
 
     // Platform delivery restaurants: start UNASSIGNED (OTP + pickup/drop will be shown only after acceptance)
     let deliveryAgentId = null;
@@ -177,7 +177,7 @@ router.post('/', async (req, res) => {
       subtotal: +subtotal.toFixed(2),
       platformFee: pf,
       packagingFee: pkf,
-      gstPercent: gstPercent ?? 5,
+      gstPercent: 0,
       gstAmount: ga,
       deliveryFee,
       discount,

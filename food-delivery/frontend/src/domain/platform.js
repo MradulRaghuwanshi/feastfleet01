@@ -31,7 +31,7 @@ export const PLATFORM_FEES = {
   packagingFee: 10,
   deliveryEarning: 40,
   restaurantCommissionPercent: 15,
-  gstPercent: 5,
+  gstPercent: 0,
   minimumCoinRedemption: 100,
 };
 
@@ -89,7 +89,7 @@ export function calculateBill({
   const foodSubtotal = roundMoney(subtotal ?? getFoodSubtotal(items));
   const platformFee = PLATFORM_FEES.platformFee;
   const packagingFee = PLATFORM_FEES.packagingFee;
-  const gstAmount = roundMoney(foodSubtotal * Number(gstPercent || 0) / 100);
+  const gstAmount = 0;
   let deliveryFee = getDeliveryFee(foodSubtotal);
   let discount = 0;
 
@@ -106,7 +106,7 @@ export function calculateBill({
   discount = Math.min(roundMoney(discount), foodSubtotal);
 
   const payableBeforeCoins = Math.max(0, roundMoney(
-    foodSubtotal + gstAmount + platformFee + packagingFee + deliveryFee - discount
+    foodSubtotal + platformFee + packagingFee + deliveryFee - discount
   ));
 
   const availableCoins = Math.floor(Number(feastCoinBalance || 0));
@@ -120,7 +120,7 @@ export function calculateBill({
 
   return {
     subtotal: foodSubtotal,
-    gstPercent,
+    gstPercent: 0,
     gstAmount,
     platformFee,
     packagingFee,

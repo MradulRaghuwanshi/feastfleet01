@@ -310,7 +310,6 @@ export const placeOrder = async (orderData) => {
       promo,
       feastCoinBalance: wallet.currentBalance,
       redeemFeastCoins: Boolean(orderData.redeemFeastCoins || orderData.useFeastCoins),
-      gstPercent: appConfig.gstPercent ?? PLATFORM_FEES.gstPercent,
     });
 
     if (bill.feastCoinRedemption > Number(wallet.currentBalance || 0)) {
@@ -333,8 +332,8 @@ export const placeOrder = async (orderData) => {
       deliveryAgentName: 'Unassigned',
       items,
       subtotal: bill.subtotal,
-      gstPercent: bill.gstPercent,
-      gstAmount: bill.gstAmount,
+      gstPercent: 0,
+      gstAmount: 0,
       platformFee: bill.platformFee,
       packagingFee: bill.packagingFee,
       deliveryFee: bill.deliveryFee,

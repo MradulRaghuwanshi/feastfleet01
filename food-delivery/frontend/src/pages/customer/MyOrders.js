@@ -86,9 +86,9 @@ export default function MyOrders() {
                     <span className={styles.total}>₹{order.total.toFixed(0)}</span>
                     {order.promoCode && <span className={styles.promoTag}>🏷️ {order.promoCode}</span>}
                     {order.discount > 0 && <span className={styles.savedTag}>Saved ₹{order.discount.toFixed(0)}</span>}
-                    {(order.platformFee > 0 || order.packagingFee > 0 || order.gstAmount > 0) && (
+                    {(order.platformFee > 0 || order.packagingFee > 0) && (
                       <span className={styles.feesTag}>
-                        +Fees ₹{(order.platformFee + order.packagingFee + order.gstAmount).toFixed(0)}
+                        +Fees ₹{(Number(order.platformFee || 0) + Number(order.packagingFee || 0)).toFixed(0)}
                       </span>
                     )}
                   </div>

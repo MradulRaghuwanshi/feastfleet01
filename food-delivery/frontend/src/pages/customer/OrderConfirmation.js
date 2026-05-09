@@ -55,7 +55,6 @@ export default function OrderConfirmation() {
           <div><span>Deliver to</span><span>{order.deliveryAddress}</span></div>
           <div className={styles.feeBreakdown}>
             <div><span>Subtotal</span><span>₹{order.subtotal?.toFixed(0)}</span></div>
-            {order.gstAmount > 0 && <div><span>Taxes</span><span>₹{order.gstAmount?.toFixed(0)}</span></div>}
             {order.platformFee > 0 && <div><span>Platform Fee</span><span>₹{order.platformFee}</span></div>}
             {order.packagingFee > 0 && <div><span>Packaging Fee</span><span>₹{order.packagingFee}</span></div>}
            

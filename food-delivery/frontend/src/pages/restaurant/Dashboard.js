@@ -141,8 +141,7 @@ export default function RestaurantDashboard() {
   };
 
   const posSubtotal = posCart.reduce((s, i) => s + i.price * i.qty, 0);
-  const posTax      = +(posSubtotal * 0.05).toFixed(0);
-  const posTotal    = posSubtotal + posTax;
+  const posTotal    = posSubtotal;
 
   const placePosOrder = async () => {
     if (!posCart.length) return;
@@ -165,7 +164,6 @@ export default function RestaurantDashboard() {
       discount:        0,
       walletUsed:      0,
       total:           posTotal,
-      tax:             posTax,
       promoCode:       null,
       deliveryAddress: posType === 'Dine-in' ? `Table ${posTable}` : 'Takeaway',
       orderType:       posType,
@@ -285,7 +283,6 @@ export default function RestaurantDashboard() {
           posAddItem={posAddItem}
           posRemoveItem={posRemoveItem}
           posSubtotal={posSubtotal}
-          posTax={posTax}
           posTotal={posTotal}
           posType={posType}
           setPosType={setPosType}
@@ -451,7 +448,7 @@ function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, STATUS_COLOR
 function POSTab({
   menu, categories, posCategory, setPosCategory,
   posCart, posAddItem, posRemoveItem,
-  posSubtotal, posTax, posTotal,
+  posSubtotal, posTotal,
   posType, setPosType, posTable, setPosTable,
   posCustomer, setPosCustomer, posPhone, setPosPhone,
   placePosOrder,
@@ -573,9 +570,6 @@ function POSTab({
           <div className={styles.posBill}>
             <div className={styles.posBillRow}>
               <span>Subtotal</span><span>&#8377;{posSubtotal}</span>
-            </div>
-            <div className={styles.posBillRow}>
-              <span>GST (5%)</span><span>&#8377;{posTax}</span>
             </div>
             <div className={`${styles.posBillRow} ${styles.posBillTotal}`}>
               <span>Total</span><span>&#8377;{posTotal}</span>
@@ -703,7 +697,7 @@ function BillTab({ billOrder, orders, setBillOrder }) {
           {/* Bill section */}
           <div className={styles.billPaper} id="bill-print">
             <div className={styles.billHeader}>
-              <h2>TAX INVOICE</h2>
+              <h2>BILL</h2>
               <p className={styles.billRestName}>{displayOrder.restaurantName}</p>
               <p className={styles.billMeta}>Order #{displayOrder.id?.slice(0, 8)?.toUpperCase()}</p>
               <p className={styles.billMeta}>{formatDateTime(displayOrder.placedAt)}</p>
@@ -742,9 +736,6 @@ function BillTab({ billOrder, orders, setBillOrder }) {
             <div className={styles.billDivider} />
             <div className={styles.billTotals}>
               <div><span>Subtotal</span><span>&#8377;{displayOrder.subtotal}</span></div>
-              {displayOrder.tax > 0 && (
-                <div><span>GST (5%)</span><span>&#8377;{displayOrder.tax}</span></div>
-              )}
               {displayOrder.deliveryFee > 0 && (
                 <div><span>Delivery</span><span>&#8377;{displayOrder.deliveryFee}</span></div>
               )}

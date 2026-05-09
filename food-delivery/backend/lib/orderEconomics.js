@@ -24,21 +24,21 @@ function calculateFeastCoinsEarned(subtotal) {
   return Math.floor(Number(subtotal || 0) / 100) * 5;
 }
 
-function calculateBill({ subtotal, discount = 0, feastCoinRedemption = 0, gstPercent = 5 } = {}) {
+function calculateBill({ subtotal, discount = 0, feastCoinRedemption = 0, gstPercent = 0 } = {}) {
   const foodSubtotal = round2(Number(subtotal || 0));
   const platformFee = 8;
   const packagingFee = 10;
-  const gstAmount = round2(foodSubtotal * Number(gstPercent || 0) / 100);
+  const gstAmount = 0;
   const deliveryFee = getDeliveryFeeForTier(foodSubtotal);
   const safeDiscount = Math.min(round2(discount), foodSubtotal);
-  const payableBeforeCoins = round2(foodSubtotal + gstAmount + platformFee + packagingFee + deliveryFee - safeDiscount);
+  const payableBeforeCoins = round2(foodSubtotal + platformFee + packagingFee + deliveryFee - safeDiscount);
   const coinsUsed = Math.min(Math.max(0, Number(feastCoinRedemption || 0)), payableBeforeCoins);
   const total = Math.max(0, round2(payableBeforeCoins - coinsUsed));
   const platformCommission = round2(foodSubtotal * 0.15);
 
   return {
     subtotal: foodSubtotal,
-    gstPercent,
+    gstPercent: 0,
     gstAmount,
     platformFee,
     packagingFee,

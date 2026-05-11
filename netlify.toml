@@ -1,0 +1,11 @@
+[build]
+  command = "cd food-delivery/frontend && npm ci && npm run build"
+  publish = "food-delivery/frontend/build"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[context.production.environment]
+  REACT_APP_API_URL = "https://feastfleet-backend-0ozz.onrender.com"

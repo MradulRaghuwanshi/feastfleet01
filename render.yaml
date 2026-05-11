@@ -22,7 +22,7 @@ services:
     branch: main
     repo: https://github.com/MradulRaghuwanshi/feastfleet01
     buildCommand: cd food-delivery/frontend && npm install && npm run build
-    startCommand: cd food-delivery/frontend && npx serve -s build -l $PORT
+    startCommand: cd food-delivery/frontend && npm install && npm run build && npx serve -s build -l $PORT
     envVars:
       - key: REACT_APP_API_URL
         value: https://feastfleet-backend-0ozz.onrender.com

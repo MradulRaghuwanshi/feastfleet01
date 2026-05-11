@@ -5,9 +5,8 @@ services:
     plan: free
     branch: main
     repo: https://github.com/MradulRaghuwanshi/feastfleet01
-    dir: food-delivery/backend
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: cd food-delivery/backend && npm install
+    startCommand: cd food-delivery/backend && npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -22,9 +21,8 @@ services:
     plan: free
     branch: main
     repo: https://github.com/MradulRaghuwanshi/feastfleet01
-    dir: food-delivery/frontend
-    buildCommand: npm install && npm run build
-    startCommand: npx serve -s build -l 3000
+    buildCommand: cd food-delivery/frontend && npm install && npm run build
+    startCommand: cd food-delivery/frontend && npx serve -s build -l 3000
     envVars:
       - key: REACT_APP_API_URL
         value: https://feastfleet-backend.onrender.com

@@ -11,35 +11,64 @@ const genId = () => 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
+  const [initError, setInitError] = useState(null);
 
   useEffect(() => {
-    // Check localStorage first for Firestore-only users (no Firebase Auth)
-    const saved = localStorage.getItem('fd_user');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setUser(parsed);
-      } catch {
-        localStorage.removeItem('fd_user');
-      }
-    }
+    let mounted = true;
+    let initTimer = null;
 
-    // Also listen to Firebase Auth state for staff accounts
-    const unsub = onAuthChange(async (firebaseUser) => {
-      if (firebaseUser) {
-        const profile = await getUserProfile(firebaseUser.uid);
-        if (profile) {
-          setUser(profile);
-          localStorage.setItem('fd_user', JSON.stringify(profile));
+    const initAuth = async () => {
+      try {
+        // Check localStorage first for Firestore-only users (no Firebase Auth)
+        const saved = localStorage.getItem('fd_user');
+        if (saved && mounted) {
+          try {
+            const parsed = JSON.parse(saved);
+            setUser(parsed);
+          } catch {
+            localStorage.removeItem('fd_user');
+          }
+        }
+
+        // Also listen to Firebase Auth state for staff accounts
+        const unsub = onAuthChange(async (firebaseUser) => {
+          if (!mounted) return;
+          try {
+            if (firebaseUser) {
+              const profile = await getUserProfile(firebaseUser.uid);
+              if (profile && mounted) {
+                setUser(profile);
+                localStorage.setItem('fd_user', JSON.stringify(profile));
+              }
+            }
+            if (mounted) setLoading(false);
+          } catch (err) {
+            console.error('Firebase profile error:', err);
+            if (mounted) setLoading(false);
+          }
+        });
+
+        // If no Firebase auth listener fires within 2s, stop loading
+        initTimer = setTimeout(() => {
+          if (mounted) setLoading(false);
+        }, 2000);
+
+        return () => { unsub(); clearTimeout(initTimer); };
+      } catch (err) {
+        console.error('Auth init error:', err);
+        if (mounted) {
+          setInitError(err);
+          setLoading(false);
         }
       }
-      setLoading(false);
-    });
+    };
 
-    // If no Firebase auth listener fires within 3s, stop loading
-    const timeout = setTimeout(() => setLoading(false), 3000);
-
-    return () => { unsub(); clearTimeout(timeout); };
+    const cleanup = initAuth();
+    return () => {
+      mounted = false;
+      if (initTimer) clearTimeout(initTimer);
+      if (cleanup) cleanup();
+    };
   }, []);
 
   // ── Login ──────────────────────────────────────────────────────────────────
@@ -130,14 +159,19 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  if (loading && !user) return (
+  if (loading) return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Inter,sans-serif' }}>
       <div style={{ textAlign:'center' }}>
-        <div style={{ fontSize:48, marginBottom:12 }}>&#127828;</div>
+        <div style={{ fontSize:48, marginBottom:12 }}>🍔</div>
         <p style={{ color:'#888' }}>Loading FoodDash...</p>
       </div>
     </div>
   );
+
+  if (initError) {
+    console.error('Auth initialization error:', initError);
+    // Continue anyway - show login page with error
+  }
 
   return (
     <AuthContext.Provider value={{ user, login, logout, register }}>

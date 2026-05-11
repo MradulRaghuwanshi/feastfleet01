@@ -5,7 +5,7 @@ services:
     plan: free
     branch: main
     repo: https://github.com/MradulRaghuwanshi/feastfleet01
-    root: food-delivery/backend
+    dir: food-delivery/backend
     buildCommand: npm install
     startCommand: npm start
     envVars:
@@ -22,7 +22,7 @@ services:
     plan: free
     branch: main
     repo: https://github.com/MradulRaghuwanshi/feastfleet01
-    root: food-delivery/frontend
+    dir: food-delivery/frontend
     buildCommand: npm install && npm run build
     startCommand: npx serve -s build -l 3000
     envVars:

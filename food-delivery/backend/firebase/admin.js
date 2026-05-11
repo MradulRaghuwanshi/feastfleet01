@@ -12,12 +12,23 @@ const admin = require('firebase-admin');
 // 8. Copy your databaseURL from Realtime Database and paste below
 // ─────────────────────────────────────────────────────────────────────────────
 
-let serviceAccount;
-try {
-  serviceAccount = require('./serviceAccountKey.json');
-} catch {
-  console.warn('⚠️  Firebase serviceAccountKey.json not found. Running in demo mode.');
-  serviceAccount = null;
+let serviceAccount = null;
+
+if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  } catch {
+    console.warn('⚠️  FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON. Running in demo mode.');
+  }
+}
+
+if (!serviceAccount) {
+  try {
+    serviceAccount = require('./serviceAccountKey.json');
+  } catch {
+    console.warn('⚠️  Firebase serviceAccountKey.json not found. Running in demo mode.');
+    serviceAccount = null;
+  }
 }
 
 if (serviceAccount && !admin.apps.length) {

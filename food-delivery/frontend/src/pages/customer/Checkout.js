@@ -7,6 +7,9 @@ import LocationPicker from '../../components/LocationPicker';
 import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES } from '../../firebase/services';
 import styles from './Checkout.module.css';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const RAZORPAY_KEY_ID = process.env.REACT_APP_RAZORPAY_KEY_ID;
+
 export default function Checkout() {
   const { cart, subtotal, clearCart, removeItem, addItem } = useCart();
   const { user } = useAuth();
@@ -22,6 +25,8 @@ export default function Checkout() {
   const [error, setError] = useState('');
   const [showPicker, setShowPicker] = useState(false);
   const [wallet, setWallet] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('razorpay'); // 'razorpay' or 'cod'
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   useEffect(() => {
     if (location?.address) setDeliveryAddress(location.address);
@@ -54,10 +59,122 @@ export default function Checkout() {
     } catch (e) { setPromoError(e.message); }
   };
 
+  // Create order with Razorpay
+  const createRazorpayOrder = async (orderData) => {
+    try {
+      const response = await fetch(`${API_URL}/api/payments/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: Math.round(bill.finalPayable * 100), // Convert to paise
+          currency: 'INR',
+          receipt: `order_${Date.now()}`,
+          customerName: user.name,
+          customerEmail: user.email,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to create Razorpay order');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Razorpay order creation error:', error);
+      throw error;
+    }
+  };
+
+  // Verify Razorpay payment
+  const verifyRazorpayPayment = async (razorpayOrderId, razorpayPaymentId, razorpaySignature) => {
+    try {
+      const response = await fetch(`${API_URL}/api/payments/verify-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          razorpay_order_id: razorpayOrderId,
+          razorpay_payment_id: razorpayPaymentId,
+          razorpay_signature: razorpaySignature,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Payment verification failed');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Razorpay payment verification error:', error);
+      throw error;
+    }
+  };
+
+  // Handle Razorpay checkout
+  const openRazorpayCheckout = (razorpayOrder, orderData) => {
+    return new Promise((resolve, reject) => {
+      const options = {
+        key: RAZORPAY_KEY_ID,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        order_id: razorpayOrder.order_id,
+        name: 'FeastFleet',
+        description: `Order from ${cart.restaurantName}`,
+        prefill: {
+          name: user.name,
+          email: user.email,
+        },
+        handler: async (response) => {
+          try {
+            setPaymentLoading(true);
+            
+            // Verify payment
+            await verifyRazorpayPayment(
+              response.razorpay_order_id,
+              response.razorpay_payment_id,
+              response.razorpay_signature
+            );
+
+            // Add payment info to order data
+            const finalOrderData = {
+              ...orderData,
+              paymentMethod: 'razorpay',
+              paymentStatus: 'completed',
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+            };
+
+            // Place order in Firebase
+            const order = await placeOrder(finalOrderData);
+            clearCart();
+            resolve(order);
+          } catch (error) {
+            console.error('Payment verification failed:', error);
+            reject(error);
+          } finally {
+            setPaymentLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            reject(new Error('Payment cancelled by user'));
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!cart.items.length) return setError('Cart is empty.');
-    setLoading(true); setError('');
+    
+    setLoading(true); 
+    setError('');
+
     try {
       const orderData = {
         restaurantId: cart.restaurantId,
@@ -84,11 +201,29 @@ export default function Checkout() {
         deliveryLat: location?.lat || null,
         deliveryLng: location?.lng || null,
       };
-      const order = await placeOrder(orderData);
-      clearCart();
-      navigate(`/order-confirmation/${order.id}`);
-    } catch (err) { setError(err.message); }
-    finally { setLoading(false); }
+
+      if (paymentMethod === 'cod') {
+        // Cash on Delivery - place order directly
+        const finalOrderData = {
+          ...orderData,
+          paymentMethod: 'cod',
+          paymentStatus: 'pending',
+        };
+        const order = await placeOrder(finalOrderData);
+        clearCart();
+        navigate(`/order-confirmation/${order.id}`);
+      } else {
+        // Razorpay checkout
+        const razorpayOrder = await createRazorpayOrder(orderData);
+        const order = await openRazorpayCheckout(razorpayOrder, orderData);
+        navigate(`/order-confirmation/${order.id}`);
+      }
+    } catch (err) { 
+      setError(err.message || 'An error occurred'); 
+    }
+    finally { 
+      setLoading(false); 
+    }
   };
 
   if (!cart.items.length) return (
@@ -194,9 +329,47 @@ export default function Checkout() {
               </button>
             </div>
           </label>
+
+          {/* Payment Method Selection */}
+          <div className={styles.paymentSection}>
+            <h4>💳 Payment Method</h4>
+            <div className={styles.paymentOptions}>
+              <label className={styles.paymentOption}>
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="razorpay"
+                  checked={paymentMethod === 'razorpay'}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                />
+                <span className={styles.paymentLabel}>
+                  <strong>Online Payment</strong>
+                  <small>Secure payment via Razorpay</small>
+                </span>
+              </label>
+              <label className={styles.paymentOption}>
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="cod"
+                  checked={paymentMethod === 'cod'}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                />
+                <span className={styles.paymentLabel}>
+                  <strong>Cash on Delivery</strong>
+                  <small>Pay when order arrives</small>
+                </span>
+              </label>
+            </div>
+          </div>
+
           {error && <p className={styles.error}>{error}</p>}
-          <button type="submit" className={styles.placeBtn} disabled={loading}>
-            {loading ? 'Placing Order...' : `Place Order · ₹${bill.finalPayable.toFixed(0)}`}
+          <button 
+            type="submit" 
+            className={styles.placeBtn} 
+            disabled={loading || paymentLoading}
+          >
+            {loading || paymentLoading ? 'Processing...' : `Place Order · ₹${bill.finalPayable.toFixed(0)}`}
           </button>
         </form>
       </div>

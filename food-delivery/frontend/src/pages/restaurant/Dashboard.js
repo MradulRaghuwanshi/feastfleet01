@@ -248,7 +248,7 @@ export default function RestaurantDashboard() {
           { key: 'pos',       label: 'POS / New Order' },
           { key: 'bill',      label: 'Bill / KOT' },
           { key: 'menu',      label: 'Menu Management' },
-          { key: 'prizes',    label: 'Prizes & Rewards' },
+          // { key: 'prizes',    label: 'Prizes & Rewards' },
           { key: 'analytics', label: 'Analytics' },
           { key: 'reviews',   label: 'Reviews' },
         ].map(t => (

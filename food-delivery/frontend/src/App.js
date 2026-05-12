@@ -99,7 +99,7 @@ export default function App() {
       <AuthProvider>
         <LocationProvider>
           <CartProvider>
-            <BrowserRouter basename={process.env.PUBLIC_URL || '/'}>
+            <BrowserRouter basename="/">
               <AppRoutes />
               <PWAInstall />
             </BrowserRouter>

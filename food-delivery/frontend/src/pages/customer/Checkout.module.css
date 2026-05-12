@@ -51,6 +51,16 @@
 .form textarea:focus { border-color: #ff6b35; outline: none; }
 .addressRow { display: flex; flex-direction: column; gap: 8px; }
 .mapBtn { background: #fff5f0; color: #ff6b35; border: 1.5px solid #ff6b35; border-radius: 8px; padding: 7px 12px; font-size: 13px; font-weight: 600; align-self: flex-start; }
+
+.paymentSection { background: #f9f9f9; border-radius: 12px; padding: 14px; margin-top: 8px; }
+.paymentSection h4 { font-size: 13px; font-weight: 700; margin-bottom: 12px; color: #222; }
+.paymentOptions { display: flex; flex-direction: column; gap: 10px; }
+.paymentOption { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.paymentOption input[type="radio"] { width: 18px; height: 18px; accent-color: #ff6b35; margin-top: 2px; flex-shrink: 0; }
+.paymentLabel { display: flex; flex-direction: column; gap: 3px; }
+.paymentLabel strong { font-size: 13px; color: #222; }
+.paymentLabel small { font-size: 11px; color: #888; }
+
 .placeBtn { background: #ff6b35; color: #fff; padding: 13px; border-radius: 10px; font-size: 15px; font-weight: 700; margin-top: 4px; }
 .placeBtn:disabled { opacity: 0.6; }
 .error { color: #e53e3e; font-size: 13px; }

@@ -1,0 +1,22 @@
+{
+  "/_error": "pages/_error.js",
+  "/Home": "pages/Home.js",
+  "/_app": "pages/_app.js",
+  "/RestaurantMenu": "pages/RestaurantMenu.js",
+  "/OrderConfirmation": "pages/OrderConfirmation.js",
+  "/admin/DeliveryPartners": "pages/admin/DeliveryPartners.js",
+  "/checkout": "pages/checkout.js",
+  "/admin/dashboard": "pages/admin/dashboard.js",
+  "/customer/Checkout": "pages/customer/Checkout.js",
+  "/customer/Favourites": "pages/customer/Favourites.js",
+  "/customer/Home": "pages/customer/Home.js",
+  "/customer/MyOrders": "pages/customer/MyOrders.js",
+  "/customer/OrderConfirmation": "pages/customer/OrderConfirmation.js",
+  "/delivery/dashboard": "pages/delivery/dashboard.js",
+  "/customer/RestaurantMenu": "pages/customer/RestaurantMenu.js",
+  "/orders": "pages/orders.js",
+  "/login": "pages/login.js",
+  "/restaurant/dashboard": "pages/restaurant/dashboard.js",
+  "/restaurant/pos": "pages/restaurant/pos.js",
+  "/_document": "pages/_document.js"
+}

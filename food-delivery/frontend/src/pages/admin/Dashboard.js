@@ -121,6 +121,14 @@ export default function AdminDashboard() {
         {tab === 'Wallets'      && <Wallets users={users} orders={orders} />}
         {tab === 'Settlements'  && <Settlements orders={orders} />}
         {tab === 'Settings'     && <Settings config={appConfig} onSave={async (data) => { await updateAppConfig(data); setAppConfig({ ...appConfig, ...data }); }} />}
+                try {
+                  await updateAppConfig(data);
+                } catch (err) {
+                  console.log('Firebase save failed, trying backend API:', err);
+                  await fetch('/api/dashboard/config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                }
+                setAppConfig({ ...appConfig, ...data }); 
+              }} />}
       </main>
 
       {showAddRestaurant && (

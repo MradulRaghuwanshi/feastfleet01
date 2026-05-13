@@ -22,6 +22,7 @@ export default function RestaurantMenu() {
 
   if (!restaurant) return <p className={styles.loading}>Loading menu...</p>;
 
+  const canOrder = restaurant.isAcceptingOrdersNow ?? restaurant.isOpen;
   const categories = ['All', ...new Set(restaurant.menu.map(i => i.category))];
   const filtered = activeCategory === 'All' ? restaurant.menu : restaurant.menu.filter(i => i.category === activeCategory);
 
@@ -40,11 +41,17 @@ export default function RestaurantMenu() {
             ) : (
               <span>🚚 ₹{restaurant.deliveryFee} delivery</span>
             )}
-              <span className={`${styles.statusBadge} ${restaurant.isOpen ? styles.open : styles.closed}`}>
-                {restaurant.isOpen ? '● Open' : '● Closed'}
+                <span className={`${styles.statusBadge} ${canOrder ? styles.open : styles.closed}`}>
+                  {canOrder ? '● Open' : `● ${restaurant.orderStatusLabel || 'Closed'}`}
               </span>
             </div>
             <p className={styles.address}>📍 {restaurant.address}</p>
+              {restaurant.description && <p className={styles.description}>{restaurant.description}</p>}
+              {!canOrder && (
+                <div className={styles.closedNotice}>
+                  {restaurant.orderStatusReason || 'This restaurant is not accepting orders right now.'}
+                </div>
+              )}
           </div>
         </div>
       </div>
@@ -58,7 +65,14 @@ export default function RestaurantMenu() {
         </div>
         <div className={styles.menuGrid}>
           {filtered.map(item => (
-            <MenuItem key={item.id} item={item} restaurantId={restaurant.id} restaurantName={restaurant.name} hasOwnDelivery={restaurant.hasOwnDelivery} />
+            <MenuItem
+              key={item.id}
+              item={item}
+              restaurantId={restaurant.id}
+              restaurantName={restaurant.name}
+              hasOwnDelivery={restaurant.hasOwnDelivery}
+              canOrder={canOrder}
+            />
           ))}
         </div>
       </div>
@@ -70,7 +84,9 @@ export default function RestaurantMenu() {
       {totalItems > 0 && (
         <div className={styles.cartBar}>
           <span>{totalItems} item{totalItems > 1 ? 's' : ''} · ₹{subtotal.toFixed(0)}</span>
-          <button onClick={() => navigate('/checkout')}>View Cart →</button>
+          <button onClick={() => navigate('/checkout')} disabled={!canOrder}>
+            {canOrder ? 'View Cart →' : 'Closed'}
+          </button>
         </div>
       )}
     </div>

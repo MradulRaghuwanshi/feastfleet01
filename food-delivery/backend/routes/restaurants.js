@@ -5,15 +5,8 @@ const { db } = require('../firebase/admin');
 router.get('/', async (req, res) => {
   try {
     const { cuisine } = req.query;
-    
-    if (!db) {
-      // Fallback to in-memory demo mode
-      const { restaurants } = require('../data/db');
-      let result = restaurants;
-      if (cuisine && cuisine !== 'All')
-        result = restaurants.filter(r => r.cuisine === cuisine);
-      return res.json(result.map(({ menu, ...r }) => ({ ...r, itemCount: menu.length })));
-    }
+
+    if (!db) return res.status(503).json({ error: 'Restaurant database is not configured' });
 
     let query = db.collection('restaurants');
     if (cuisine && cuisine !== 'All') {
@@ -43,12 +36,7 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    if (!db) {
-      const { restaurants } = require('../data/db');
-      const restaurant = restaurants.find(r => r.id === req.params.id);
-      if (!restaurant) return res.status(404).json({ error: 'Not found' });
-      return res.json(restaurant);
-    }
+    if (!db) return res.status(503).json({ error: 'Restaurant database is not configured' });
 
     const doc = await db.collection('restaurants').doc(req.params.id).get();
     if (!doc.exists()) return res.status(404).json({ error: 'Not found' });
@@ -70,13 +58,7 @@ router.get('/:id', async (req, res) => {
 // PATCH /:id/toggle-status  (restaurant owner)
 router.patch('/:id/toggle-status', async (req, res) => {
   try {
-    if (!db) {
-      const { restaurants } = require('../data/db');
-      const restaurant = restaurants.find(r => r.id === req.params.id);
-      if (!restaurant) return res.status(404).json({ error: 'Not found' });
-      restaurant.isOpen = !restaurant.isOpen;
-      return res.json({ isOpen: restaurant.isOpen });
-    }
+    if (!db) return res.status(503).json({ error: 'Restaurant database is not configured' });
 
     const doc = await db.collection('restaurants').doc(req.params.id).get();
     if (!doc.exists()) return res.status(404).json({ error: 'Not found' });
@@ -93,15 +75,7 @@ router.patch('/:id/toggle-status', async (req, res) => {
 // PATCH /:id/menu/:itemId  (toggle availability)
 router.patch('/:id/menu/:itemId', async (req, res) => {
   try {
-    if (!db) {
-      const { restaurants } = require('../data/db');
-      const restaurant = restaurants.find(r => r.id === req.params.id);
-      if (!restaurant) return res.status(404).json({ error: 'Not found' });
-      const item = restaurant.menu.find(m => m.id === req.params.itemId);
-      if (!item) return res.status(404).json({ error: 'Item not found' });
-      item.available = !item.available;
-      return res.json(item);
-    }
+    if (!db) return res.status(503).json({ error: 'Restaurant database is not configured' });
 
     const itemDoc = await db.collection('restaurants').doc(req.params.id).collection('menu').doc(req.params.itemId).get();
     if (!itemDoc.exists()) return res.status(404).json({ error: 'Item not found' });
@@ -125,14 +99,7 @@ router.patch('/:id/prizes', async (req, res) => {
   try {
     const { visitPrize, orderPrize } = req.body;
 
-    if (!db) {
-      const { restaurants } = require('../data/db');
-      const restaurant = restaurants.find(r => r.id === req.params.id);
-      if (!restaurant) return res.status(404).json({ error: 'Not found' });
-      restaurant.visitPrize = visitPrize;
-      restaurant.orderPrize = orderPrize;
-      return res.json({ visitPrize, orderPrize });
-    }
+    if (!db) return res.status(503).json({ error: 'Restaurant database is not configured' });
 
     const doc = await db.collection('restaurants').doc(req.params.id).get();
     if (!doc.exists()) return res.status(404).json({ error: 'Not found' });
@@ -141,6 +108,47 @@ router.patch('/:id/prizes', async (req, res) => {
     res.json({ visitPrize, orderPrize });
   } catch (error) {
     console.error('Set prizes error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch('/:id/profile', async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: 'Restaurant database is not configured' });
+
+    const allowed = {
+      name: req.body.name,
+      description: req.body.description,
+      contactPhone: req.body.contactPhone,
+      contactEmail: req.body.contactEmail,
+      address: req.body.address,
+      visitPrize: req.body.visitPrize,
+      orderPrize: req.body.orderPrize,
+      activeDays: req.body.activeDays,
+      openingTime: req.body.openingTime,
+      closingTime: req.body.closingTime,
+      closedMessage: req.body.closedMessage,
+      isOpen: typeof req.body.isOpen === 'boolean' ? req.body.isOpen : undefined,
+      cuisine: req.body.cuisine,
+      deliveryTime: req.body.deliveryTime,
+      deliveryFee: req.body.deliveryFee,
+      minOrder: req.body.minOrder,
+      tags: req.body.tags,
+      image: req.body.image,
+      isFeatured: req.body.isFeatured,
+      hasOwnDelivery: req.body.hasOwnDelivery,
+      updatedAt: new Date().toISOString(),
+    };
+
+    Object.keys(allowed).forEach(key => allowed[key] === undefined && delete allowed[key]);
+
+    const doc = await db.collection('restaurants').doc(req.params.id).get();
+    if (!doc.exists()) return res.status(404).json({ error: 'Not found' });
+
+    await db.collection('restaurants').doc(req.params.id).update(allowed);
+    res.json({ id: req.params.id, ...allowed });
+  } catch (error) {
+    console.error('Update restaurant profile error:', error);
     res.status(500).json({ error: error.message });
   }
 });

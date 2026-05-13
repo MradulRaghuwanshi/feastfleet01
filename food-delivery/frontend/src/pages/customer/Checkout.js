@@ -4,17 +4,29 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useDeliveryLocation } from '../../context/LocationContext';
 import LocationPicker from '../../components/LocationPicker';
-import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES } from '../../firebase/services';
+import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES, getRestaurant } from '../../firebase/services';
+import { apiUrl } from '../../utils/apiConfig';
 import styles from './Checkout.module.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const RAZORPAY_KEY_ID = process.env.REACT_APP_RAZORPAY_KEY_ID;
+
+const readJson = async (response, fallbackMessage) => {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`${fallbackMessage}. Server returned non-JSON response.`);
+  }
+};
 
 export default function Checkout() {
   const { cart, subtotal, clearCart, removeItem, addItem } = useCart();
   const { user } = useAuth();
   const { location, setManualLocation } = useDeliveryLocation();
   const navigate = useNavigate();
+  const isGuest = !user?.id;
 
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [promoInput, setPromoInput] = useState('');
@@ -27,6 +39,21 @@ export default function Checkout() {
   const [wallet, setWallet] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('razorpay'); // 'razorpay' or 'cod'
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [restaurantStatus, setRestaurantStatus] = useState(null);
+  const [guestInfo, setGuestInfo] = useState({
+    name: user?.name || '',
+    phone: user?.phone || '',
+    email: user?.email || '',
+  });
+
+  useEffect(() => {
+    if (!user) return;
+    setGuestInfo({
+      name: user.name || '',
+      phone: user.phone || '',
+      email: user.email || '',
+    });
+  }, [user]);
 
   useEffect(() => {
     if (location?.address) setDeliveryAddress(location.address);
@@ -36,6 +63,16 @@ export default function Checkout() {
     if (!user?.id) return undefined;
     return listenToWallet(user.id, setWallet);
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!cart.restaurantId) {
+      setRestaurantStatus(null);
+      return;
+    }
+    getRestaurant(cart.restaurantId)
+      .then(setRestaurantStatus)
+      .catch(() => setRestaurantStatus(null));
+  }, [cart.restaurantId]);
 
   const walletBalance = wallet?.isVirtual ? (user?.feastCoins ?? user?.wallet ?? 0) : (wallet?.currentBalance ?? user?.feastCoins ?? user?.wallet ?? 0);
   const bill = calculateBill({
@@ -60,26 +97,26 @@ export default function Checkout() {
   };
 
   // Create order with Razorpay
-  const createRazorpayOrder = async (orderData) => {
+  const createRazorpayOrder = async (orderData, customer) => {
     try {
-      const response = await fetch(`${API_URL}/api/payments/create-order`, {
+      const response = await fetch(apiUrl('payments/create-order'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: Math.round(bill.finalPayable * 100), // Convert to paise
           currency: 'INR',
           receipt: `order_${Date.now()}`,
-          customerName: user.name,
-          customerEmail: user.email,
+          customerName: customer.name,
+          customerEmail: customer.email || 'guest@feastfleet.local',
         }),
       });
 
       if (!response.ok) {
-        const err = await response.json();
+        const err = await readJson(response, 'Failed to create Razorpay order');
         throw new Error(err.error || 'Failed to create Razorpay order');
       }
 
-      return await response.json();
+      return await readJson(response, 'Failed to create Razorpay order');
     } catch (error) {
       console.error('Razorpay order creation error:', error);
       throw error;
@@ -89,7 +126,7 @@ export default function Checkout() {
   // Verify Razorpay payment
   const verifyRazorpayPayment = async (razorpayOrderId, razorpayPaymentId, razorpaySignature) => {
     try {
-      const response = await fetch(`${API_URL}/api/payments/verify-payment`, {
+      const response = await fetch(apiUrl('payments/verify-payment'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -100,11 +137,11 @@ export default function Checkout() {
       });
 
       if (!response.ok) {
-        const err = await response.json();
+        const err = await readJson(response, 'Payment verification failed');
         throw new Error(err.error || 'Payment verification failed');
       }
 
-      return await response.json();
+      return await readJson(response, 'Payment verification failed');
     } catch (error) {
       console.error('Razorpay payment verification error:', error);
       throw error;
@@ -112,7 +149,7 @@ export default function Checkout() {
   };
 
   // Handle Razorpay checkout
-  const openRazorpayCheckout = (razorpayOrder, orderData) => {
+  const openRazorpayCheckout = (razorpayOrder, orderData, customer) => {
     return new Promise((resolve, reject) => {
       const options = {
         key: RAZORPAY_KEY_ID,
@@ -122,8 +159,9 @@ export default function Checkout() {
         name: 'FeastFleet',
         description: `Order from ${cart.restaurantName}`,
         prefill: {
-          name: user.name,
-          email: user.email,
+          name: customer.name,
+          email: customer.email || '',
+          contact: customer.phone || '',
         },
         handler: async (response) => {
           try {
@@ -168,19 +206,56 @@ export default function Checkout() {
     });
   };
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve, reject) => {
+      if (window.Razorpay) return resolve();
+      const existing = document.querySelector('script[data-razorpay-checkout="true"]');
+      if (existing) {
+        existing.addEventListener('load', () => resolve());
+        existing.addEventListener('error', () => reject(new Error('Failed to load Razorpay SDK')));
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.dataset.razorpayCheckout = 'true';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Razorpay SDK'));
+      document.body.appendChild(script);
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!cart.items.length) return setError('Cart is empty.');
-    
-    setLoading(true); 
-    setError('');
 
+    const customer = {
+      name: (isGuest ? guestInfo.name : user?.name) || '',
+      phone: (isGuest ? guestInfo.phone : user?.phone) || '',
+      email: (isGuest ? guestInfo.email : user?.email) || '',
+    };
+
+    if (!customer.name.trim()) return setError('Name is required.');
+    if (!customer.phone.trim()) return setError('Phone number is required.');
+    if (!deliveryAddress.trim()) return setError('Delivery address is required.');
+
+    setLoading(true);
+    setError('');
     try {
+      if (restaurantStatus && !(restaurantStatus.isAcceptingOrdersNow ?? restaurantStatus.isOpen)) {
+        throw new Error(restaurantStatus.orderStatusReason || 'This restaurant is currently closed');
+      }
+
+      const guestId = isGuest ? `guest_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}` : user.id;
       const orderData = {
         restaurantId: cart.restaurantId,
         restaurantName: cart.restaurantName,
-        customerId: user.id,
-        customerName: user.name,
+        customerId: guestId,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        customerEmail: customer.email || null,
+        isGuest,
         deliveryAgentId: cart.restaurantHasOwnDelivery ? null : 'u5',
         deliveryAgentName: cart.restaurantHasOwnDelivery ? 'Restaurant Delivery' : 'Arjun Patel',
         items: cart.items.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity, image: i.image || '' })),
@@ -196,7 +271,7 @@ export default function Checkout() {
         feastCoinsEarned: bill.coinsEarned,
         total: +bill.finalPayable.toFixed(2),
         promoCode: promo?.code || null,
-        redeemFeastCoins: useFeastCoins,
+        redeemFeastCoins: !isGuest && useFeastCoins,
         deliveryAddress,
         deliveryLat: location?.lat || null,
         deliveryLng: location?.lng || null,
@@ -213,18 +288,21 @@ export default function Checkout() {
         clearCart();
         navigate(`/order-confirmation/${order.id}`);
       } else {
+        if (!RAZORPAY_KEY_ID) throw new Error('Razorpay key is not configured. Check REACT_APP_RAZORPAY_KEY_ID.');
+        await loadRazorpayScript();
+
         // Razorpay checkout
-        const razorpayOrder = await createRazorpayOrder(orderData);
-        const order = await openRazorpayCheckout(razorpayOrder, orderData);
+        const razorpayOrder = await createRazorpayOrder(orderData, customer);
+        const order = await openRazorpayCheckout(razorpayOrder, orderData, customer);
         navigate(`/order-confirmation/${order.id}`);
       }
-    } catch (err) { 
-      setError(err.message || 'An error occurred'); 
-    }
-    finally { 
-      setLoading(false); 
+    } catch (err) {
+      setError(err?.message || 'An error occurred');
+    } finally {
+      setLoading(false);
     }
   };
+
 
   if (!cart.items.length) return (
     <div className={styles.empty}>
@@ -238,6 +316,12 @@ export default function Checkout() {
     <div className={styles.page}>
       <h2>Checkout</h2>
       <div className={styles.layout}>
+
+        {restaurantStatus && !(restaurantStatus.isAcceptingOrdersNow ?? restaurantStatus.isOpen) && (
+          <div className={styles.closedBanner}>
+            {restaurantStatus.orderStatusReason || 'This restaurant is not accepting orders right now.'}
+          </div>
+        )}
 
         {/* Left: Cart summary */}
         <div className={styles.left}>
@@ -316,10 +400,41 @@ export default function Checkout() {
         {/* Right: Delivery form */}
         <form className={styles.form} onSubmit={handleSubmit}>
           <h3>Delivery Details</h3>
-          <div className={styles.customerInfo}>
-            <span>{user.avatar}</span>
-            <div><strong>{user.name}</strong><p>{user.email}</p></div>
-          </div>
+          {isGuest ? (
+            <>
+              <label>Full Name
+                <input
+                  required
+                  type="text"
+                  placeholder="Enter your name"
+                  value={guestInfo.name}
+                  onChange={e => setGuestInfo(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </label>
+              <label>Phone Number
+                <input
+                  required
+                  type="tel"
+                  placeholder="Enter mobile number"
+                  value={guestInfo.phone}
+                  onChange={e => setGuestInfo(prev => ({ ...prev, phone: e.target.value }))}
+                />
+              </label>
+              <label>Email (Optional)
+                <input
+                  type="email"
+                  placeholder="Enter email for payment receipts"
+                  value={guestInfo.email}
+                  onChange={e => setGuestInfo(prev => ({ ...prev, email: e.target.value }))}
+                />
+              </label>
+            </>
+          ) : (
+            <div className={styles.customerInfo}>
+              <span>{user.avatar}</span>
+              <div><strong>{user.name}</strong><p>{user.email}</p></div>
+            </div>
+          )}
           <label>Delivery Address
             <div className={styles.addressRow}>
               <textarea required placeholder="Enter your delivery address" rows={3}

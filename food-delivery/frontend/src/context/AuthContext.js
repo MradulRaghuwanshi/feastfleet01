@@ -1,7 +1,7 @@
 ﻿import React, { createContext, useContext, useState, useEffect } from 'react';
 import { collection, query, where, getDocs, setDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { firebaseLogin, firebaseLogout, onAuthChange, getUserProfile } from '../firebase/services';
+import { getUserProfile } from '../firebase/services';
 
 const AuthContext = createContext();
 
@@ -15,67 +15,27 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
-    let initTimer = null;
-
-    const initAuth = async () => {
+    const saved = localStorage.getItem('fd_user');
+    if (saved) {
       try {
-        // Check localStorage first for Firestore-only users (no Firebase Auth)
-        const saved = localStorage.getItem('fd_user');
-        if (saved && mounted) {
-          try {
-            const parsed = JSON.parse(saved);
-            setUser(parsed);
-          } catch {
-            localStorage.removeItem('fd_user');
-          }
-        }
-
-        // Also listen to Firebase Auth state for staff accounts
-        const unsub = onAuthChange(async (firebaseUser) => {
-          if (!mounted) return;
-          try {
-            if (firebaseUser) {
-              const profile = await getUserProfile(firebaseUser.uid);
-              if (profile && mounted) {
-                setUser(profile);
-                localStorage.setItem('fd_user', JSON.stringify(profile));
-              }
-            }
-            if (mounted) setLoading(false);
-          } catch (err) {
-            console.error('Firebase profile error:', err);
-            if (mounted) setLoading(false);
-          }
-        });
-
-        // If no Firebase auth listener fires within 2s, stop loading
-        initTimer = setTimeout(() => {
-          if (mounted) setLoading(false);
-        }, 2000);
-
-        return () => { unsub(); clearTimeout(initTimer); };
-      } catch (err) {
-        console.error('Auth init error:', err);
-        if (mounted) {
-          setInitError(err);
-          setLoading(false);
-        }
+        setUser(JSON.parse(saved));
+      } catch {
+        localStorage.removeItem('fd_user');
       }
-    };
+    }
 
-    const cleanup = initAuth();
+    setLoading(false);
+
     return () => {
       mounted = false;
-      if (initTimer) clearTimeout(initTimer);
-      if (cleanup) cleanup();
     };
   }, []);
 
   // ── Login ──────────────────────────────────────────────────────────────────
   const login = async (email, password) => {
-    // 1. Try Firestore loginCredentials (works for all users, no Firebase Auth needed)
+    // Try Firestore loginCredentials first; this app no longer depends on Firebase Auth.
     try {
-      // Query by email only to avoid needing a composite index on email+password
+      // Query by email only to avoid needing a composite index on email+password.
       const q = query(
         collection(db, 'loginCredentials'),
         where('email', '==', email)
@@ -94,26 +54,8 @@ export function AuthProvider({ children }) {
       }
     } catch (err) {
       console.error('Firestore login query error:', err);
-      // Continue to Firebase Auth fallback, but surface critical errors
       if (err.code === 'permission-denied') {
         throw new Error('Database access denied. Check Firestore rules.');
-      }
-    }
-
-    // 2. Fallback: try Firebase Auth (for staff with Auth enabled)
-    try {
-      const cred = await firebaseLogin(email, password);
-      const profile = await getUserProfile(cred.user.uid);
-      if (profile) {
-        setUser(profile);
-        localStorage.setItem('fd_user', JSON.stringify(profile));
-        return profile;
-      }
-    } catch (e) {
-      if (e.code !== 'auth/configuration-not-found' &&
-          e.code !== 'auth/operation-not-allowed' &&
-          e.code !== 'auth/user-not-found') {
-        throw e;
       }
     }
 
@@ -154,7 +96,6 @@ export function AuthProvider({ children }) {
 
   // ── Logout ─────────────────────────────────────────────────────────────────
   const logout = async () => {
-    await firebaseLogout().catch(() => {});
     localStorage.removeItem('fd_user');
     setUser(null);
   };

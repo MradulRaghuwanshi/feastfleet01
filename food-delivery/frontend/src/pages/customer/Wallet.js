@@ -15,13 +15,16 @@ export default function Wallet() {
   const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
+    if (!user?.id) return () => {};
+
     const unsubWallet = listenToWallet(user.id, setWallet);
     const unsubTransactions = listenToWalletTransactions(user.id, setTransactions);
+
     return () => {
       unsubWallet();
       unsubTransactions();
     };
-  }, [user.id]);
+  }, [user?.id]);
 
   const balance = wallet?.isVirtual ? (user?.feastCoins ?? user?.wallet ?? 0) : (wallet?.currentBalance ?? user?.feastCoins ?? user?.wallet ?? 0);
   const expiryDays = wallet?.expiresAt

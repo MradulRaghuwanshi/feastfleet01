@@ -3,11 +3,14 @@ import { Link } from 'react-router-dom';
 import styles from './RestaurantCard.module.css';
 
 export default function RestaurantCard({ restaurant, isFavourite, onToggleFavourite }) {
+  const acceptingOrders = restaurant.isAcceptingOrdersNow ?? restaurant.isOpen;
+  const statusLabel = restaurant.orderStatusLabel || (acceptingOrders ? 'Open' : 'Closed');
+
   return (
-    <div className={`${styles.card} ${!restaurant.isOpen ? styles.closed : ''}`}>
+    <div className={`${styles.card} ${!acceptingOrders ? styles.closed : ''}`}>
       <div className={styles.imgWrapper}>
         <img src={restaurant.image} alt={restaurant.name} className={styles.img} />
-        {!restaurant.isOpen && <div className={styles.closedOverlay}>Closed</div>}
+        {!acceptingOrders && <div className={styles.closedOverlay}>{statusLabel}</div>}
         {restaurant.offer && <div className={styles.offerBadge}>🏷️ {restaurant.offer}</div>}
         {onToggleFavourite && (
           <button className={`${styles.favBtn} ${isFavourite ? styles.favActive : ''}`}
@@ -23,6 +26,9 @@ export default function RestaurantCard({ restaurant, isFavourite, onToggleFavour
           {restaurant.isFeatured && <span className={styles.featuredBadge}>⭐ Featured</span>}
         </div>
         <p className={styles.cuisine}>{restaurant.cuisine}</p>
+        <p className={styles.availability}>
+          {acceptingOrders ? 'Accepting orders now' : (restaurant.orderStatusReason || 'Temporarily closed')}
+        </p>
         {restaurant.tags?.length > 0 && (
           <div className={styles.tags}>
             {restaurant.tags.map(t => <span key={t} className={styles.tag}>{t}</span>)}

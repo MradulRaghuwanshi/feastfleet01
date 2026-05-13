@@ -23,7 +23,10 @@ export default function Navbar() {
 
   return (
     <nav className={styles.nav}>
-      <Link to="/" className={styles.logo}>🍔 FoodDash</Link>
+      <Link to="/" className={styles.logo}>
+        <img src="/logo.svg" alt="FeastFleet" className={styles.logoImg} />
+        <span>FeastFleet</span>
+      </Link>
 
       {user?.role === 'customer' && (
         <div className={styles.locationWrapper}><LocationBar /></div>
@@ -41,27 +44,41 @@ export default function Navbar() {
           </>
         )}
 
-        <div className={styles.userMenu}>
-          <button className={styles.avatarBtn} onClick={() => setMenuOpen(o => !o)}>
-            <span className={styles.avatar}>{user?.avatar}</span>
-            <span className={styles.userName}>{user?.name?.split(' ')[0]}</span>
-            <span>▾</span>
-          </button>
-          {menuOpen && (
-            <div className={styles.dropdown}>
-              <div className={styles.dropdownHeader}>
-                <strong>{user?.name}</strong>
-                <span className={`${styles.roleBadge} ${styles[user?.role]}`}>{user?.role}</span>
+        {!user && (
+          <>
+            <Link to="/checkout" className={styles.cartBtn}>
+              🛒 {totalItems > 0 && <span className={styles.badge}>{totalItems}</span>}
+            </Link>
+            <button className={styles.avatarBtn} onClick={() => navigate('/login')}>
+              <span className={styles.avatar}>👤</span>
+              <span className={styles.userName}>Sign In</span>
+            </button>
+          </>
+        )}
+
+        {user && (
+          <div className={styles.userMenu}>
+            <button className={styles.avatarBtn} onClick={() => setMenuOpen(o => !o)}>
+              <span className={styles.avatar}>{user?.avatar}</span>
+              <span className={styles.userName}>{user?.name?.split(' ')[0]}</span>
+              <span>▾</span>
+            </button>
+            {menuOpen && (
+              <div className={styles.dropdown}>
+                <div className={styles.dropdownHeader}>
+                  <strong>{user?.name}</strong>
+                  <span className={`${styles.roleBadge} ${styles[user?.role]}`}>{user?.role}</span>
+                </div>
+                <div className={styles.dropdownEmail}>{user?.email}</div>
+                {user?.role === 'customer' && (
+                  <div className={styles.walletRow}>Feast Coins: <strong>{Math.floor(feastCoins)}</strong></div>
+                )}
+                <hr className={styles.hr} />
+                <button className={styles.logoutBtn} onClick={handleLogout}>🚪 Sign Out</button>
               </div>
-              <div className={styles.dropdownEmail}>{user?.email}</div>
-              {user?.role === 'customer' && (
-                <div className={styles.walletRow}>Feast Coins: <strong>{Math.floor(feastCoins)}</strong></div>
-              )}
-              <hr className={styles.hr} />
-              <button className={styles.logoutBtn} onClick={handleLogout}>🚪 Sign Out</button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </nav>
   );

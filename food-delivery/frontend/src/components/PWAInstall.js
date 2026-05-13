@@ -5,11 +5,14 @@ const PWAInstall = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
-    // Check if it's iOS
+    // Check device type
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const Android = /Android/.test(navigator.userAgent);
     setIsIOS(iOS);
+    setIsAndroid(Android);
 
     // Check if PWA is already installed
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
@@ -18,7 +21,7 @@ const PWAInstall = () => {
       return;
     }
 
-    // Listen for the beforeinstallprompt event
+    // Listen for the beforeinstallprompt event (PWA)
     const handleBeforeInstallPrompt = (e) => {
       console.log('beforeinstallprompt event fired');
       e.preventDefault();
@@ -37,17 +40,6 @@ const PWAInstall = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
-
-    // Check if service worker is registered
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistration().then(registration => {
-        if (registration) {
-          console.log('Service worker is registered');
-        } else {
-          console.warn('Service worker is not registered');
-        }
-      });
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -71,37 +63,23 @@ const PWAInstall = () => {
     setIsInstallable(false);
   };
 
+  const handleAPKDownload = () => {
+    // Trigger APK download for Android
+    const link = document.createElement('a');
+    link.href = '/app-NativeAppAI.apk';
+    link.download = 'app-NativeAppAI.apk';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    console.log('APK download initiated');
+  };
+
   const handleIOSInstall = () => {
     alert('To install FeastFleet:\n1. Tap the Share button\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
   };
 
-  if (!isInstallable && !isIOS) return null;
-
-  return (
-    <div className="pwa-install-banner">
-      <div className="pwa-install-content">
-        <div className="pwa-install-icon">
-          🍽️
-        </div>
-        <div className="pwa-install-text">
-          <h3>Get FeastFleet App</h3>
-          <p>Install for a better experience with offline access and notifications</p>
-        </div>
-        <button
-          className="pwa-install-button"
-          onClick={isIOS ? handleIOSInstall : handleInstallClick}
-        >
-          {isIOS ? 'How to Install' : 'Install App'}
-        </button>
-        <button
-          className="pwa-install-close"
-          onClick={() => setIsInstallable(false)}
-        >
-          ✕
-        </button>
-      </div>
-    </div>
-  );
+  // Return null - Install button is now in BottomNav
+  return null;
 };
 
 export default PWAInstall;

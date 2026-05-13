@@ -4,7 +4,8 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   position: sticky; top: 0; z-index: 100; gap: 10px;
 }
-.logo { font-size: 20px; font-weight: 800; color: #ff6b35; flex-shrink: 0; }
+.logo { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 800; color: #ff6b35; flex-shrink: 0; }
+.logoImg { width: 36px; height: 36px; border-radius: 6px; object-fit: contain; }
 .locationWrapper { flex: 1; display: flex; justify-content: center; min-width: 0; }
 .right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .link { font-weight: 500; color: #444; font-size: 13px; white-space: nowrap; }

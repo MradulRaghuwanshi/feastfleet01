@@ -59,7 +59,10 @@ export default function AdminDashboard() {
   return (
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
-        <div className={styles.brand}>👑 FoodDash<span>Admin</span></div>
+        <div className={styles.brand}>
+          <img src="/logo.svg" alt="FeastFleet" className={styles.brandLogo} />
+          <div>FeastFleet<span>Admin</span></div>
+        </div>
         <nav className={styles.nav}>
           {TABS.map(t => (
             <button key={t} className={`${styles.navBtn} ${tab === t ? styles.active : ''}`}
@@ -293,27 +296,125 @@ function Orders({ orders, users, adminId }) {
 /* ── Restaurants ─────────────────────────────────────────────────────────── */
 
 function Restaurants({ restaurants, onEdit, onDelete }) {
+  const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+  const [csvUploading, setCsvUploading] = useState(false);
+  const [csvResult, setCsvResult] = useState(null);
+  const csvFileInputRef = React.useRef(null);
+
+  const handleCSVFileSelect = async (file) => {
+    if (!selectedRestaurant) {
+      alert('Please select a restaurant first');
+      return;
+    }
+
+    if (!file.name.endsWith('.csv')) {
+      alert('Please upload a CSV file');
+      return;
+    }
+
+    setCsvUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const csvText = e.target.result;
+        const lines = csvText.split('\n').map(l => l.trim()).filter(l => l);
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        
+        const csvData = lines.slice(1).map(line => {
+          const values = line.split(',').map(v => v.trim());
+          const row = {};
+          headers.forEach((header, idx) => {
+            row[header] = values[idx] || '';
+          });
+          return row;
+        });
+
+        const response = await fetch('/api/menu-bulk/import-csv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ restaurantId: selectedRestaurant.id, csvData })
+        });
+
+        const result = await response.json();
+        setCsvResult(result);
+      } catch (error) {
+        alert('Error processing CSV: ' + error.message);
+      } finally {
+        setCsvUploading(false);
+        if (csvFileInputRef.current) csvFileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const downloadTemplate = async () => {
+    const response = await fetch('/api/menu-bulk/export-csv-template');
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'menu-template.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className={styles.cardGrid}>
-      {restaurants.map(r => (
-        <div key={r.id} className={styles.restCard}>
-          <img src={r.image} alt={r.name} className={styles.restImg} />
-          <div className={styles.restInfo}>
-            <div className={styles.restHeader}>
-              <h3>{r.name}</h3>
-              <span className={`${styles.openBadge} ${r.isOpen ? styles.open : styles.closed}`}>{r.isOpen ? 'Open' : 'Closed'}</span>
+    <div>
+      {selectedRestaurant && (
+        <div className={styles.csvSection}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <h3>Bulk Menu Upload for {selectedRestaurant.name}</h3>
+            <button className={styles.addBtn} onClick={() => setSelectedRestaurant(null)} style={{ marginLeft: 'auto' }}>✕ Done</button>
+          </div>
+          <div className={styles.csvActions}>
+            <button className={styles.csvDownloadBtn} onClick={downloadTemplate}>📥 Download CSV Template</button>
+            <label className={styles.csvUploadBtn}>
+              📤 Upload CSV
+              <input ref={csvFileInputRef} type="file" accept=".csv" className={styles.csvInput} onChange={e => e.target.files?.[0] && handleCSVFileSelect(e.target.files[0])} disabled={csvUploading} />
+            </label>
+          </div>
+          {csvUploading && (
+            <div className={styles.csvProgress}>
+              <div className={styles.csvProgressBar}><div className={styles.csvProgressFill} style={{ width: '100%' }}></div></div>
+              <p style={{ textAlign: 'center', color: '#888', fontSize: '12px' }}>Uploading...</p>
             </div>
-            <p className={styles.restCuisine}>{r.cuisine} · ⭐ {r.rating}</p>
-            <p className={styles.restAddr}>📍 {r.address}</p>
-            <p className={styles.restMeta}>🚚 ₹{r.deliveryFee} · Min ₹{r.minOrder} · {r.deliveryTime}</p>
-            {r.offer && <p className={styles.restOffer}>🏷️ {r.offer}</p>}
-          </div>
-          <div className={styles.restActions}>
-            <button className={styles.editBtn} onClick={() => onEdit(r)}>✏️ Edit</button>
-            <button className={styles.deleteBtn} onClick={() => { if(window.confirm(`Delete ${r.name}?`)) onDelete(r.id); }}>🗑️ Delete</button>
-          </div>
+          )}
+          {csvResult && (
+            <div className={styles.csvResults}>
+              <p className={styles.csvSuccess}>✅ Success: {csvResult.success} items imported</p>
+              {csvResult.failed > 0 && <p className={styles.csvFailed}>❌ Failed: {csvResult.failed} items</p>}
+              {csvResult.errors?.length > 0 && (
+                <ul className={styles.csvErrors}>
+                  {csvResult.errors.slice(0, 5).map((err, i) => <li key={i}>{err}</li>)}
+                  {csvResult.errors.length > 5 && <li>... and {csvResult.errors.length - 5} more</li>}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
-      ))}
+      )}
+      <div className={styles.cardGrid}>
+        {restaurants.map(r => (
+          <div key={r.id} className={styles.restCard}>
+            <img src={r.image} alt={r.name} className={styles.restImg} />
+            <div className={styles.restInfo}>
+              <div className={styles.restHeader}>
+                <h3>{r.name}</h3>
+                <span className={`${styles.openBadge} ${r.isOpen ? styles.open : styles.closed}`}>{r.isOpen ? 'Open' : 'Closed'}</span>
+              </div>
+              <p className={styles.restCuisine}>{r.cuisine} · ⭐ {r.rating}</p>
+              <p className={styles.restAddr}>📍 {r.address}</p>
+              <p className={styles.restMeta}>🚚 ₹{r.deliveryFee} · Min ₹{r.minOrder} · {r.deliveryTime}</p>
+              {r.offer && <p className={styles.restOffer}>🏷️ {r.offer}</p>}
+            </div>
+            <div className={styles.restActions}>
+              <button className={styles.editBtn} onClick={() => onEdit(r)}>✏️ Edit</button>
+              <button className={styles.editBtn} onClick={() => setSelectedRestaurant(r)}>📊 CSV Menu</button>
+              <button className={styles.deleteBtn} onClick={() => { if (window.confirm(`Delete ${r.name}?`)) onDelete(r.id); }}>🗑️ Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

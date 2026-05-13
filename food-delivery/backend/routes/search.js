@@ -8,23 +8,7 @@ router.get('/', async (req, res) => {
     const q = (req.query.q || '').toLowerCase().trim();
     if (!q) return res.json({ restaurants: [], dishes: [] });
 
-    if (!db) {
-      const { restaurants } = require('../data/db');
-      const matchedRestaurants = restaurants
-        .filter(r => r.name.toLowerCase().includes(q) || r.cuisine.toLowerCase().includes(q))
-        .map(({ menu, ...r }) => ({ ...r, itemCount: menu.length }));
-
-      const dishes = [];
-      restaurants.forEach(r => {
-        r.menu.forEach(item => {
-          if (item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q)) {
-            dishes.push({ ...item, restaurantId: r.id, restaurantName: r.name });
-          }
-        });
-      });
-
-      return res.json({ restaurants: matchedRestaurants, dishes });
-    }
+    if (!db) return res.status(503).json({ error: 'Restaurant database is not configured' });
 
     // Firebase search
     const restSnap = await db.collection('restaurants').get();

@@ -12,6 +12,7 @@
 .nameRow h3 { font-size: 17px; font-weight: 700; }
 .featuredBadge { font-size: 11px; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
 .cuisine { color: #888; font-size: 13px; margin-bottom: 8px; }
+.availability { color: #64748b; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 .tag { font-size: 11px; background: #f0f0f0; color: #555; padding: 2px 8px; border-radius: 10px; }
 .meta { display: flex; gap: 10px; font-size: 12px; color: #666; flex-wrap: wrap; align-items: center; }

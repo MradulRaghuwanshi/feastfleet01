@@ -21,6 +21,119 @@ import {
   roundMoney,
 } from '../domain/platform';
 
+const isLocalHost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_ROOT = (process.env.REACT_APP_API_URL || '')
+  ? `${process.env.REACT_APP_API_URL}/api`
+  : (isLocalHost ? 'http://localhost:5000/api' : '/api');
+
+const apiJson = async (path, options = {}) => {
+  const response = await fetch(`${API_ROOT}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
+
+  const text = await response.text();
+  const payload = text ? (() => {
+    try { return JSON.parse(text); } catch { return { error: text }; }
+  })() : {};
+
+  if (!response.ok) {
+    throw new Error(payload.error || payload.message || `Request failed with status ${response.status}`);
+  }
+
+  return payload;
+};
+
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const WEEKDAY_NAMES = {
+  sun: ['sun', 'sunday'],
+  mon: ['mon', 'monday'],
+  tue: ['tue', 'tuesday'],
+  wed: ['wed', 'wednesday'],
+  thu: ['thu', 'thursday'],
+  fri: ['fri', 'friday'],
+  sat: ['sat', 'saturday'],
+};
+
+const normalizeDay = (day) => String(day || '').trim().toLowerCase();
+
+const normalizeActiveDays = (days) => {
+  if (!Array.isArray(days) || days.length === 0) return [...WEEKDAY_KEYS];
+  const normalized = days
+    .map(normalizeDay)
+    .flatMap(day => {
+      const matched = Object.entries(WEEKDAY_NAMES).find(([, aliases]) => aliases.includes(day));
+      return matched ? [matched[0]] : [];
+    });
+  return normalized.length ? [...new Set(normalized)] : [...WEEKDAY_KEYS];
+};
+
+const parseMinutes = (timeValue) => {
+  if (!timeValue) return null;
+  const [hours, minutes] = String(timeValue).split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  return (hours * 60) + minutes;
+};
+
+export const getRestaurantOrderStatus = (restaurant, at = new Date()) => {
+  if (!restaurant) {
+    return { isAcceptingOrdersNow: false, orderStatusLabel: 'Unavailable', orderStatusReason: 'Restaurant unavailable' };
+  }
+
+  const activeDays = normalizeActiveDays(restaurant.activeDays);
+  const currentDay = WEEKDAY_KEYS[at.getDay()];
+  const openingMinutes = parseMinutes(restaurant.openingTime);
+  const closingMinutes = parseMinutes(restaurant.closingTime);
+  const nowMinutes = at.getHours() * 60 + at.getMinutes();
+
+  if (restaurant.isOpen === false) {
+    return {
+      ...restaurant,
+      activeDays,
+      isAcceptingOrdersNow: false,
+      orderStatusLabel: 'Closed',
+      orderStatusReason: restaurant.closedMessage || 'Restaurant is closed',
+    };
+  }
+
+  if (!activeDays.includes(currentDay)) {
+    return {
+      ...restaurant,
+      activeDays,
+      isAcceptingOrdersNow: false,
+      orderStatusLabel: 'Closed today',
+      orderStatusReason: restaurant.closedMessage || 'Restaurant is closed today',
+    };
+  }
+
+  if (openingMinutes === null || closingMinutes === null) {
+    return {
+      ...restaurant,
+      activeDays,
+      isAcceptingOrdersNow: true,
+      orderStatusLabel: 'Open',
+      orderStatusReason: '',
+    };
+  }
+
+  const crossesMidnight = closingMinutes <= openingMinutes;
+  const isOpenNow = crossesMidnight
+    ? nowMinutes >= openingMinutes || nowMinutes < closingMinutes
+    : nowMinutes >= openingMinutes && nowMinutes < closingMinutes;
+
+  return {
+    ...restaurant,
+    activeDays,
+    isAcceptingOrdersNow: isOpenNow,
+    orderStatusLabel: isOpenNow ? 'Open' : 'Closed now',
+    orderStatusReason: isOpenNow
+      ? ''
+      : (restaurant.closedMessage || `Open ${restaurant.openingTime || '00:00'} - ${restaurant.closingTime || '23:59'}`),
+  };
+};
+
+const enhanceRestaurant = (restaurant) => getRestaurantOrderStatus(restaurant);
+
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MINUTES = 45;
 const OTP_MAX_ATTEMPTS = 5;
@@ -129,52 +242,31 @@ export const getUserProfile = async (uid) => {
 
 // ─── RESTAURANTS ──────────────────────────────────────────────────────────────
 export const getRestaurants = async (cuisine) => {
-  let q = collection(db, 'restaurants');
-  if (cuisine && cuisine !== 'All') {
-    q = query(q, where('cuisine', '==', cuisine));
-  }
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const queryParam = cuisine && cuisine !== 'All' ? `?cuisine=${encodeURIComponent(cuisine)}` : '';
+  const restaurants = await apiJson(`/restaurants${queryParam}`);
+  return restaurants.map(enhanceRestaurant);
 };
 
 export const getRestaurant = async (id) => {
-  const snap = await getDoc(doc(db, 'restaurants', id));
-  if (!snap.exists()) return null;
-  const menuSnap = await getDocs(collection(db, 'restaurants', id, 'menu'));
-  const menu = menuSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  return { id: snap.id, ...snap.data(), menu };
+  try {
+    const restaurant = await apiJson(`/restaurants/${id}`);
+    return enhanceRestaurant(restaurant);
+  } catch (error) {
+    console.error('Get restaurant error:', error);
+    return null;
+  }
 };
 
 export const toggleRestaurantStatus = async (id) => {
-  const snap = await getDoc(doc(db, 'restaurants', id));
-  await updateDoc(doc(db, 'restaurants', id), { isOpen: !snap.data().isOpen });
+  await apiJson(`/restaurants/${id}/toggle-status`, { method: 'PATCH', body: '{}' });
 };
 
 export const toggleMenuItemAvailability = async (restaurantId, itemId) => {
-  const itemRef = doc(db, 'restaurants', restaurantId, 'menu', itemId);
-  const snap = await getDoc(itemRef);
-  await updateDoc(itemRef, { available: !snap.data().available });
+  await apiJson(`/restaurants/${restaurantId}/menu/${itemId}`, { method: 'PATCH', body: '{}' });
 };
 
 export const searchRestaurants = async (q) => {
-  const allSnap = await getDocs(collection(db, 'restaurants'));
-  const all = allSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const ql = q.toLowerCase();
-  const matchedRestaurants = all.filter(r =>
-    r.name.toLowerCase().includes(ql) || r.cuisine.toLowerCase().includes(ql)
-  );
-  // Search menu items
-  const dishes = [];
-  for (const r of all) {
-    const menuSnap = await getDocs(collection(db, 'restaurants', r.id, 'menu'));
-    menuSnap.docs.forEach(d => {
-      const item = d.data();
-      if (item.name.toLowerCase().includes(ql) || item.description?.toLowerCase().includes(ql)) {
-        dishes.push({ ...item, id: d.id, restaurantId: r.id, restaurantName: r.name });
-      }
-    });
-  }
-  return { restaurants: matchedRestaurants, dishes };
+  return apiJson(`/search?q=${encodeURIComponent(q)}`);
 };
 
 // ─── FEAST COINS WALLET ──────────────────────────────────────────────────────
@@ -251,15 +343,18 @@ export const redeemableFeastCoins = (balance = 0, payable = Infinity) => {
 
 // ─── ORDERS ───────────────────────────────────────────────────────────────────
 export const placeOrder = async (orderData) => {
-  if (!orderData?.restaurantId || !orderData?.items?.length || !orderData?.customerId) {
-    throw new Error('Restaurant, customer and cart items are required');
+  if (!orderData?.restaurantId || !orderData?.items?.length || !orderData?.customerName) {
+    throw new Error('Restaurant, customer details and cart items are required');
   }
+
+  const customerId = orderData.customerId || `guest_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const isGuestOrder = Boolean(orderData.isGuest || String(customerId).startsWith('guest_'));
 
   const otp = generatePickupOtp();
   const encryptedOtp = await encryptPickupOtp(otp);
   const orderRef = doc(collection(db, 'orders'));
-  const walletRef = getWalletRef(orderData.customerId);
-  const userRef = doc(db, 'users', orderData.customerId);
+  const walletRef = getWalletRef(customerId);
+  const userRef = doc(db, 'users', customerId);
   const txRef = doc(collection(walletRef, 'transactions'));
   const earnTxRef = doc(collection(walletRef, 'transactions'));
   const appConfigRef = doc(db, 'appConfig', 'general');
@@ -269,8 +364,8 @@ export const placeOrder = async (orderData) => {
   const order = await runTransaction(db, async (transaction) => {
     const [restaurantSnap, walletSnap, userSnap, appConfigSnap, promoSnap] = await Promise.all([
       transaction.get(restaurantRef),
-      transaction.get(walletRef),
-      transaction.get(userRef),
+      isGuestOrder ? Promise.resolve(null) : transaction.get(walletRef),
+      isGuestOrder ? Promise.resolve(null) : transaction.get(userRef),
       transaction.get(appConfigRef),
       promoRef ? transaction.get(promoRef) : Promise.resolve(null),
     ]);
@@ -278,16 +373,22 @@ export const placeOrder = async (orderData) => {
     if (!restaurantSnap.exists()) throw new Error('Restaurant not found');
 
     const restaurant = restaurantSnap.data();
+    const availability = getRestaurantOrderStatus(restaurant);
+    if (!availability.isAcceptingOrdersNow) {
+      throw new Error(availability.orderStatusReason || 'Restaurant is currently closed');
+    }
     const appConfig = appConfigSnap.exists() ? appConfigSnap.data() : {};
-    const userData = userSnap.exists() ? userSnap.data() : {};
-    const fallbackBalance = userData.feastCoins ?? userData.wallet ?? 0;
-    const { isVirtual, id, ...fallbackWallet } = getInitialWallet(orderData.customerId, fallbackBalance);
-    const wallet = ensureWalletForMonth(
-      transaction,
-      walletRef,
-      walletSnap.exists() ? walletSnap.data() : fallbackWallet,
-      orderData.customerId
-    );
+    const userData = userSnap?.exists?.() ? userSnap.data() : {};
+    const fallbackBalance = isGuestOrder ? 0 : (userData.feastCoins ?? userData.wallet ?? 0);
+    const { isVirtual, id, ...fallbackWallet } = getInitialWallet(customerId, fallbackBalance);
+    const wallet = isGuestOrder
+      ? fallbackWallet
+      : ensureWalletForMonth(
+          transaction,
+          walletRef,
+          walletSnap.exists() ? walletSnap.data() : fallbackWallet,
+          customerId
+        );
 
     let promo = null;
     if (promoSnap?.exists()) {
@@ -309,25 +410,32 @@ export const placeOrder = async (orderData) => {
       items,
       promo,
       feastCoinBalance: wallet.currentBalance,
-      redeemFeastCoins: Boolean(orderData.redeemFeastCoins || orderData.useFeastCoins),
+      redeemFeastCoins: !isGuestOrder && Boolean(orderData.redeemFeastCoins || orderData.useFeastCoins),
     });
 
-    if (bill.feastCoinRedemption > Number(wallet.currentBalance || 0)) {
+    const feastCoinRedemption = isGuestOrder ? 0 : bill.feastCoinRedemption;
+    const coinsEarned = isGuestOrder ? 0 : bill.coinsEarned;
+
+    if (feastCoinRedemption > Number(wallet.currentBalance || 0)) {
       throw new Error('Insufficient Feast Coin balance');
     }
 
     const currentBalance = Math.max(0, Math.floor(Number(wallet.currentBalance || 0)));
-    const nextBalance = Math.max(0, currentBalance - bill.feastCoinRedemption + bill.coinsEarned);
+    const nextBalance = Math.max(0, currentBalance - feastCoinRedemption + coinsEarned);
     const placedAt = nowIso();
     const orderNumber = `FF-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${orderRef.id.slice(0, 6).toUpperCase()}`;
 
     const orderPayload = {
       id: orderRef.id,
       orderNumber,
-      customerId: orderData.customerId,
+      customerId,
       customerName: orderData.customerName,
+      customerPhone: orderData.customerPhone || null,
+      customerEmail: orderData.customerEmail || null,
+      isGuest: isGuestOrder,
       restaurantId: orderData.restaurantId,
       restaurantName: orderData.restaurantName || restaurant.name,
+      restaurantOpenNow: availability.isAcceptingOrdersNow,
       deliveryAgentId: null,
       deliveryAgentName: 'Unassigned',
       items,
@@ -339,8 +447,8 @@ export const placeOrder = async (orderData) => {
       deliveryFee: bill.deliveryFee,
       discount: bill.discount,
       walletUsed: 0,
-      feastCoinRedemption: bill.feastCoinRedemption,
-      feastCoinsEarned: bill.coinsEarned,
+      feastCoinRedemption,
+      feastCoinsEarned: coinsEarned,
       platformCommission: bill.platformCommission,
       platformCommissionPercent: bill.commissionPercent,
       grossFoodAmount: bill.grossFoodAmount,
@@ -366,7 +474,7 @@ export const placeOrder = async (orderData) => {
       reviewed: false,
       placedAt,
       updatedAt: placedAt,
-      statusHistory: [makeStatusEvent(ORDER_STATUS.PLACED, orderData.customerId, 'Customer placed order')],
+      statusHistory: [makeStatusEvent(ORDER_STATUS.PLACED, customerId, isGuestOrder ? 'Guest placed order' : 'Customer placed order')],
       financialsPosted: false,
       deliveryEarningPosted: false,
       settlementPosted: false,
@@ -374,47 +482,49 @@ export const placeOrder = async (orderData) => {
 
     transaction.set(orderRef, orderPayload);
 
-    const walletUpdate = {
-      currentBalance: nextBalance,
-      earnedThisMonth: Number(wallet.earnedThisMonth || 0) + bill.coinsEarned,
-      redeemedThisMonth: Number(wallet.redeemedThisMonth || 0) + bill.feastCoinRedemption,
-      lifetimeEarned: Number(wallet.lifetimeEarned || 0) + bill.coinsEarned,
-      lifetimeRedeemed: Number(wallet.lifetimeRedeemed || 0) + bill.feastCoinRedemption,
-      monthKey: getMonthKey(),
-      expiresAt: getMonthEndIso(),
-      updatedAt: placedAt,
-    };
-    transaction.set(walletRef, { ...wallet, ...walletUpdate, userId: orderData.customerId }, { merge: true });
-    transaction.set(userRef, {
-      feastCoins: nextBalance,
-      wallet: nextBalance,
-      updatedAt: placedAt,
-    }, { merge: true });
-
-    if (bill.feastCoinRedemption > 0) {
-      transaction.set(txRef, {
-        userId: orderData.customerId,
-        orderId: orderRef.id,
-        type: 'redeem',
-        amount: -bill.feastCoinRedemption,
-        balanceAfter: nextBalance - bill.coinsEarned,
-        description: `Redeemed on order ${orderNumber}`,
-        createdAt: placedAt,
+    if (!isGuestOrder) {
+      const walletUpdate = {
+        currentBalance: nextBalance,
+        earnedThisMonth: Number(wallet.earnedThisMonth || 0) + coinsEarned,
+        redeemedThisMonth: Number(wallet.redeemedThisMonth || 0) + feastCoinRedemption,
+        lifetimeEarned: Number(wallet.lifetimeEarned || 0) + coinsEarned,
+        lifetimeRedeemed: Number(wallet.lifetimeRedeemed || 0) + feastCoinRedemption,
         monthKey: getMonthKey(),
-      });
-    }
+        expiresAt: getMonthEndIso(),
+        updatedAt: placedAt,
+      };
+      transaction.set(walletRef, { ...wallet, ...walletUpdate, userId: customerId }, { merge: true });
+      transaction.set(userRef, {
+        feastCoins: nextBalance,
+        wallet: nextBalance,
+        updatedAt: placedAt,
+      }, { merge: true });
 
-    if (bill.coinsEarned > 0) {
-      transaction.set(earnTxRef, {
-        userId: orderData.customerId,
-        orderId: orderRef.id,
-        type: 'earn',
-        amount: bill.coinsEarned,
-        balanceAfter: nextBalance,
-        description: `Earned ${bill.coinsEarned} Feast Coins for ₹${bill.subtotal.toFixed(0)} food subtotal`,
-        createdAt: placedAt,
-        monthKey: getMonthKey(),
-      });
+      if (feastCoinRedemption > 0) {
+        transaction.set(txRef, {
+          userId: customerId,
+          orderId: orderRef.id,
+          type: 'redeem',
+          amount: -feastCoinRedemption,
+          balanceAfter: nextBalance - coinsEarned,
+          description: `Redeemed on order ${orderNumber}`,
+          createdAt: placedAt,
+          monthKey: getMonthKey(),
+        });
+      }
+
+      if (coinsEarned > 0) {
+        transaction.set(earnTxRef, {
+          userId: customerId,
+          orderId: orderRef.id,
+          type: 'earn',
+          amount: coinsEarned,
+          balanceAfter: nextBalance,
+          description: `Earned ${coinsEarned} Feast Coins for ₹${bill.subtotal.toFixed(0)} food subtotal`,
+          createdAt: placedAt,
+          monthKey: getMonthKey(),
+        });
+      }
     }
 
     return orderPayload;
@@ -830,7 +940,10 @@ export const addRestaurant = async (data) => {
 };
 
 export const updateRestaurant = async (id, data) => {
-  await updateDoc(doc(db, 'restaurants', id), data);
+  await apiJson(`/restaurants/${id}/profile`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
 };
 
 export const deleteRestaurant = async (id) => {

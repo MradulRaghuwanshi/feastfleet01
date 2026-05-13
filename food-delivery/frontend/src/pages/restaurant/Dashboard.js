@@ -28,6 +28,29 @@ const STATUS_COLOR = {
   [ORDER_STATUS.DELIVERED]:           '#d1fae5',
 };
 
+const DAY_OPTIONS = [
+  { key: 'mon', label: 'Mon' },
+  { key: 'tue', label: 'Tue' },
+  { key: 'wed', label: 'Wed' },
+  { key: 'thu', label: 'Thu' },
+  { key: 'fri', label: 'Fri' },
+  { key: 'sat', label: 'Sat' },
+  { key: 'sun', label: 'Sun' },
+];
+
+const getProfileForm = (restaurantData) => ({
+  name: restaurantData?.name || '',
+  description: restaurantData?.description || '',
+  contactPhone: restaurantData?.contactPhone || restaurantData?.phone || '',
+  contactEmail: restaurantData?.contactEmail || '',
+  address: restaurantData?.address || '',
+  activeDays: restaurantData?.activeDays?.length ? restaurantData.activeDays : DAY_OPTIONS.map(d => d.key),
+  openingTime: restaurantData?.openingTime || '10:00',
+  closingTime: restaurantData?.closingTime || '22:00',
+  closedMessage: restaurantData?.closedMessage || '',
+  isOpen: restaurantData?.isOpen !== false,
+});
+
 function PickupOtp({ order, user }) {
   const [otp, setOtp] = useState('');
 
@@ -51,6 +74,9 @@ function PickupOtp({ order, user }) {
 export default function RestaurantDashboard() {
   const { user } = useAuth();
   const [tab, setTab]                         = useState('orders');
+
+  // Orders delivered filtering is done via normalizeOrderStatus to prevent refresh disappearance.
+
   const [orders, setOrders]                   = useState([]);
   const [restaurant, setRestaurant]           = useState(null);
   const [loading, setLoading]                 = useState(true);
@@ -60,6 +86,10 @@ export default function RestaurantDashboard() {
   const [visitPrize, setVisitPrize] = useState('');
   const [orderPrize, setOrderPrize] = useState('');
   const [savingPrizes, setSavingPrizes] = useState(false);
+
+  // Profile state
+  const [profileForm, setProfileForm] = useState(getProfileForm());
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // POS state
   const [posCart, setPosCart]       = useState([]);
@@ -79,6 +109,7 @@ export default function RestaurantDashboard() {
   const fetchRestaurant = useCallback(async () => {
     const r = await getRestaurant(user.restaurantId);
     setRestaurant(r);
+    setProfileForm(getProfileForm(r));
     setVisitPrize(r.visitPrize || '');
     setOrderPrize(r.orderPrize || '');
     setLoading(false);
@@ -114,6 +145,27 @@ export default function RestaurantDashboard() {
       await fetchRestaurant();
     } finally {
       setSavingPrizes(false);
+    }
+  };
+
+  const saveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      await updateRestaurant(user.restaurantId, {
+        name: profileForm.name.trim(),
+        description: profileForm.description.trim(),
+        contactPhone: profileForm.contactPhone.trim(),
+        contactEmail: profileForm.contactEmail.trim(),
+        address: profileForm.address.trim(),
+        activeDays: profileForm.activeDays,
+        openingTime: profileForm.openingTime,
+        closingTime: profileForm.closingTime,
+        closedMessage: profileForm.closedMessage.trim(),
+        isOpen: profileForm.isOpen,
+      });
+      await fetchRestaurant();
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -214,8 +266,12 @@ export default function RestaurantDashboard() {
     fetchRestaurant();
   };
 
+  // Always normalize status so refresh / backend variants map consistently
   const activeOrders = orders.filter(o => normalizeOrderStatus(o.status) !== ORDER_STATUS.DELIVERED);
-  const todayRevenue = orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED).reduce((s, o) => s + (o.total || 0), 0);
+  const todayRevenue = orders
+    .filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED)
+    .reduce((s, o) => s + (o.total || 0), 0);
+
   const categories   = restaurant?.menu ? ['All', ...new Set(restaurant.menu.map(i => i.category))] : ['All'];
   const filteredMenu = restaurant?.menu?.filter(i => posCategory === 'All' || i.category === posCategory) || [];
 
@@ -248,17 +304,26 @@ export default function RestaurantDashboard() {
           { key: 'pos',       label: 'POS / New Order' },
           { key: 'bill',      label: 'Bill / KOT' },
           { key: 'menu',      label: 'Menu Management' },
+          { key: 'profile',   label: 'Profile' },
+          { key: 'history',   label: 'Order History' },
           // { key: 'prizes',    label: 'Prizes & Rewards' },
           { key: 'analytics', label: 'Analytics' },
           { key: 'reviews',   label: 'Reviews' },
         ].map(t => (
           <button key={t.key}
             className={`${styles.tab} ${tab === t.key ? styles.activeTab : ''}`}
-            onClick={() => setTab(t.key)}>
+            onClick={() => {
+              if (t.key === 'history') {
+                window.location.href = '/history';
+                return;
+              }
+              setTab(t.key);
+            }}>
             {t.label}
           </button>
         ))}
       </div>
+
 
       {/* Live Orders */}
       {tab === 'orders' && (
@@ -319,6 +384,17 @@ export default function RestaurantDashboard() {
           setShowAddItem={setShowAddItem}
           newItem={newItem}
           setNewItem={setNewItem}
+        />
+      )}
+
+      {/* Restaurant Profile */}
+      {tab === 'profile' && (
+        <ProfileTab
+          restaurant={restaurant}
+          form={profileForm}
+          setForm={setProfileForm}
+          onSave={saveProfile}
+          saving={savingProfile}
         />
       )}
 
@@ -870,6 +946,104 @@ function MenuTab({
           );
         })
       )}
+    </div>
+  );
+}
+
+function ProfileTab({ restaurant, form, setForm, onSave, saving }) {
+  const toggleDay = (day) => {
+    setForm(prev => ({
+      ...prev,
+      activeDays: prev.activeDays.includes(day)
+        ? prev.activeDays.filter(value => value !== day)
+        : [...prev.activeDays, day],
+    }));
+  };
+
+  return (
+    <div className={styles.profileTab}>
+      <div className={styles.profileIntro}>
+        <h3>Restaurant Profile</h3>
+        <p>Edit the public details customers see and the hours they can order from you.</p>
+        <div className={styles.currentStatus}>
+          <span className={form.isOpen ? styles.statusOpen : styles.statusClosed}>
+            {form.isOpen ? 'Open' : 'Closed'}
+          </span>
+          <small>
+            {restaurant?.orderStatusReason || 'Schedule controls ordering availability.'}
+          </small>
+        </div>
+      </div>
+
+      <div className={styles.profileGrid}>
+        <label className={styles.profileField}>
+          Restaurant Name
+          <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} />
+        </label>
+        <label className={styles.profileField}>
+          Contact Phone
+          <input value={form.contactPhone} onChange={e => setForm(prev => ({ ...prev, contactPhone: e.target.value }))} />
+        </label>
+        <label className={styles.profileField}>
+          Contact Email
+          <input type="email" value={form.contactEmail} onChange={e => setForm(prev => ({ ...prev, contactEmail: e.target.value }))} />
+        </label>
+        <label className={styles.profileField}>
+          Address
+          <input value={form.address} onChange={e => setForm(prev => ({ ...prev, address: e.target.value }))} />
+        </label>
+        <label className={`${styles.profileField} ${styles.profileFull}`}> 
+          Description
+          <textarea rows={4} value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} />
+        </label>
+        <label className={`${styles.profileField} ${styles.profileFull}`}>
+          Closed Message
+          <input
+            value={form.closedMessage}
+            onChange={e => setForm(prev => ({ ...prev, closedMessage: e.target.value }))}
+            placeholder="e.g. We are closed right now. Please order between 10 AM and 10 PM."
+          />
+        </label>
+        <label className={styles.profileField}>
+          Opening Time
+          <input type="time" value={form.openingTime} onChange={e => setForm(prev => ({ ...prev, openingTime: e.target.value }))} />
+        </label>
+        <label className={styles.profileField}>
+          Closing Time
+          <input type="time" value={form.closingTime} onChange={e => setForm(prev => ({ ...prev, closingTime: e.target.value }))} />
+        </label>
+      </div>
+
+      <div className={styles.profileDays}>
+        <span className={styles.profileLabel}>Active Days</span>
+        <div className={styles.dayChips}>
+          {DAY_OPTIONS.map(day => (
+            <button
+              key={day.key}
+              type="button"
+              className={`${styles.dayChip} ${form.activeDays.includes(day.key) ? styles.dayChipActive : ''}`}
+              onClick={() => toggleDay(day.key)}
+            >
+              {day.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <label className={styles.profileSwitch}>
+        <input
+          type="checkbox"
+          checked={form.isOpen}
+          onChange={e => setForm(prev => ({ ...prev, isOpen: e.target.checked }))}
+        />
+        <span>Accept orders from customers</span>
+      </label>
+
+      <div className={styles.profileActions}>
+        <button className={styles.saveProfileBtn} onClick={onSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save Profile'}
+        </button>
+      </div>
     </div>
   );
 }

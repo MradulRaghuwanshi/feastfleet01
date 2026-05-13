@@ -3,7 +3,9 @@
 
 /* Sidebar */
 .sidebar { width: 220px; background: #1a1a2e; color: #fff; display: flex; flex-direction: column; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-.brand { padding: 20px 16px 14px; font-size: 18px; font-weight: 800; color: #ff6b35; }
+.brand { padding: 20px 16px 14px; font-size: 18px; font-weight: 800; color: #ff6b35; display: flex; align-items: center; gap: 10px; }
+.brandLogo { width: 40px; height: 40px; border-radius: 8px; object-fit: contain; }
+.brand div { display: flex; flex-direction: column; }
 .brand span { display: block; font-size: 10px; color: #888; font-weight: 400; letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
 .nav { flex: 1; padding: 6px 10px; display: flex; flex-direction: column; gap: 3px; }
 .navBtn { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: none; color: #aaa; font-size: 13px; font-weight: 500; text-align: left; transition: all 0.2s; }
@@ -146,6 +148,50 @@
   .statsGrid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .promoGrid { grid-template-columns: 1fr; }
 }
+
+/* CSV Upload Section */
+.csvSection { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.csvSection h3 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #1a1a2e; }
+.csvActions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.csvDownloadBtn { background: #e3f2fd; color: #1976d2; padding: 9px 16px; border-radius: 8px; font-weight: 600; font-size: 12px; }
+.csvUploadArea { border: 2px dashed #ffb366; border-radius: 10px; padding: 20px; text-align: center; background: #fff9f5; cursor: pointer; transition: all 0.2s; }
+.csvUploadArea:hover { border-color: #ff6b35; background: #fffbf7; }
+.csvUploadArea.dragging { border-color: #ff6b35; background: #fff3eb; }
+.csvUploadBtn { display: inline-block; background: #ff6b35; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 12px; cursor: pointer; margin-bottom: 8px; }
+.csvInput { display: none; }
+.csvProgress { margin-top: 14px; }
+.csvProgressBar { background: #f0f0f0; border-radius: 6px; height: 6px; overflow: hidden; margin-bottom: 8px; }
+.csvProgressFill { background: linear-gradient(to right, #ff6b35, #ff8a5b); height: 100%; transition: width 0.3s; }
+.csvResults { background: #f9f9f9; border-radius: 8px; padding: 12px; margin-top: 12px; }
+.csvSuccess { color: #10b981; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.csvFailed { color: #ef4444; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.csvErrors { list-style: none; padding: 0; margin: 0; }
+.csvErrors li { font-size: 11px; color: #888; padding: 3px 0; }
+
+/* Partner modal */
+.partnerThumb { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; }
+.actionBtns { display: flex; gap: 4px; }
+.viewBtn, .editBtn, .payBtn { background: #f0f0f0; padding: 5px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.badgeGreen { background: #d1fae5; color: #065f46; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.balanceBadge { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.balanceDue { background: #fef3c7; color: #92400e; }
+.balanceClear { background: #d1fae5; color: #065f46; }
+
+/* Offer tabs */
+.offerSection { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.offerTabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #f0f0f0; }
+.offerTab { padding: 10px 14px; border: none; background: none; font-size: 13px; font-weight: 600; color: #aaa; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+.offerTab.active { color: #ff6b35; border-bottom-color: #ff6b35; }
+.offerForm { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.offerForm label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 500; }
+.offerForm input, .offerForm select { border: 1.5px solid #e0e0e0; border-radius: 7px; padding: 8px 10px; font-size: 13px; font-family: inherit; }
+.offerForm input:focus, .offerForm select:focus { border-color: #ff6b35; outline: none; }
+.offerForm button { grid-column: 1 / -1; background: #ff6b35; color: #fff; padding: 10px; border-radius: 8px; font-weight: 600; font-size: 13px; }
+.offerList { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.offerItem { background: #f9f9f9; border-radius: 10px; padding: 12px; }
+.offerItem h4 { font-size: 13px; font-weight: 700; margin: 0 0 4px 0; color: #1a1a2e; }
+.offerItem p { font-size: 11px; color: #666; margin: 2px 0; }
+.offerItem .badge { display: inline-block; background: #ff6b35; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-top: 6px; }
 
 /* ── Delivery Partners ───────────────────────────────────────────────────── */
 

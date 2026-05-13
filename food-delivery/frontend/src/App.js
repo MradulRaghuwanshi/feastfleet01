@@ -19,6 +19,8 @@ import RestaurantDashboard from './pages/restaurant/Dashboard';
 import DeliveryDashboard from './pages/delivery/Dashboard';
 import AdminDashboard from './pages/admin/Dashboard';
 import POS from './pages/restaurant/POS';
+import RestaurantHistory from './pages/restaurant/History';
+
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -42,9 +44,21 @@ function AppRoutes() {
   const { user } = useAuth();
 
   if (!user) return (
-    <Routes>
-      <Route path="*" element={<Login />} />
-    </Routes>
+    <>
+      <Navbar />
+      <Routes>
+        <Route path="/"                       element={<Home />} />
+        <Route path="/login"                  element={<Login />} />
+        <Route path="/restaurant/:id"         element={<RestaurantMenu />} />
+        <Route path="/checkout"               element={<Checkout />} />
+        <Route path="/order-confirmation/:id" element={<OrderConfirmation />} />
+        <Route path="/orders"                 element={<Navigate to="/login" />} />
+        <Route path="/favourites"             element={<Navigate to="/login" />} />
+        <Route path="/wallet"                 element={<Navigate to="/login" />} />
+        <Route path="*"                       element={<Navigate to="/" />} />
+      </Routes>
+      <BottomNav />
+    </>
   );
 
   if (user.role === 'admin') return (
@@ -59,8 +73,10 @@ function AppRoutes() {
       <Navbar />
       <Routes>
         <Route path="/" element={<RestaurantDashboard />} />
+        <Route path="/history" element={<RestaurantHistory />} />
         <Route path="/pos" element={<POS />} />
         <Route path="*" element={<Navigate to="/" />} />
+
       </Routes>
     </>
   );

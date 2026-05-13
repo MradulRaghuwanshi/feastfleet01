@@ -1,0 +1,199 @@
+.page {
+  padding: 18px;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+}
+
+.countChip {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #0ea5e9;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 14px;
+}
+
+.left {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.listHeader {
+  padding: 12px;
+  font-weight: 800;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.orderList {
+  max-height: 72vh;
+  overflow: auto;
+}
+
+.orderRowBtn {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.orderRowBtn:hover {
+  background: #f8fafc;
+}
+
+.orderRowActive {
+  background: #eff6ff;
+}
+
+.orderRowTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.orderId {
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.orderTotal {
+  font-weight: 900;
+  color: #16a34a;
+}
+
+.orderRowBottom {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.orderTime {
+  white-space: nowrap;
+}
+
+.right {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.detailsTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.detailsTitle {
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.detailsMeta {
+  margin-top: 4px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.detailsTotal {
+  font-weight: 900;
+  color: #16a34a;
+  font-size: 16px;
+}
+
+.sectionHeader {
+  margin-top: 14px;
+  font-weight: 900;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.items {
+  margin-top: 8px;
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.itemName {
+  font-weight: 700;
+}
+
+.itemQty {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.historyList {
+  margin-top: 10px;
+}
+
+.historyItem {
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  background: #fafafa;
+}
+
+.historyStatus {
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.historyTime {
+  margin-top: 4px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.emptyBlock {
+  padding: 30px 0;
+}
+
+.empty {
+  color: #64748b;
+  font-weight: 700;
+}
+
+@media (max-width: 920px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+

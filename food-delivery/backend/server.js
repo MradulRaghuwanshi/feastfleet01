@@ -19,8 +19,9 @@ app.use('/api/payments',      require('./routes/payments'));
 app.use('/api/dashboard',     require('./routes/dashboard'));
 app.use('/api/inventory',      require('./routes/inventory'));
 app.use('/api/reports',        require('./routes/reports'));
+app.use('/api/menu-bulk',      require('./routes/menu-bulk'));
 
-app.get('/', (req, res) => res.json({ message: 'FoodDash API v3' }));
+app.get('/', (req, res) => res.json({ message: 'FeastFleet API v3' }));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`✅ Server → http://localhost:${PORT}`));

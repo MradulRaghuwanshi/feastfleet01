@@ -1,9 +1,18 @@
-// Centralized API configuration
-// Set REACT_APP_API_URL in your hosting environment (Netlify, Vercel, etc.).
-// When running locally without a proxy on the frontend origin, fall back to the backend port.
+// Centralized API configuration.
+// Supports either:
+// - REACT_APP_API_URL=https://host (will become https://host/api)
+// - REACT_APP_API_URL=https://host/api (kept as-is)
 const isLocalHost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
-export const API_BASE_URL = process.env.REACT_APP_API_URL || (isLocalHost ? 'http://localhost:5000/api' : '/api');
+function withApiSuffix(url) {
+  const trimmed = String(url || '').replace(/\/$/, '');
+  if (!trimmed) return '';
+  if (/\/api$/i.test(trimmed)) return trimmed;
+  return `${trimmed}/api`;
+}
+
+const envBase = withApiSuffix(process.env.REACT_APP_API_URL);
+export const API_BASE_URL = envBase || (isLocalHost ? 'http://localhost:5000/api' : '/api');
 
 /**
  * Build a full API URL from a path.

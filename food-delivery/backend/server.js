@@ -17,6 +17,8 @@ app.use('/api/search',        require('./routes/search'));
 app.use('/api/tracking',      require('./routes/tracking'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/payments',      require('./routes/payments'));
+// Backward compatibility for older frontend bundles that call /payments/* without /api.
+app.use('/payments',          require('./routes/payments'));
 app.use('/api/dashboard',     require('./routes/dashboard'));
 app.use('/api/inventory',      require('./routes/inventory'));
 app.use('/api/reports',        require('./routes/reports'));

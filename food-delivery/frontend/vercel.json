@@ -1,6 +1,6 @@
 {
   "env": {
-    "REACT_APP_API_URL": "https://feastfleet-backend-0ozz.onrender.com",
+    "REACT_APP_API_URL": "https://feastfleet-backend-0ozz.onrender.com/api",
     "REACT_APP_RAZORPAY_KEY_ID": "rzp_test_SoNAwc8u1HSnQA"
   }
 }

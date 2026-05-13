@@ -7,11 +7,8 @@ const router = express.Router();
 function getRazorpay() {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
   if (!keyId || !keySecret) {
-    const err = new Error('Razorpay credentials not configured');
-    err.status = 500;
-    throw err;
+    return null; // demo mode fallback
   }
 
   return new Razorpay({ key_id: keyId, key_secret: keySecret });
@@ -30,6 +27,17 @@ router.post('/create-order', async (req, res) => {
     const parsedReceipt = receipt || `rcpt_${Date.now()}`;
 
     const razorpay = getRazorpay();
+
+    // Demo fallback when Razorpay keys are not configured
+    if (!razorpay) {
+      const demoOrderId = `demo_order_${Date.now()}`;
+      return res.status(200).json({
+        order_id: demoOrderId,
+        amount: parsedAmount,
+        currency: parsedCurrency,
+        demo: true
+      });
+    }
 
     const order = await razorpay.orders.create({
       amount: parsedAmount,
@@ -63,7 +71,12 @@ router.post('/verify-payment', async (req, res) => {
     }
 
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (!keySecret) return res.status(500).json({ error: 'Razorpay credentials not configured' });
+
+    // Demo fallback: accept any signature when no secret configured
+    if (!keySecret) {
+      // In demo mode treat verification as successful
+      return res.status(200).json({ ok: true, demo: true });
+    }
 
     const hmac = crypto.createHmac('sha256', keySecret);
     hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);

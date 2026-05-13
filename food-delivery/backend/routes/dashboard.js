@@ -2,6 +2,15 @@ const express = require('express');
 const { db } = require('../firebase/admin');
 const router = express.Router();
 
+const defaultConfig = {
+  appName: 'FeastFleet',
+  platformFee: 8,
+  packagingFee: 10,
+  defaultDeliveryFee: 30,
+  defaultMinOrder: 149,
+  gstPercent: 0,
+};
+
 // Get dashboard overview
 router.post('/overview', async (req, res) => {
   try {
@@ -67,6 +76,54 @@ router.post('/overview', async (req, res) => {
   } catch (error) {
     console.error('Dashboard error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/dashboard/config
+router.get('/config', async (_req, res) => {
+  try {
+    if (!db) {
+      const { appConfig } = require('../data/db');
+      return res.json(appConfig || defaultConfig);
+    }
+
+    const doc = await db.collection('appConfig').doc('general').get();
+    if (!doc.exists) return res.json(defaultConfig);
+    return res.json({ id: doc.id, ...doc.data() });
+  } catch (error) {
+    console.error('Get app config error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH /api/dashboard/config
+router.patch('/config', async (req, res) => {
+  try {
+    const updates = {
+      platformFee: Number(req.body.platformFee ?? 8),
+      packagingFee: Number(req.body.packagingFee ?? 10),
+      defaultDeliveryFee: Number(req.body.defaultDeliveryFee ?? 30),
+      defaultMinOrder: Number(req.body.defaultMinOrder ?? 149),
+      gstPercent: Number(req.body.gstPercent ?? 0),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (!db) {
+      const state = require('../data/db');
+      state.appConfig.platformFee = updates.platformFee;
+      state.appConfig.packagingFee = updates.packagingFee;
+      state.appConfig.defaultDeliveryFee = updates.defaultDeliveryFee;
+      state.appConfig.defaultMinOrder = updates.defaultMinOrder;
+      state.appConfig.gstPercent = updates.gstPercent;
+      state.appConfig.updatedAt = updates.updatedAt;
+      return res.json({ ...state.appConfig });
+    }
+
+    await db.collection('appConfig').doc('general').set(updates, { merge: true });
+    return res.json({ success: true, ...updates });
+  } catch (error) {
+    console.error('Update app config error:', error);
+    return res.status(500).json({ error: error.message });
   }
 });
 

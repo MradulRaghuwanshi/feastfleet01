@@ -870,18 +870,14 @@ export const replyToReview = async (reviewId, reply) => {
 
 // ─── PROMOS ───────────────────────────────────────────────────────────────────
 export const validatePromo = async (code, subtotal) => {
-  const snap = await getDoc(doc(db, 'promoCodes', code.toUpperCase()));
-  if (!snap.exists()) throw new Error('Invalid or expired promo code');
-  const promo = snap.data();
-  if (!promo.active) throw new Error('This promo code is no longer active');
-  if (subtotal < promo.minOrder) throw new Error(`Minimum order ₹${promo.minOrder} required`);
-  return promo;
+  return apiJson('/promos/validate', {
+    method: 'POST',
+    body: JSON.stringify({ code, subtotal }),
+  });
 };
 
 export const getActivePromos = async () => {
-  const q = query(collection(db, 'promoCodes'), where('active', '==', true));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return apiJson('/promos');
 };
 
 // ─── FAVOURITES ───────────────────────────────────────────────────────────────
@@ -924,19 +920,16 @@ export const listenToAgentLocation = (agentId, cb) => {
 };
 
 // ─── ADMIN ────────────────────────────────────────────────────────────────────
-export const getAllOrders = async () => {
-  const snap = await getDocs(query(collection(db, 'orders'), orderBy('placedAt', 'desc')));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-};
+export const getAllOrders = async () => apiJson('/orders');
 
-export const getAllUsers = async () => {
-  const snap = await getDocs(collection(db, 'users'));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-};
+export const getAllUsers = async () => apiJson('/users');
 
 export const addRestaurant = async (data) => {
-  const ref_ = await addDoc(collection(db, 'restaurants'), data);
-  return ref_.id;
+  const created = await apiJson('/restaurants', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return created.id;
 };
 
 export const updateRestaurant = async (id, data) => {
@@ -947,29 +940,47 @@ export const updateRestaurant = async (id, data) => {
 };
 
 export const deleteRestaurant = async (id) => {
-  await deleteDoc(doc(db, 'restaurants', id));
+  await apiJson(`/restaurants/${id}`, { method: 'DELETE' });
 };
 
 export const addPromo = async (promo) => {
-  await setDoc(doc(db, 'promoCodes', promo.code.toUpperCase()), promo);
+  await apiJson('/promos', {
+    method: 'POST',
+    body: JSON.stringify({ ...promo, code: String(promo.code || '').toUpperCase() }),
+  });
 };
 
 export const updatePromo = async (code, data) => {
-  await updateDoc(doc(db, 'promoCodes', code), data);
+  await apiJson(`/promos/${String(code || '').toUpperCase()}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
 };
 
 export const deletePromo = async (code) => {
-  await deleteDoc(doc(db, 'promoCodes', code));
+  await apiJson(`/promos/${String(code || '').toUpperCase()}`, { method: 'DELETE' });
 };
 
-export const getAllPromos = async () => {
-  const snap = await getDocs(collection(db, 'promoCodes'));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-};
+export const getAllPromos = async () => apiJson('/promos?all=1');
 
 export const listenToAllOrders = (cb) => {
-  const q = query(collection(db, 'orders'), orderBy('placedAt', 'desc'));
-  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  let stopped = false;
+
+  const refresh = async () => {
+    try {
+      const data = await getAllOrders();
+      if (!stopped) cb(data);
+    } catch (error) {
+      console.error('listenToAllOrders refresh failed:', error);
+    }
+  };
+
+  refresh();
+  const timer = setInterval(refresh, 5000);
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
 };
 export const deductWallet = async (userId, amount) => {
   const snap = await getDoc(doc(db, 'users', userId));
@@ -978,22 +989,28 @@ export const deductWallet = async (userId, amount) => {
 };
 
 // ─── APP CONFIG (Fee Settings) ──────────────────────────────────────────────
-export const getAppConfig = async () => {
-  const snap = await getDoc(doc(db, 'appConfig', 'general'));
-  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
-};
+export const getAppConfig = async () => apiJson('/dashboard/config');
 
 export const updateAppConfig = async (data) => {
-  await updateDoc(doc(db, 'appConfig', 'general'), data);
+  await apiJson('/dashboard/config', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
 };
 
 // ─── USERS ───────────────────────────────────────────────────────────────────
 export const updateUser = async (userId, data) => {
-  await updateDoc(doc(db, 'users', userId), data);
+  await apiJson(`/users/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
 };
 
 export const addUser = async (userId, data) => {
-  await setDoc(doc(db, 'users', userId), data);
+  await apiJson('/users', {
+    method: 'POST',
+    body: JSON.stringify({ ...data, id: userId }),
+  });
 };
 
 export {

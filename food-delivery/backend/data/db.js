@@ -187,4 +187,18 @@ const orders = [
   }
 ];
 
-module.exports = { users, restaurants, orders, reviews, promoCodes };
+// ─── App Config (Admin editable) ───────────────────────────────────────────
+const appConfig = {
+  appName: 'FeastFleet',
+  currency: 'INR',
+  currencySymbol: '₹',
+  supportEmail: 'support@feastfleet.in',
+  version: '1.0.0',
+  platformFee: 8,
+  gstPercent: 0,
+  packagingFee: 10,
+  defaultDeliveryFee: 30,
+  defaultMinOrder: 149,
+};
+
+module.exports = { users, restaurants, orders, reviews, promoCodes, appConfig };

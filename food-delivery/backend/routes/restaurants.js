@@ -6,7 +6,20 @@ router.get('/', async (req, res) => {
   try {
     const { cuisine } = req.query;
 
-    if (!db) return res.status(503).json({ error: 'Restaurant database is not configured' });
+    // Use pre-seeded data when Firebase is not configured
+    if (!db) {
+      const { restaurants } = require('../data/db');
+      let result = restaurants;
+      if (cuisine && cuisine !== 'All') {
+        result = result.filter(r => r.cuisine === cuisine);
+      }
+      // Remove full menu from response, just include itemCount
+      return res.json(result.map(r => ({
+        ...r,
+        itemCount: r.menu.length,
+        menu: r.menu
+      })));
+    }
 
     let query = db.collection('restaurants');
     if (cuisine && cuisine !== 'All') {
@@ -36,7 +49,17 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    if (!db) return res.status(503).json({ error: 'Restaurant database is not configured' });
+    // Use pre-seeded data when Firebase is not configured
+    if (!db) {
+      const { restaurants } = require('../data/db');
+      const restaurant = restaurants.find(r => r.id === req.params.id);
+      if (!restaurant) return res.status(404).json({ error: 'Not found' });
+      return res.json({
+        id: restaurant.id,
+        ...restaurant,
+        menu: restaurant.menu
+      });
+    }
 
     const doc = await db.collection('restaurants').doc(req.params.id).get();
     if (!doc.exists()) return res.status(404).json({ error: 'Not found' });

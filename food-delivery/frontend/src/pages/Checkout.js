@@ -53,19 +53,44 @@ export default function Checkout() {
 
   const loadRazorpayScript = () => {
     return new Promise((resolve, reject) => {
+      // If Razorpay is already loaded, resolve immediately
       if (window.Razorpay) return resolve();
+      
       const existing = document.querySelector('script[data-razorpay-checkout="true"]');
       if (existing) {
-        existing.addEventListener('load', () => resolve());
-        existing.addEventListener('error', () => reject(new Error('Failed to load Razorpay SDK')));
+        // Script tag exists, wait for it to load
+        if (window.Razorpay) return resolve();
+        
+        const checkRazorpay = () => {
+          if (window.Razorpay) {
+            resolve();
+          } else {
+            setTimeout(checkRazorpay, 50);
+          }
+        };
+        
+        existing.addEventListener('load', checkRazorpay, { once: true });
+        existing.addEventListener('error', () => reject(new Error('Failed to load Razorpay SDK')), { once: true });
+        checkRazorpay(); // Start polling
         return;
       }
 
+      // Create and add new script
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
       script.async = true;
       script.dataset.razorpayCheckout = 'true';
-      script.onload = () => resolve();
+      script.onload = () => {
+        // Wait for Razorpay to be available in window
+        const waitForRazorpay = () => {
+          if (window.Razorpay) {
+            resolve();
+          } else {
+            setTimeout(waitForRazorpay, 50);
+          }
+        };
+        waitForRazorpay();
+      };
       script.onerror = () => reject(new Error('Failed to load Razorpay SDK'));
       document.body.appendChild(script);
     });

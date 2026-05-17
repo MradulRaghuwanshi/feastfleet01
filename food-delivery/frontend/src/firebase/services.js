@@ -345,190 +345,199 @@ export const placeOrder = async (orderData) => {
     throw new Error('Restaurant, customer details and cart items are required');
   }
 
-  const customerId = orderData.customerId || `guest_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-  const isGuestOrder = Boolean(orderData.isGuest || String(customerId).startsWith('guest_'));
+  try {
+    const customerId = orderData.customerId || `guest_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    const isGuestOrder = Boolean(orderData.isGuest || String(customerId).startsWith('guest_'));
 
-  const otp = generatePickupOtp();
-  const encryptedOtp = await encryptPickupOtp(otp);
-  const orderRef = doc(collection(db, 'orders'));
-  const walletRef = getWalletRef(customerId);
-  const userRef = doc(db, 'users', customerId);
-  const txRef = doc(collection(walletRef, 'transactions'));
-  const earnTxRef = doc(collection(walletRef, 'transactions'));
-  const appConfigRef = doc(db, 'appConfig', 'general');
-  const restaurantRef = doc(db, 'restaurants', orderData.restaurantId);
-  const promoRef = orderData.promoCode ? doc(db, 'promoCodes', String(orderData.promoCode).toUpperCase()) : null;
+    const otp = generatePickupOtp();
+    const encryptedOtp = await encryptPickupOtp(otp);
+    const orderRef = doc(collection(db, 'orders'));
+    const walletRef = getWalletRef(customerId);
+    const userRef = doc(db, 'users', customerId);
+    const txRef = doc(collection(walletRef, 'transactions'));
+    const earnTxRef = doc(collection(walletRef, 'transactions'));
+    const appConfigRef = doc(db, 'appConfig', 'general');
+    const restaurantRef = doc(db, 'restaurants', orderData.restaurantId);
+    const promoRef = orderData.promoCode ? doc(db, 'promoCodes', String(orderData.promoCode).toUpperCase()) : null;
 
-  const order = await runTransaction(db, async (transaction) => {
-    const [restaurantSnap, walletSnap, userSnap, appConfigSnap, promoSnap] = await Promise.all([
-      transaction.get(restaurantRef),
-      isGuestOrder ? Promise.resolve(null) : transaction.get(walletRef),
-      isGuestOrder ? Promise.resolve(null) : transaction.get(userRef),
-      transaction.get(appConfigRef),
-      promoRef ? transaction.get(promoRef) : Promise.resolve(null),
-    ]);
+    const order = await runTransaction(db, async (transaction) => {
+      const [restaurantSnap, walletSnap, userSnap, appConfigSnap, promoSnap] = await Promise.all([
+        transaction.get(restaurantRef),
+        isGuestOrder ? Promise.resolve(null) : transaction.get(walletRef),
+        isGuestOrder ? Promise.resolve(null) : transaction.get(userRef),
+        transaction.get(appConfigRef),
+        promoRef ? transaction.get(promoRef) : Promise.resolve(null),
+      ]);
 
-    if (!restaurantSnap.exists()) throw new Error('Restaurant not found');
+      if (!restaurantSnap.exists()) throw new Error('Restaurant not found');
 
-    const restaurant = restaurantSnap.data();
-    const availability = getRestaurantOrderStatus(restaurant);
-    if (!availability.isAcceptingOrdersNow) {
-      throw new Error(availability.orderStatusReason || 'Restaurant is currently closed');
-    }
-    const appConfig = appConfigSnap.exists() ? appConfigSnap.data() : {};
-    const userData = userSnap?.exists?.() ? userSnap.data() : {};
-    const fallbackBalance = isGuestOrder ? 0 : (userData.feastCoins ?? userData.wallet ?? 0);
-    const { isVirtual, id, ...fallbackWallet } = getInitialWallet(customerId, fallbackBalance);
-    const wallet = isGuestOrder
-      ? fallbackWallet
-      : ensureWalletForMonth(
-          transaction,
-          walletRef,
-          walletSnap.exists() ? walletSnap.data() : fallbackWallet,
-          customerId
-        );
-
-    let promo = null;
-    if (promoSnap?.exists()) {
-      const p = promoSnap.data();
-      if (p.active && Number(orderData.subtotal || 0) >= Number(p.minOrder || 0)) {
-        promo = { ...p, code: p.code || promoSnap.id };
+      const restaurant = restaurantSnap.data();
+      const availability = getRestaurantOrderStatus(restaurant);
+      if (!availability.isAcceptingOrdersNow) {
+        throw new Error(availability.orderStatusReason || 'Restaurant is currently closed');
       }
-    }
+      const appConfig = appConfigSnap.exists() ? appConfigSnap.data() : {};
+      const userData = userSnap?.exists?.() ? userSnap.data() : {};
+      const fallbackBalance = isGuestOrder ? 0 : (userData.feastCoins ?? userData.wallet ?? 0);
+      const { isVirtual, id, ...fallbackWallet } = getInitialWallet(customerId, fallbackBalance);
+      const wallet = isGuestOrder
+        ? fallbackWallet
+        : ensureWalletForMonth(
+            transaction,
+            walletRef,
+            walletSnap.exists() ? walletSnap.data() : fallbackWallet,
+            customerId
+          );
 
-    const items = orderData.items.map(item => ({
-      id: item.id,
-      name: item.name,
-      price: Number(item.price || 0),
-      quantity: Number(item.quantity || 0),
-      image: item.image || '',
-    })).filter(item => item.quantity > 0);
+      let promo = null;
+      if (promoSnap?.exists()) {
+        const p = promoSnap.data();
+        if (p.active && Number(orderData.subtotal || 0) >= Number(p.minOrder || 0)) {
+          promo = { ...p, code: p.code || promoSnap.id };
+        }
+      }
 
-    const bill = calculateBill({
-      items,
-      promo,
-      feastCoinBalance: wallet.currentBalance,
-      redeemFeastCoins: !isGuestOrder && Boolean(orderData.redeemFeastCoins || orderData.useFeastCoins),
+      const items = orderData.items.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: Number(item.price || 0),
+        quantity: Number(item.quantity || 0),
+        image: item.image || '',
+      })).filter(item => item.quantity > 0);
+
+      const bill = calculateBill({
+        items,
+        promo,
+        feastCoinBalance: wallet.currentBalance,
+        redeemFeastCoins: !isGuestOrder && Boolean(orderData.redeemFeastCoins || orderData.useFeastCoins),
+      });
+
+      const feastCoinRedemption = isGuestOrder ? 0 : bill.feastCoinRedemption;
+      const coinsEarned = isGuestOrder ? 0 : bill.coinsEarned;
+
+      if (feastCoinRedemption > Number(wallet.currentBalance || 0)) {
+        throw new Error('Insufficient Feast Coin balance');
+      }
+
+      const currentBalance = Math.max(0, Math.floor(Number(wallet.currentBalance || 0)));
+      const nextBalance = Math.max(0, currentBalance - feastCoinRedemption + coinsEarned);
+      const placedAt = nowIso();
+      const orderNumber = `FF-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${orderRef.id.slice(0, 6).toUpperCase()}`;
+
+      const orderPayload = {
+        id: orderRef.id,
+        orderNumber,
+        customerId,
+        customerName: orderData.customerName,
+        customerPhone: orderData.customerPhone || null,
+        customerEmail: orderData.customerEmail || null,
+        isGuest: isGuestOrder,
+        restaurantId: orderData.restaurantId,
+        restaurantName: orderData.restaurantName || restaurant.name,
+        restaurantOpenNow: availability.isAcceptingOrdersNow,
+        deliveryAgentId: null,
+        deliveryAgentName: 'Unassigned',
+        items,
+        subtotal: bill.subtotal,
+        gstPercent: 0,
+        gstAmount: 0,
+        platformFee: bill.platformFee,
+        packagingFee: bill.packagingFee,
+        deliveryFee: bill.deliveryFee,
+        discount: bill.discount,
+        walletUsed: 0,
+        feastCoinRedemption,
+        feastCoinsEarned: coinsEarned,
+        platformCommission: bill.platformCommission,
+        platformCommissionPercent: bill.commissionPercent,
+        grossFoodAmount: bill.grossFoodAmount,
+        netSettlementAmount: bill.netSettlementAmount,
+        total: bill.finalPayable,
+        promoCode: promo?.code || null,
+        deliveryAddress: orderData.deliveryAddress,
+        deliveryLat: orderData.deliveryLat || null,
+        deliveryLng: orderData.deliveryLng || null,
+        status: ORDER_STATUS.PLACED,
+        restaurantAcceptedAt: null,
+        assignmentStatus: 'broadcast',
+        deliveryBroadcast: {
+          status: 'open',
+          radiusKm: Number(appConfig.deliveryRadiusKm || 8),
+          openedAt: placedAt,
+          acceptedAt: null,
+        },
+        pickupOtpVerified: false,
+        pickupOtpVerifiedAt: null,
+        pickupOtpMaxAttempts: OTP_MAX_ATTEMPTS,
+        ...encryptedOtp,
+        reviewed: false,
+        placedAt,
+        updatedAt: placedAt,
+        statusHistory: [makeStatusEvent(ORDER_STATUS.PLACED, customerId, isGuestOrder ? 'Guest placed order' : 'Customer placed order')],
+        financialsPosted: false,
+        deliveryEarningPosted: false,
+        settlementPosted: false,
+      };
+
+      transaction.set(orderRef, orderPayload);
+
+      if (!isGuestOrder) {
+        const walletUpdate = {
+          currentBalance: nextBalance,
+          earnedThisMonth: Number(wallet.earnedThisMonth || 0) + coinsEarned,
+          redeemedThisMonth: Number(wallet.redeemedThisMonth || 0) + feastCoinRedemption,
+          lifetimeEarned: Number(wallet.lifetimeEarned || 0) + coinsEarned,
+          lifetimeRedeemed: Number(wallet.lifetimeRedeemed || 0) + feastCoinRedemption,
+          monthKey: getMonthKey(),
+          expiresAt: getMonthEndIso(),
+          updatedAt: placedAt,
+        };
+        transaction.set(walletRef, { ...wallet, ...walletUpdate, userId: customerId }, { merge: true });
+        transaction.set(userRef, {
+          feastCoins: nextBalance,
+          wallet: nextBalance,
+          updatedAt: placedAt,
+        }, { merge: true });
+
+        if (feastCoinRedemption > 0) {
+          transaction.set(txRef, {
+            userId: customerId,
+            orderId: orderRef.id,
+            type: 'redeem',
+            amount: -feastCoinRedemption,
+            balanceAfter: nextBalance - coinsEarned,
+            description: `Redeemed on order ${orderNumber}`,
+            createdAt: placedAt,
+            monthKey: getMonthKey(),
+          });
+        }
+
+        if (coinsEarned > 0) {
+          transaction.set(earnTxRef, {
+            userId: customerId,
+            orderId: orderRef.id,
+            type: 'earn',
+            amount: coinsEarned,
+            balanceAfter: nextBalance,
+            description: `Earned ${coinsEarned} Feast Coins for ₹${bill.subtotal.toFixed(0)} food subtotal`,
+            createdAt: placedAt,
+            monthKey: getMonthKey(),
+          });
+        }
+      }
+
+      return orderPayload;
     });
 
-    const feastCoinRedemption = isGuestOrder ? 0 : bill.feastCoinRedemption;
-    const coinsEarned = isGuestOrder ? 0 : bill.coinsEarned;
-
-    if (feastCoinRedemption > Number(wallet.currentBalance || 0)) {
-      throw new Error('Insufficient Feast Coin balance');
-    }
-
-    const currentBalance = Math.max(0, Math.floor(Number(wallet.currentBalance || 0)));
-    const nextBalance = Math.max(0, currentBalance - feastCoinRedemption + coinsEarned);
-    const placedAt = nowIso();
-    const orderNumber = `FF-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${orderRef.id.slice(0, 6).toUpperCase()}`;
-
-    const orderPayload = {
-      id: orderRef.id,
-      orderNumber,
-      customerId,
-      customerName: orderData.customerName,
-      customerPhone: orderData.customerPhone || null,
-      customerEmail: orderData.customerEmail || null,
-      isGuest: isGuestOrder,
-      restaurantId: orderData.restaurantId,
-      restaurantName: orderData.restaurantName || restaurant.name,
-      restaurantOpenNow: availability.isAcceptingOrdersNow,
-      deliveryAgentId: null,
-      deliveryAgentName: 'Unassigned',
-      items,
-      subtotal: bill.subtotal,
-      gstPercent: 0,
-      gstAmount: 0,
-      platformFee: bill.platformFee,
-      packagingFee: bill.packagingFee,
-      deliveryFee: bill.deliveryFee,
-      discount: bill.discount,
-      walletUsed: 0,
-      feastCoinRedemption,
-      feastCoinsEarned: coinsEarned,
-      platformCommission: bill.platformCommission,
-      platformCommissionPercent: bill.commissionPercent,
-      grossFoodAmount: bill.grossFoodAmount,
-      netSettlementAmount: bill.netSettlementAmount,
-      total: bill.finalPayable,
-      promoCode: promo?.code || null,
-      deliveryAddress: orderData.deliveryAddress,
-      deliveryLat: orderData.deliveryLat || null,
-      deliveryLng: orderData.deliveryLng || null,
-      status: ORDER_STATUS.PLACED,
-      restaurantAcceptedAt: null,
-      assignmentStatus: 'broadcast',
-      deliveryBroadcast: {
-        status: 'open',
-        radiusKm: Number(appConfig.deliveryRadiusKm || 8),
-        openedAt: placedAt,
-        acceptedAt: null,
-      },
-      pickupOtpVerified: false,
-      pickupOtpVerifiedAt: null,
-      pickupOtpMaxAttempts: OTP_MAX_ATTEMPTS,
-      ...encryptedOtp,
-      reviewed: false,
-      placedAt,
-      updatedAt: placedAt,
-      statusHistory: [makeStatusEvent(ORDER_STATUS.PLACED, customerId, isGuestOrder ? 'Guest placed order' : 'Customer placed order')],
-      financialsPosted: false,
-      deliveryEarningPosted: false,
-      settlementPosted: false,
-    };
-
-    transaction.set(orderRef, orderPayload);
-
-    if (!isGuestOrder) {
-      const walletUpdate = {
-        currentBalance: nextBalance,
-        earnedThisMonth: Number(wallet.earnedThisMonth || 0) + coinsEarned,
-        redeemedThisMonth: Number(wallet.redeemedThisMonth || 0) + feastCoinRedemption,
-        lifetimeEarned: Number(wallet.lifetimeEarned || 0) + coinsEarned,
-        lifetimeRedeemed: Number(wallet.lifetimeRedeemed || 0) + feastCoinRedemption,
-        monthKey: getMonthKey(),
-        expiresAt: getMonthEndIso(),
-        updatedAt: placedAt,
-      };
-      transaction.set(walletRef, { ...wallet, ...walletUpdate, userId: customerId }, { merge: true });
-      transaction.set(userRef, {
-        feastCoins: nextBalance,
-        wallet: nextBalance,
-        updatedAt: placedAt,
-      }, { merge: true });
-
-      if (feastCoinRedemption > 0) {
-        transaction.set(txRef, {
-          userId: customerId,
-          orderId: orderRef.id,
-          type: 'redeem',
-          amount: -feastCoinRedemption,
-          balanceAfter: nextBalance - coinsEarned,
-          description: `Redeemed on order ${orderNumber}`,
-          createdAt: placedAt,
-          monthKey: getMonthKey(),
-        });
-      }
-
-      if (coinsEarned > 0) {
-        transaction.set(earnTxRef, {
-          userId: customerId,
-          orderId: orderRef.id,
-          type: 'earn',
-          amount: coinsEarned,
-          balanceAfter: nextBalance,
-          description: `Earned ${coinsEarned} Feast Coins for ₹${bill.subtotal.toFixed(0)} food subtotal`,
-          createdAt: placedAt,
-          monthKey: getMonthKey(),
-        });
-      }
-    }
-
-    return orderPayload;
-  });
-
-  return isCustomerVisibleOrder(order);
+    return isCustomerVisibleOrder(order);
+  } catch (error) {
+    console.warn('placeOrder Firestore write failed, falling back to API:', error?.message || error);
+    const payload = await apiJson('/orders', {
+      method: 'POST',
+      body: JSON.stringify(orderData),
+    });
+    return payload?.id ? payload : { id: payload.id || payload.orderId || payload.order_id, ...orderData };
+  }
 };
 
 export const createOrder = async (orderData) => {

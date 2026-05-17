@@ -18,7 +18,7 @@ const FEASTCOINS_REDEEM_RATE = 1; // 1 feastcoin == ₹1 (so 100 coins == ₹100
 
 router.post('/', async (req, res) => {
   try {
-    const { restaurantId, items, deliveryAddress, customerName, customerId, promoCode, useWallet, deliveryLat, deliveryLng, platformFee, packagingFee, gstPercent, gstAmount } = req.body;
+    const { restaurantId, items, deliveryAddress, customerName, customerId, promoCode, useWallet, deliveryLat, deliveryLng, platformFee, packagingFee, gstPercent, gstAmount, paymentMethod, paymentStatus, razorpayOrderId, razorpayPaymentId } = req.body;
     if (!restaurantId || !items?.length || !deliveryAddress || !customerName)
       return res.status(400).json({ error: 'Missing required fields' });
 
@@ -89,6 +89,10 @@ router.post('/', async (req, res) => {
         netSettlementAmount: +(subtotal - platformCommission).toFixed(2),
         total: Math.max(0, total),
         promoCode: appliedPromo, deliveryAddress, status: 'Order Placed', reviewed: false,
+        paymentMethod: paymentMethod || 'cod',
+        paymentStatus: paymentStatus || 'pending',
+        razorpayOrderId: razorpayOrderId || null,
+        razorpayPaymentId: razorpayPaymentId || null,
         deliveryOtp,
         deliveryOtpVerified,
         deliveryLat: deliveryLat || null, deliveryLng: deliveryLng || null,
@@ -191,6 +195,10 @@ router.post('/', async (req, res) => {
       deliveryAddress,
       status: 'Order Placed',
       reviewed: false,
+      paymentMethod: paymentMethod || 'cod',
+      paymentStatus: paymentStatus || 'pending',
+      razorpayOrderId: razorpayOrderId || null,
+      razorpayPaymentId: razorpayPaymentId || null,
       deliveryLat: deliveryLat || null,
       deliveryLng: deliveryLng || null,
       placedAt: new Date().toISOString(),

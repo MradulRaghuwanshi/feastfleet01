@@ -22,7 +22,17 @@ router.post('/', async (req, res) => {
     if (!restaurantId || !items?.length || !deliveryAddress || !customerName)
       return res.status(400).json({ error: 'Missing required fields' });
 
+    console.log('[orders.create] request received', {
+      restaurantId,
+      customerId: customerId || 'guest',
+      itemCount: items.length,
+      paymentMethod: paymentMethod || 'cod',
+      paymentStatus: paymentStatus || 'pending',
+      useFirestore: Boolean(db),
+    });
+
     if (!db) {
+      console.warn('[orders.create] firestore unavailable, using in-memory fallback');
       // Fallback to in-memory mode
       const { restaurants, orders, users, promoCodes } = require('../data/db');
       const restaurant = restaurants.find(r => r.id === restaurantId);
@@ -101,6 +111,7 @@ router.post('/', async (req, res) => {
       };
 
       orders.push(order);
+      console.log('[orders.create] in-memory order stored', { orderId: order.id });
       return res.status(201).json(order);
     }
 
@@ -206,6 +217,13 @@ router.post('/', async (req, res) => {
     };
 
     const orderRef = await db.collection('orders').add(orderData);
+    console.log('[orders.create] firestore order stored', {
+      orderId: orderRef.id,
+      restaurantId,
+      customerId: customerId || 'guest',
+      paymentMethod: orderData.paymentMethod,
+      paymentStatus: orderData.paymentStatus,
+    });
     
     // Send notification to restaurant
     try {

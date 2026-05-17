@@ -13,10 +13,12 @@ const admin = require('firebase-admin');
 // ─────────────────────────────────────────────────────────────────────────────
 
 let serviceAccount = null;
+let serviceAccountSource = 'none';
 
 if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
   try {
     serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    serviceAccountSource = 'env';
   } catch {
     console.warn('⚠️  FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON. Running in demo mode.');
   }
@@ -25,6 +27,7 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
 if (!serviceAccount) {
   try {
     serviceAccount = require('./serviceAccountKey.json');
+    serviceAccountSource = 'file';
   } catch {
     console.warn('⚠️  Firebase serviceAccountKey.json not found. Running in demo mode.');
     serviceAccount = null;
@@ -41,5 +44,7 @@ if (serviceAccount && !admin.apps.length) {
 const db       = serviceAccount ? admin.firestore()       : null;
 const rtdb     = serviceAccount ? admin.database()        : null;
 const authAdmin = serviceAccount ? admin.auth()           : null;
+
+console.log(`[Firebase Admin] firestore=${Boolean(db)} rtdb=${Boolean(rtdb)} source=${serviceAccountSource}`);
 
 module.exports = { admin, db, rtdb, authAdmin };

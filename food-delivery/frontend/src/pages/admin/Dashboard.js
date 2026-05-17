@@ -12,6 +12,8 @@ import {
 } from '../../firebase/services';
 import DeliveryPartners from './DeliveryPartners';
 import styles from './Dashboard.module.css';
+import { fileToDataUrl } from '../../utils/imageFile';
+import * as XLSX from 'xlsx';
 
 const TABS = ['Overview', 'Orders', 'Restaurants', 'Promos', 'Users', 'Delivery Partners', 'Wallets', 'Settlements', 'Settings'];
 
@@ -311,8 +313,9 @@ function Restaurants({ restaurants, onEdit, onDelete }) {
       return;
     }
 
-    if (!file.name.endsWith('.csv')) {
-      alert('Please upload a CSV file');
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+      alert('Please upload an Excel file (.xlsx or .xls)');
       return;
     }
 
@@ -320,46 +323,43 @@ function Restaurants({ restaurants, onEdit, onDelete }) {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const csvText = e.target.result;
-        const lines = csvText.split('\n').map(l => l.trim()).filter(l => l);
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        
-        const csvData = lines.slice(1).map(line => {
-          const values = line.split(',').map(v => v.trim());
-          const row = {};
-          headers.forEach((header, idx) => {
-            row[header] = values[idx] || '';
-          });
-          return row;
-        });
+        const workbook = XLSX.read(e.target.result, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) {
+          throw new Error('The Excel file does not contain any sheets');
+        }
+
+        const sheet = workbook.Sheets[firstSheetName];
+        const excelRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
         const response = await fetch('/api/menu-bulk/import-csv', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ restaurantId: selectedRestaurant.id, csvData })
+          body: JSON.stringify({ restaurantId: selectedRestaurant.id, csvData: excelRows })
         });
 
         const result = await response.json();
         setCsvResult(result);
       } catch (error) {
-        alert('Error processing CSV: ' + error.message);
+        alert('Error processing Excel file: ' + error.message);
       } finally {
         setCsvUploading(false);
         if (csvFileInputRef.current) csvFileInputRef.current.value = '';
       }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const downloadTemplate = async () => {
-    const response = await fetch('/api/menu-bulk/export-csv-template');
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'menu-template.csv';
-    a.click();
-    window.URL.revokeObjectURL(url);
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ['name', 'description', 'price', 'category', 'available', 'veg', 'bestseller', 'spicy', 'imageUrl', 'prepTime'],
+      ['Chicken Biryani', 'Fragrant rice with spices and tender chicken', 299, 'Biryani', 'yes', 'no', 'yes', 'yes', '', 30],
+      ['Paneer Butter Masala', 'Cottage cheese in rich creamy tomato sauce', 249, 'Curries', 'yes', 'yes', 'yes', 'no', '', 25],
+      ['Garlic Naan', 'Soft naan bread with garlic', 40, 'Breads', 'yes', 'yes', 'no', 'no', '', 5]
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Menu Template');
+    XLSX.writeFile(workbook, 'menu-template.xlsx');
   };
 
   return (
@@ -371,16 +371,16 @@ function Restaurants({ restaurants, onEdit, onDelete }) {
             <button className={styles.addBtn} onClick={() => setSelectedRestaurant(null)} style={{ marginLeft: 'auto' }}>✕ Done</button>
           </div>
           <div className={styles.csvActions}>
-            <button className={styles.csvDownloadBtn} onClick={downloadTemplate}>📥 Download CSV Template</button>
+            <button className={styles.csvDownloadBtn} onClick={downloadTemplate}>📥 Download Excel Template</button>
             <label className={styles.csvUploadBtn}>
-              📤 Upload CSV
-              <input ref={csvFileInputRef} type="file" accept=".csv" className={styles.csvInput} onChange={e => e.target.files?.[0] && handleCSVFileSelect(e.target.files[0])} disabled={csvUploading} />
+              📤 Upload Excel
+              <input ref={csvFileInputRef} type="file" accept=".xlsx,.xls" className={styles.csvInput} onChange={e => e.target.files?.[0] && handleCSVFileSelect(e.target.files[0])} disabled={csvUploading} />
             </label>
           </div>
           {csvUploading && (
             <div className={styles.csvProgress}>
               <div className={styles.csvProgressBar}><div className={styles.csvProgressFill} style={{ width: '100%' }}></div></div>
-              <p style={{ textAlign: 'center', color: '#888', fontSize: '12px' }}>Uploading...</p>
+              <p style={{ textAlign: 'center', color: '#888', fontSize: '12px' }}>Uploading Excel file...</p>
             </div>
           )}
           {csvResult && (
@@ -663,6 +663,7 @@ function Settings({ config, onSave }) {
     defaultDeliveryFee: 30,
     defaultMinOrder: 149,
   });
+  const [categoryInput, setCategoryInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -673,13 +674,33 @@ function Settings({ config, onSave }) {
         packagingFee: config.packagingFee ?? 10,
         defaultDeliveryFee: config.defaultDeliveryFee ?? 30,
         defaultMinOrder: config.defaultMinOrder ?? 149,
+        cuisines: Array.isArray(config.cuisines)
+          ? config.cuisines
+          : ['Italian', 'American', 'Japanese', 'Mexican', 'Healthy'],
       });
     }
   }, [config]);
 
+  const cuisines = form.cuisines || [];
+
+  const addCuisine = () => {
+    const next = categoryInput.trim();
+    if (!next) return;
+    if (cuisines.some(item => item.toLowerCase() === next.toLowerCase())) {
+      setCategoryInput('');
+      return;
+    }
+    setForm({ ...form, cuisines: [...cuisines, next] });
+    setCategoryInput('');
+  };
+
+  const removeCuisine = (itemToRemove) => {
+    setForm({ ...form, cuisines: cuisines.filter(item => item !== itemToRemove) });
+  };
+
   const handleSave = async () => {
     setSaving(true);
-    await onSave({ ...form, gstPercent: 0 });
+    await onSave({ ...form, cuisines, gstPercent: 0 });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -706,6 +727,28 @@ function Settings({ config, onSave }) {
           <input type="number" min="0" value={form.defaultMinOrder} onChange={e => setForm({...form, defaultMinOrder:+e.target.value})} />
           <small>Default minimum order value for new restaurants</small>
         </label>
+        <div className={styles.fullWidth}>
+          <label>Cuisine Categories</label>
+          <div className={styles.categoryEditor}>
+            <input
+              type="text"
+              value={categoryInput}
+              onChange={e => setCategoryInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCuisine(); } }}
+              placeholder="Add a cuisine category"
+            />
+            <button type="button" className={styles.addBtn} onClick={addCuisine}>Add</button>
+          </div>
+          <div className={styles.categoryChips}>
+            {cuisines.map(item => (
+              <span key={item} className={styles.categoryChip}>
+                {item}
+                <button type="button" onClick={() => removeCuisine(item)} aria-label={`Delete ${item}`}>×</button>
+              </span>
+            ))}
+          </div>
+          <small>These categories appear on the customer home page search filters.</small>
+        </div>
       </div>
       <div className={styles.settingsActions}>
         {saved && <span className={styles.savedBadge}>✅ Saved successfully</span>}
@@ -725,6 +768,17 @@ function AddRestaurantModal({ onClose, onSave, initial }) {
     deliveryTime:'30-45 min', rating:4.0, image:'', offer:'', isOpen:true, isFeatured:false, tags:[]
   });
   const [saving, setSaving] = useState(false);
+
+  const handleImageFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setForm(prev => ({ ...prev, image: dataUrl }));
+    } catch (error) {
+      alert(error.message || 'Unable to load image');
+    }
+  };
 
   const handleSave = async () => {
     if (!form.name || !form.cuisine || !form.address) return alert('Name, cuisine and address are required');
@@ -749,7 +803,10 @@ function AddRestaurantModal({ onClose, onSave, initial }) {
             <label>Min Order (₹)<input type="number" value={form.minOrder} onChange={e => setForm({...form, minOrder:+e.target.value})} /></label>
             <label>Delivery Time<input value={form.deliveryTime} onChange={e => setForm({...form, deliveryTime:e.target.value})} placeholder="e.g. 30-45 min" /></label>
             <label>Rating<input type="number" step="0.1" min="1" max="5" value={form.rating} onChange={e => setForm({...form, rating:+e.target.value})} /></label>
-            <label>Image URL<input value={form.image} onChange={e => setForm({...form, image:e.target.value})} placeholder="https://..." /></label>
+            <label className={styles.fullWidth}>Restaurant Image
+              <input type="file" accept="image/*" onChange={handleImageFileChange} />
+              {form.image && <img src={form.image} alt="Restaurant preview" style={{ marginTop: 8, width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 10 }} />}
+            </label>
             <label className={styles.fullWidth}>Offer Text<input value={form.offer || ''} onChange={e => setForm({...form, offer:e.target.value})} placeholder="e.g. 50% off on first order" /></label>
             <label className={styles.checkLabel}>
               <input type="checkbox" checked={form.isOpen} onChange={e => setForm({...form, isOpen:e.target.checked})} />

@@ -15,6 +15,7 @@ import {
 } from '../../firebase/services';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import { fileToDataUrl } from '../../utils/imageFile';
 import styles from './Dashboard.module.css';
 
 const NEXT_ACTION = {
@@ -1049,6 +1050,17 @@ function ProfileTab({ restaurant, form, setForm, onSave, saving }) {
 }
 
 function ItemForm({ item, setItem, categories, onSave, onCancel, saving, title }) {
+  const handleImageFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setItem({ ...item, image: dataUrl });
+    } catch (error) {
+      alert(error.message || 'Unable to load image');
+    }
+  };
+
   return (
     <div className={styles.itemForm}>
       <h4>{title}</h4>
@@ -1083,12 +1095,9 @@ function ItemForm({ item, setItem, categories, onSave, onCancel, saving, title }
           />
         </label>
         <label>
-          Image URL
-          <input
-            value={item.image}
-            onChange={e => setItem({ ...item, image: e.target.value })}
-            placeholder="https://..."
-          />
+          Item Image
+          <input type="file" accept="image/*" onChange={handleImageFileChange} />
+          {item.image && <img src={item.image} alt="Item preview" style={{ marginTop: 8, width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 10 }} />}
         </label>
         <label className={styles.fullWidth}>
           Description

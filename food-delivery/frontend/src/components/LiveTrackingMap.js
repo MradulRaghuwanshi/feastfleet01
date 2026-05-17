@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { pushAgentLocation, listenToAgentLocation } from '../firebase/services';
 import styles from './LiveTrackingMap.module.css';
+import { buildGoogleMapsViewUrl, GOOGLE_MAPS_API_KEY } from '../utils/googleMaps';
 
 const STATUS_LABELS = {
   Placed: 'Order Placed',
@@ -75,10 +76,11 @@ export default function LiveTrackingMap({ orderId, role, agentId, onAgentLocatio
   const { restaurant, customer, agent, status } = tracking;
   const statusColor = STATUS_COLORS[status] || '#ff6b35';
 
-  // Build OpenStreetMap iframe URL centered between restaurant and customer
+  // Build Google Maps iframe URL centered between restaurant and customer
   const centerLat = ((restaurant?.lat || 19.076) + (customer?.lat || 19.076)) / 2;
   const centerLng = ((restaurant?.lng || 72.877) + (customer?.lng || 72.877)) / 2;
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${centerLng - 0.02},${centerLat - 0.02},${centerLng + 0.02},${centerLat + 0.02}&layer=mapnik&marker=${centerLat},${centerLng}`;
+  const mapUrl = buildGoogleMapsViewUrl({ lat: centerLat, lng: centerLng, zoom: 14 })
+    || `https://www.openstreetmap.org/export/embed.html?bbox=${centerLng - 0.02},${centerLat - 0.02},${centerLng + 0.02},${centerLat + 0.02}&layer=mapnik&marker=${centerLat},${centerLng}`;
 
   // ETA logic:
   // - restaurant preparation: 15 minutes (fixed)
@@ -116,6 +118,11 @@ export default function LiveTrackingMap({ orderId, role, agentId, onAgentLocatio
 
       {/* Map iframe */}
       <div className={styles.mapWrapper}>
+        {!GOOGLE_MAPS_API_KEY && (
+          <div className={styles.mapNotice}>
+            Set REACT_APP_GOOGLE_MAPS_API_KEY to enable Google Maps tracking.
+          </div>
+        )}
         <iframe
           title="Order Tracking Map"
           src={mapUrl}

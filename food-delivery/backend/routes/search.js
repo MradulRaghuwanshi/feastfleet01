@@ -37,7 +37,8 @@ router.get('/', async (req, res) => {
             id: menuDoc.id,
             ...item,
             restaurantId: restDoc.id,
-            restaurantName: rest.name
+            restaurantName: rest.name,
+            restaurantCuisine: rest.cuisine
           });
         }
       });

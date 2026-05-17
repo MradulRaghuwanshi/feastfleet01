@@ -1,13 +1,80 @@
 .page { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
 .hero {
-  background: linear-gradient(135deg, #ff6b35, #f7931e);
+  background:
+    radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 28%),
+    linear-gradient(135deg, #ff5f2e 0%, #f7931e 52%, #ffb347 100%);
   color: #fff;
   border-radius: 16px;
   padding: 40px 32px;
   margin-bottom: 28px;
+  box-shadow: 0 18px 50px rgba(255, 122, 24, 0.25);
 }
 .hero h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
 .hero p { font-size: 16px; opacity: 0.9; }
+.searchPanel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  margin: -10px 0 22px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,250,246,0.96));
+  border: 1px solid rgba(255, 167, 102, 0.22);
+  box-shadow: 0 14px 36px rgba(31, 41, 55, 0.08);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+.searchIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #ff8a00, #ff5f2e);
+  color: #fff;
+  font-size: 22px;
+  box-shadow: 0 10px 22px rgba(255, 95, 46, 0.28);
+  flex-shrink: 0;
+}
+.searchBody { flex: 1; min-width: 0; }
+.searchInput {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  padding: 3px 0 8px;
+}
+.searchInput::placeholder { color: #9ca3af; font-weight: 500; }
+.searchMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+.searchBtn {
+  border: none;
+  background: linear-gradient(135deg, #ff8a00, #ff5f2e);
+  color: #fff;
+  font-weight: 800;
+  padding: 12px 18px;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(255, 95, 46, 0.22);
+}
+.clearBtn {
+  border: none;
+  background: rgba(255, 95, 46, 0.1);
+  color: #d9480f;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
 .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
 .chip {
   padding: 8px 20px;
@@ -22,3 +89,99 @@
 .chip.active { background: #ff6b35; color: #fff; border-color: #ff6b35; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
 .loading { text-align: center; color: #888; padding: 40px; }
+.resultsSection { margin-bottom: 28px; }
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.sectionHeader h2 {
+  font-size: 18px;
+  font-weight: 800;
+  color: #111827;
+}
+.sectionHeader span {
+  min-width: 36px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #fff3e8;
+  color: #d9480f;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+.dishGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.dishCard {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid #f1e4db;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.dishCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.1);
+}
+.dishThumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+}
+.dishInfo { min-width: 0; flex: 1; }
+.dishInfo h3 {
+  font-size: 15px;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 4px;
+}
+.dishInfo p {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+.dishMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: #d9480f;
+  font-weight: 700;
+}
+.emptyState {
+  padding: 28px 18px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #fff, #fff8f3);
+  border: 1px dashed #f0c9b2;
+  text-align: center;
+}
+.emptyState h3 {
+  font-size: 18px;
+  color: #111827;
+  margin-bottom: 6px;
+}
+.emptyState p {
+  font-size: 14px;
+  color: #6b7280;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.highlightMark {
+  background: #ffd29a;
+  color: inherit;
+  padding: 0 3px;
+  border-radius: 4px;
+}

@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom';
 import styles from './RestaurantCard.module.css';
 
-export default function RestaurantCard({ restaurant, isFavourite, onToggleFavourite }) {
+export default function RestaurantCard({ restaurant, isFavourite, onToggleFavourite, highlightQuery = '' }) {
   const acceptingOrders = restaurant.isAcceptingOrdersNow ?? restaurant.isOpen;
   const statusLabel = restaurant.orderStatusLabel || (acceptingOrders ? 'Open' : 'Closed');
 
@@ -22,10 +22,10 @@ export default function RestaurantCard({ restaurant, isFavourite, onToggleFavour
       </div>
       <Link to={`/restaurant/${restaurant.id}`} className={styles.info}>
         <div className={styles.nameRow}>
-          <h3>{restaurant.name}</h3>
+          <h3>{highlightText(restaurant.name, highlightQuery)}</h3>
           {restaurant.isFeatured && <span className={styles.featuredBadge}>⭐ Featured</span>}
         </div>
-        <p className={styles.cuisine}>{restaurant.cuisine}</p>
+        <p className={styles.cuisine}>{highlightText(restaurant.cuisine, highlightQuery)}</p>
         <p className={styles.availability}>
           {acceptingOrders ? 'Accepting orders now' : (restaurant.orderStatusReason || 'Temporarily closed')}
         </p>
@@ -47,4 +47,18 @@ export default function RestaurantCard({ restaurant, isFavourite, onToggleFavour
       </Link>
     </div>
   );
+}
+
+function highlightText(text, query) {
+  const value = String(text || '');
+  const needle = query.trim();
+  if (!needle) return value;
+
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = value.split(new RegExp(`(${escaped})`, 'ig'));
+  return parts.map((part, index) => (
+    part.toLowerCase() === needle.toLowerCase()
+      ? <mark key={index} style={{ background: '#ffe0b2', color: 'inherit', borderRadius: 4, padding: '0 2px' }}>{part}</mark>
+      : <React.Fragment key={index}>{part}</React.Fragment>
+  ));
 }

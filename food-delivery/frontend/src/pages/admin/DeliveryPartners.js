@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { updateUser, addUser } from '../../firebase/services';
+import { fileToDataUrl } from '../../utils/imageFile';
 import styles from './Dashboard.module.css';
 
 export default function DeliveryPartners({ users, orders, onUpdate }) {
@@ -133,6 +134,16 @@ function StatCard({ icon, label, value, color }) {
 function PartnerModal({ initial, onClose, onSave }) {
   const [form, setForm] = useState(initial || { name:'', email:'', phone:'', vehicle:'', licenseNumber:'', aadhaarNumber:'', photoUrl:'', address:'', emergencyContact:'', perDeliveryRate:40 });
   const [saving, setSaving] = useState(false);
+  const handlePhotoFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setForm({ ...form, photoUrl: dataUrl });
+    } catch (error) {
+      alert(error.message || 'Unable to load image');
+    }
+  };
   const handleSave = async () => { if (!form.name || !form.phone) return alert('Name and phone are required'); setSaving(true); await onSave(form); setSaving(false); };
   return (
     <div className={styles.modalOverlay}>
@@ -148,7 +159,10 @@ function PartnerModal({ initial, onClose, onSave }) {
             <label>License Number<input value={form.licenseNumber || ''} onChange={e => setForm({...form, licenseNumber:e.target.value})} placeholder="DL-1234567890" /></label>
             <label>Aadhaar Number<input value={form.aadhaarNumber || ''} onChange={e => setForm({...form, aadhaarNumber:e.target.value})} placeholder="1234 5678 9012" maxLength={14} /></label>
             <label>Per Delivery Rate (₹)<input type="number" value={form.perDeliveryRate || 40} onChange={e => setForm({...form, perDeliveryRate:+e.target.value})} /></label>
-            <label className={styles.fullWidth}>Photo URL<input value={form.photoUrl || ''} onChange={e => setForm({...form, photoUrl:e.target.value})} placeholder="https://..." /></label>
+            <label className={styles.fullWidth}>Photo
+              <input type="file" accept="image/*" onChange={handlePhotoFileChange} />
+              {form.photoUrl && <img src={form.photoUrl} alt="Partner preview" style={{ marginTop: 8, width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 10 }} />}
+            </label>
             <label className={styles.fullWidth}>Address<textarea value={form.address || ''} onChange={e => setForm({...form, address:e.target.value})} placeholder="Full address" rows={2} style={{resize:'vertical', fontFamily:'inherit', fontSize:13, padding:8, border:'1.5px solid #e0e0e0', borderRadius:7}} /></label>
           </div>
         </div>

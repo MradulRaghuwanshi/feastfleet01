@@ -9,6 +9,7 @@ const defaultConfig = {
   defaultDeliveryFee: 30,
   defaultMinOrder: 149,
   gstPercent: 0,
+  cuisines: ['Italian', 'American', 'Japanese', 'Mexican', 'Healthy'],
 };
 
 // Get dashboard overview
@@ -105,6 +106,9 @@ router.patch('/config', async (req, res) => {
       defaultDeliveryFee: Number(req.body.defaultDeliveryFee ?? 30),
       defaultMinOrder: Number(req.body.defaultMinOrder ?? 149),
       gstPercent: Number(req.body.gstPercent ?? 0),
+      cuisines: Array.isArray(req.body.cuisines)
+        ? req.body.cuisines.map(item => String(item || '').trim()).filter(Boolean)
+        : undefined,
       updatedAt: new Date().toISOString(),
     };
 
@@ -115,12 +119,15 @@ router.patch('/config', async (req, res) => {
       state.appConfig.defaultDeliveryFee = updates.defaultDeliveryFee;
       state.appConfig.defaultMinOrder = updates.defaultMinOrder;
       state.appConfig.gstPercent = updates.gstPercent;
+      if (updates.cuisines) state.appConfig.cuisines = updates.cuisines;
       state.appConfig.updatedAt = updates.updatedAt;
       return res.json({ ...state.appConfig });
     }
 
-    await db.collection('appConfig').doc('general').set(updates, { merge: true });
-    return res.json({ success: true, ...updates });
+    const payload = { ...updates };
+    if (!payload.cuisines) delete payload.cuisines;
+    await db.collection('appConfig').doc('general').set(payload, { merge: true });
+    return res.json({ success: true, ...payload });
   } catch (error) {
     console.error('Update app config error:', error);
     return res.status(500).json({ error: error.message });

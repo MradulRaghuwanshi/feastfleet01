@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const path = require('path');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HOW TO SET UP:
@@ -15,6 +16,13 @@ const admin = require('firebase-admin');
 let serviceAccount = null;
 let serviceAccountSource = 'none';
 
+const serviceAccountFileCandidates = [
+  process.env.FIREBASE_SERVICE_ACCOUNT_FILE,
+  '/etc/secrets/serviceAccountKey.json',
+  path.join(process.cwd(), 'serviceAccountKey.json'),
+  './serviceAccountKey.json',
+].filter(Boolean);
+
 if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
   try {
     serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
@@ -25,12 +33,18 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
 }
 
 if (!serviceAccount) {
-  try {
-    serviceAccount = require('./serviceAccountKey.json');
-    serviceAccountSource = 'file';
-  } catch {
-    console.warn('⚠️  Firebase serviceAccountKey.json not found. Running in demo mode.');
-    serviceAccount = null;
+  for (const candidate of serviceAccountFileCandidates) {
+    try {
+      serviceAccount = require(candidate);
+      serviceAccountSource = candidate;
+      break;
+    } catch {
+      // Try the next candidate.
+    }
+  }
+
+  if (!serviceAccount) {
+    console.warn('⚠️  Firebase service account file not found. Running in demo mode.');
   }
 }
 

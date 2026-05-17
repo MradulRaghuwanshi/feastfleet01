@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useDeliveryLocation } from '../context/LocationContext';
 import { useAuth } from '../context/AuthContext';
+import { placeOrder } from '../firebase/services';
 import { apiUrl } from '../utils/apiConfig';
 import styles from './Checkout.module.css';
 
@@ -225,13 +226,11 @@ export default function Checkout() {
         useWallet: false // Could add wallet toggle in future
       };
 
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData)
+      const data = await placeOrder({
+        ...orderData,
+        paymentMethod: 'cod',
+        paymentStatus: 'pending',
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       clearCart();
       navigate(`/order-confirmation/${data.id}`);
     } catch (err) {

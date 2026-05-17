@@ -15,9 +15,9 @@ services:
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         value: ""
       - key: RAZORPAY_KEY_ID
-        value: ""
+        value: rzp_live_SqTWXCzB7KpMF5
       - key: RAZORPAY_KEY_SECRET
-        value: ""
+        value: HtPOrDaOAH9HILTG336H7UsN
 
   - type: web
     name: feastfleet-frontend

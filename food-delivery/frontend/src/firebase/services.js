@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import { db, auth, rtdb } from './config';
 import { ref, set, onValue, off } from 'firebase/database';
+import { API_BASE_URL } from '../utils/apiConfig';
 import {
   ORDER_STATUS,
   ORDER_FLOW,
@@ -21,10 +22,7 @@ import {
   roundMoney,
 } from '../domain/platform';
 
-const isLocalHost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const API_ROOT = (process.env.REACT_APP_API_URL || '')
-  ? `${process.env.REACT_APP_API_URL}/api`
-  : (isLocalHost ? 'http://localhost:5000/api' : '/api');
+const API_ROOT = API_BASE_URL;
 
 const apiJson = async (path, options = {}) => {
   const response = await fetch(`${API_ROOT}${path}`, {
@@ -964,23 +962,15 @@ export const deletePromo = async (code) => {
 export const getAllPromos = async () => apiJson('/promos?all=1');
 
 export const listenToAllOrders = (cb) => {
-  let stopped = false;
-
-  const refresh = async () => {
-    try {
-      const data = await getAllOrders();
-      if (!stopped) cb(data);
-    } catch (error) {
-      console.error('listenToAllOrders refresh failed:', error);
+  const q = query(collection(db, 'orders'), orderBy('placedAt', 'desc'));
+  return onSnapshot(
+    q,
+    snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    error => {
+      console.error('listenToAllOrders snapshot failed:', error);
+      cb([]);
     }
-  };
-
-  refresh();
-  const timer = setInterval(refresh, 5000);
-  return () => {
-    stopped = true;
-    clearInterval(timer);
-  };
+  );
 };
 export const deductWallet = async (userId, amount) => {
   const snap = await getDoc(doc(db, 'users', userId));

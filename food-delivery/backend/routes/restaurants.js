@@ -66,8 +66,13 @@ router.get('/:id', async (req, res) => {
     const doc = await db.collection('restaurants').doc(req.params.id).get();
     if (!doc.exists()) return res.status(404).json({ error: 'Not found' });
 
-    const menuSnap = await db.collection('restaurants').doc(req.params.id).collection('menu').get();
-    const menu = menuSnap.docs.map(m => ({ id: m.id, ...m.data() }));
+    let menu = [];
+    try {
+      const menuSnap = await db.collection('restaurants').doc(req.params.id).collection('menu').get();
+      menu = menuSnap.docs.map(m => ({ id: m.id, ...m.data() }));
+    } catch (menuError) {
+      console.warn('Get restaurant menu error:', { restaurantId: req.params.id, message: menuError.message });
+    }
 
     res.json({
       id: doc.id,
@@ -261,10 +266,14 @@ router.patch('/:id/profile', async (req, res) => {
     }
 
     const doc = await db.collection('restaurants').doc(req.params.id).get();
-    if (!doc.exists()) return res.status(404).json({ error: 'Not found' });
+    if (!doc.exists()) {
+      console.warn('Update restaurant profile: document not found, creating it', { restaurantId: req.params.id });
+    }
 
-    await db.collection('restaurants').doc(req.params.id).update(allowed);
-    res.json({ id: req.params.id, ...allowed });
+    await db.collection('restaurants').doc(req.params.id).set(allowed, { merge: true });
+    const updatedDoc = await db.collection('restaurants').doc(req.params.id).get();
+    const responseData = updatedDoc.exists() ? updatedDoc.data() : allowed;
+    res.json({ id: req.params.id, ...responseData });
   } catch (error) {
     console.error('Update restaurant profile error:', error);
     res.status(500).json({ error: error.message });

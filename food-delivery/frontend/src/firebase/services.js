@@ -818,6 +818,14 @@ export const updateOrderStatus = async (orderId, status, actorId) => {
   });
 };
 
+export const updateOrderFields = async (orderId, updates) => {
+  if (!orderId) throw new Error('Order id is required');
+  await updateDoc(doc(db, 'orders', orderId), {
+    ...updates,
+    updatedAt: nowIso(),
+  });
+};
+
 export const markOrderReviewed = async (orderId) => {
   await updateDoc(doc(db, 'orders', orderId), { reviewed: true });
 };

@@ -4,7 +4,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useDeliveryLocation } from '../../context/LocationContext';
 import LocationPicker from '../../components/LocationPicker';
-import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES, getRestaurant } from '../../firebase/services';
+import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES, getRestaurant, updateOrderFields } from '../../firebase/services';
 import { apiUrl } from '../../utils/apiConfig';
 import styles from './Checkout.module.css';
 
@@ -151,7 +151,7 @@ export default function Checkout() {
   };
 
   // Handle Razorpay checkout
-  const openRazorpayCheckout = (razorpayOrder, orderData, customer) => {
+  const openRazorpayCheckout = (razorpayOrder, orderData, customer, pendingOrder) => {
     return new Promise((resolve, reject) => {
       if (!window.Razorpay) {
         reject(new Error('Razorpay SDK failed to load. Please refresh the page and try again.'));
@@ -181,19 +181,21 @@ export default function Checkout() {
               response.razorpay_signature
             );
 
-            // Add payment info to order data
-            const finalOrderData = {
-              ...orderData,
+            await updateOrderFields(pendingOrder.id, {
               paymentMethod: 'razorpay',
               paymentStatus: 'completed',
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
-            };
+            });
 
-            // Place order in Firebase
-            const order = await placeOrder(finalOrderData);
             clearCart();
-            resolve(order);
+            resolve({
+              ...pendingOrder,
+              paymentMethod: 'razorpay',
+              paymentStatus: 'completed',
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+            });
           } catch (error) {
             console.error('Payment processing error:', error);
             const errorMsg = error?.message || 'Payment failed. Please try again or use Cash on Delivery.';
@@ -330,6 +332,12 @@ export default function Checkout() {
       } else {
         await loadRazorpayScript();
 
+        const pendingOrder = await placeOrder({
+          ...orderData,
+          paymentMethod: 'razorpay',
+          paymentStatus: 'pending',
+        });
+
         // Razorpay checkout
         const razorpayOrder = await createRazorpayOrder(orderData, customer);
         if (!razorpayOrder?.order_id) {
@@ -339,7 +347,7 @@ export default function Checkout() {
           throw new Error('Razorpay is not configured. Please contact support or use Cash on Delivery.');
         }
 
-        const order = await openRazorpayCheckout(razorpayOrder, orderData, customer);
+        const order = await openRazorpayCheckout(razorpayOrder, orderData, customer, pendingOrder);
         navigate(`/order-confirmation/${order.id}`);
       }
     } catch (err) {

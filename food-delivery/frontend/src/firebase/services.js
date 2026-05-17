@@ -1006,6 +1006,13 @@ export const updateUser = async (userId, data) => {
   });
 };
 
+export const updateUserCredentials = async (userId, data) => {
+  return apiJson(`/users/${userId}/credentials`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
 export const addUser = async (userId, data) => {
   await apiJson('/users', {
     method: 'POST',

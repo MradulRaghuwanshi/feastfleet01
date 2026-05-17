@@ -3,6 +3,7 @@
 // - REACT_APP_API_URL=https://host (will become https://host/api)
 // - REACT_APP_API_URL=https://host/api (kept as-is)
 const isLocalHost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const PRODUCTION_API_URL = 'https://feastfleet-backend-0ozz.onrender.com/api';
 
 function withApiSuffix(url) {
   const trimmed = String(url || '').replace(/\/$/, '');
@@ -12,7 +13,7 @@ function withApiSuffix(url) {
 }
 
 const envBase = withApiSuffix(process.env.REACT_APP_API_URL);
-export const API_BASE_URL = envBase || (isLocalHost ? 'http://localhost:5000/api' : '/api');
+export const API_BASE_URL = envBase || (isLocalHost ? 'http://localhost:5000/api' : PRODUCTION_API_URL);
 
 /**
  * Build a full API URL from a path.

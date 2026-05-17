@@ -30,6 +30,8 @@ services:
     envVars:
       - key: REACT_APP_API_URL
         value: https://feastfleet-backend-0ozz.onrender.com
+      - key: REACT_APP_RAZORPAY_KEY_ID
+        value: rzp_live_SqTWXCzB7KpMF5
       - key: REACT_APP_FIREBASE_API_KEY
         value: AIzaSyAjz7-JdOVMYXHEsb-BOQ0V3MoaGH2Qo_Y
       - key: REACT_APP_FIREBASE_AUTH_DOMAIN

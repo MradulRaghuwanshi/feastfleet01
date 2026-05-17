@@ -152,7 +152,7 @@ export default function Checkout() {
       }
 
       const options = {
-        key: RAZORPAY_KEY_ID,
+        key: razorpayOrder.key_id || RAZORPAY_KEY_ID,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
         order_id: razorpayOrder.order_id,

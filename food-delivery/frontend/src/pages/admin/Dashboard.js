@@ -5,6 +5,7 @@ import {
   addRestaurant, updateRestaurant, deleteRestaurant,
   addPromo, updatePromo, deletePromo,
   getAppConfig, updateAppConfig,
+  updateUserCredentials,
   normalizeOrderStatus,
   ORDER_STATUS,
   reassignDeliveryPartner
@@ -116,7 +117,7 @@ export default function AdminDashboard() {
           }}
           onDelete={async (code) => { await deletePromo(code); loadData(); }}
         />}
-        {tab === 'Users'        && <Users users={users} />}
+        {tab === 'Users'        && <Users users={users} adminId={user.id} onCredentialsSaved={loadData} />}
         {tab === 'Delivery Partners' && <DeliveryPartners users={users} orders={orders} onUpdate={loadData} />}
         {tab === 'Wallets'      && <Wallets users={users} orders={orders} />}
         {tab === 'Settlements'  && <Settlements orders={orders} />}
@@ -455,24 +456,127 @@ function Promos({ promos, onToggle, onDelete }) {
 
 /* ── Users ───────────────────────────────────────────────────────────────── */
 
-function Users({ users }) {
+function Users({ users, adminId, onCredentialsSaved }) {
   const ROLE_COLOR = { customer:'#dbeafe', restaurant:'#fef3c7', delivery:'#d1fae5', admin:'#fce7f3' };
+  const [credentialUser, setCredentialUser] = useState(null);
   return (
-    <table className={styles.table}>
-      <thead><tr><th>Avatar</th><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Wallet</th></tr></thead>
-      <tbody>
-        {users.map(u => (
-          <tr key={u.id}>
-            <td style={{fontSize:24}}>{u.avatar}</td>
-            <td>{u.name}</td>
-            <td className={styles.mono}>{u.email}</td>
-            <td><span className={styles.statusPill} style={{ background: ROLE_COLOR[u.role] || '#f0f0f0' }}>{u.role}</span></td>
-            <td>{u.phone || '—'}</td>
-            <td>{u.wallet > 0 ? `₹${u.wallet}` : '—'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <>
+      <table className={styles.table}>
+        <thead><tr><th>Avatar</th><th>Name</th><th>Username / Email</th><th>Role</th><th>Phone</th><th>Wallet</th><th>Actions</th></tr></thead>
+        <tbody>
+          {users.map(u => {
+            const canEditCredentials = ['restaurant', 'delivery'].includes(u.role);
+            return (
+              <tr key={u.id}>
+                <td style={{fontSize:24}}>{u.avatar}</td>
+                <td>{u.name}</td>
+                <td className={styles.mono}>{u.email}</td>
+                <td><span className={styles.statusPill} style={{ background: ROLE_COLOR[u.role] || '#f0f0f0' }}>{u.role}</span></td>
+                <td>{u.phone || '—'}</td>
+                <td>{u.wallet > 0 ? `₹${u.wallet}` : '—'}</td>
+                <td>
+                  {canEditCredentials ? (
+                    <button className={styles.editBtn} onClick={() => setCredentialUser(u)}>Set Login</button>
+                  ) : (
+                    <span className={styles.dateCell}>Managed by user</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {credentialUser && (
+        <CredentialsModal
+          user={credentialUser}
+          adminId={adminId}
+          onClose={() => setCredentialUser(null)}
+          onSave={async (data) => {
+            await updateUserCredentials(credentialUser.id, data);
+            setCredentialUser(null);
+            await onCredentialsSaved();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function CredentialsModal({ user, adminId, onClose, onSave }) {
+  const [form, setForm] = useState({
+    email: user.email || '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    setError('');
+    const email = form.email.trim().toLowerCase();
+    if (!email) return setError('Username/email is required.');
+    if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Use a valid email address as the username.');
+    if (form.password && form.password.length < 6) return setError('Password must be at least 6 characters.');
+    if (form.password !== form.confirmPassword) return setError('Passwords do not match.');
+
+    setSaving(true);
+    try {
+      await onSave({
+        adminId,
+        email,
+        username: email,
+        ...(form.password ? { password: form.password } : {}),
+      });
+    } catch (err) {
+      setError(err.message || 'Unable to update login credentials.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className={styles.modalOverlay}>
+      <div className={styles.modal} style={{ maxWidth: 460 }}>
+        <div className={styles.modalHeader}>
+          <h3>Set Login - {user.name}</h3>
+          <button onClick={onClose}>x</button>
+        </div>
+        <div className={styles.modalBody}>
+          <div className={styles.formGrid}>
+            <label className={styles.fullWidth}>Username / Email *
+              <input
+                type="email"
+                value={form.email}
+                onChange={e => setForm({ ...form, email: e.target.value })}
+                placeholder="owner@example.com"
+              />
+            </label>
+            <label>New Password
+              <input
+                type="password"
+                value={form.password}
+                onChange={e => setForm({ ...form, password: e.target.value })}
+                placeholder="Leave blank to keep current"
+              />
+            </label>
+            <label>Confirm Password
+              <input
+                type="password"
+                value={form.confirmPassword}
+                onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                placeholder="Repeat password"
+              />
+            </label>
+          </div>
+          <p className={styles.settingsSub}>Applies only to this {user.role === 'restaurant' ? 'restaurant' : 'delivery partner'} account.</p>
+          {error && <p className={styles.formError}>{error}</p>}
+        </div>
+        <div className={styles.modalFooter}>
+          <button className={styles.cancelBtn} onClick={onClose}>Cancel</button>
+          <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Login'}</button>
+        </div>
+      </div>
+    </div>
   );
 }
 

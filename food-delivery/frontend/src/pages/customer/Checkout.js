@@ -159,7 +159,7 @@ export default function Checkout() {
       }
 
       const options = {
-        key: RAZORPAY_KEY_ID,
+        key: razorpayOrder.key_id || RAZORPAY_KEY_ID,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
         order_id: razorpayOrder.order_id,
@@ -328,22 +328,15 @@ export default function Checkout() {
         clearCart();
         navigate(`/order-confirmation/${order.id}`);
       } else {
-        if (!RAZORPAY_KEY_ID) {
-          throw new Error('Razorpay is not configured. Please contact support or use Cash on Delivery.');
-        }
-
-        // Check if running in test mode
-        const isTestMode = RAZORPAY_KEY_ID?.startsWith('rzp_test_');
-        if (isTestMode) {
-          console.log('✅ Running in Razorpay Test Mode');
-        }
-
         await loadRazorpayScript();
 
         // Razorpay checkout
         const razorpayOrder = await createRazorpayOrder(orderData, customer);
         if (!razorpayOrder?.order_id) {
           throw new Error('Failed to create payment order. Please try again.');
+        }
+        if (!razorpayOrder.key_id && !RAZORPAY_KEY_ID) {
+          throw new Error('Razorpay is not configured. Please contact support or use Cash on Delivery.');
         }
 
         const order = await openRazorpayCheckout(razorpayOrder, orderData, customer);

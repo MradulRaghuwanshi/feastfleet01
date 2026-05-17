@@ -8,10 +8,13 @@ function getRazorpay() {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
   if (!keyId || !keySecret) {
-    return null; // demo mode fallback
+    return null;
   }
 
-  return new Razorpay({ key_id: keyId, key_secret: keySecret });
+  return {
+    keyId,
+    client: new Razorpay({ key_id: keyId, key_secret: keySecret }),
+  };
 }
 
 router.post('/create-order', async (req, res) => {
@@ -26,20 +29,15 @@ router.post('/create-order', async (req, res) => {
     const parsedCurrency = currency || 'INR';
     const parsedReceipt = receipt || `rcpt_${Date.now()}`;
 
-    const razorpay = getRazorpay();
+    const razorpayConfig = getRazorpay();
 
-    // Demo fallback when Razorpay keys are not configured
-    if (!razorpay) {
-      const demoOrderId = `demo_order_${Date.now()}`;
-      return res.status(200).json({
-        order_id: demoOrderId,
-        amount: parsedAmount,
-        currency: parsedCurrency,
-        demo: true
+    if (!razorpayConfig) {
+      return res.status(503).json({
+        error: 'Razorpay is not configured on the payment server.',
       });
     }
 
-    const order = await razorpay.orders.create({
+    const order = await razorpayConfig.client.orders.create({
       amount: parsedAmount,
       currency: parsedCurrency,
       receipt: parsedReceipt,
@@ -48,6 +46,7 @@ router.post('/create-order', async (req, res) => {
 
     return res.status(200).json({
       order_id: order.id,
+      key_id: razorpayConfig.keyId,
       amount: order.amount,
       currency: order.currency,
     });

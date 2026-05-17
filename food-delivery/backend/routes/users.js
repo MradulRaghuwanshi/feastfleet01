@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { db } = require('../firebase/admin');
+const { db, authAdmin } = require('../firebase/admin');
 
 const generateId = (prefix) => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -71,6 +71,90 @@ router.patch('/:id', async (req, res) => {
     return res.json({ id: req.params.id, ...updates });
   } catch (error) {
     console.error('Update user error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH /api/users/:id/credentials
+router.patch('/:id/credentials', async (req, res) => {
+  try {
+    const { email, username, password, adminId } = req.body || {};
+    const actingAdminId = String(req.headers['x-admin-id'] || adminId || '').trim();
+    const loginEmail = String(email || username || '').trim().toLowerCase();
+    const nextPassword = String(password || '').trim();
+
+    if (!actingAdminId) return res.status(403).json({ error: 'Admin access required' });
+    if (!loginEmail) return res.status(400).json({ error: 'username/email is required' });
+    if (nextPassword && nextPassword.length < 6) {
+      return res.status(400).json({ error: 'password must be at least 6 characters' });
+    }
+
+    if (!db) {
+      const { users } = require('../data/db');
+      const adminUser = users.find(u => u.id === actingAdminId && u.role === 'admin');
+      if (!adminUser) return res.status(403).json({ error: 'Admin access required' });
+      const user = users.find(u => u.id === req.params.id);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      if (!['restaurant', 'delivery'].includes(user.role)) {
+        return res.status(403).json({ error: 'Only restaurant and delivery partner credentials can be updated here' });
+      }
+      const emailExists = users.some(u => u.id !== user.id && String(u.email || '').toLowerCase() === loginEmail);
+      if (emailExists) return res.status(409).json({ error: 'This username/email is already in use' });
+      user.email = loginEmail;
+      if (nextPassword) user.password = nextPassword;
+      return res.json({ id: user.id, email: user.email, role: user.role });
+    }
+
+    const adminDoc = await db.collection('users').doc(actingAdminId).get();
+    if (!adminDoc.exists || adminDoc.data().role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const userRef = db.collection('users').doc(req.params.id);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });
+
+    const user = { id: userDoc.id, ...userDoc.data() };
+    if (!['restaurant', 'delivery'].includes(user.role)) {
+      return res.status(403).json({ error: 'Only restaurant and delivery partner credentials can be updated here' });
+    }
+
+    const existingCreds = await db.collection('loginCredentials').where('email', '==', loginEmail).limit(1).get();
+    if (!existingCreds.empty && existingCreds.docs[0].id !== req.params.id) {
+      return res.status(409).json({ error: 'This username/email is already in use' });
+    }
+
+    const updates = {
+      email: loginEmail,
+      updatedAt: new Date().toISOString(),
+    };
+    await userRef.update(updates);
+
+    const credentialUpdate = {
+      uid: req.params.id,
+      email: loginEmail,
+      role: user.role,
+      name: user.name || '',
+      avatar: user.avatar || '',
+      updatedAt: updates.updatedAt,
+    };
+    if (nextPassword) credentialUpdate.password = nextPassword;
+
+    await db.collection('loginCredentials').doc(req.params.id).set(credentialUpdate, { merge: true });
+
+    if (authAdmin) {
+      try {
+        const authUpdate = { email: loginEmail };
+        if (nextPassword) authUpdate.password = nextPassword;
+        await authAdmin.updateUser(req.params.id, authUpdate);
+      } catch (error) {
+        console.warn('Firebase Auth credential sync skipped:', error.message);
+      }
+    }
+
+    return res.json({ id: req.params.id, email: loginEmail, role: user.role });
+  } catch (error) {
+    console.error('Update credentials error:', error);
     return res.status(500).json({ error: error.message });
   }
 });

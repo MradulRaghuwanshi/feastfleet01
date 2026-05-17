@@ -195,15 +195,16 @@ export default function Checkout() {
             clearCart();
             resolve(order);
           } catch (error) {
-            console.error('Payment verification failed:', error);
-            reject(error);
+            console.error('Payment processing error:', error);
+            const errorMsg = error?.message || 'Payment failed. Please try again or use Cash on Delivery.';
+            reject(new Error(errorMsg));
           } finally {
             setPaymentLoading(false);
           }
         },
         modal: {
           ondismiss: () => {
-            reject(new Error('Payment cancelled by user'));
+            reject(new Error('Payment cancelled. Please try again or use Cash on Delivery.'));
           },
         },
       };
@@ -327,11 +328,24 @@ export default function Checkout() {
         clearCart();
         navigate(`/order-confirmation/${order.id}`);
       } else {
-        if (!RAZORPAY_KEY_ID) throw new Error('Razorpay key is not configured. Check REACT_APP_RAZORPAY_KEY_ID.');
+        if (!RAZORPAY_KEY_ID) {
+          throw new Error('Razorpay is not configured. Please contact support or use Cash on Delivery.');
+        }
+
+        // Check if running in test mode
+        const isTestMode = RAZORPAY_KEY_ID?.startsWith('rzp_test_');
+        if (isTestMode) {
+          console.log('✅ Running in Razorpay Test Mode');
+        }
+
         await loadRazorpayScript();
 
         // Razorpay checkout
         const razorpayOrder = await createRazorpayOrder(orderData, customer);
+        if (!razorpayOrder?.order_id) {
+          throw new Error('Failed to create payment order. Please try again.');
+        }
+
         const order = await openRazorpayCheckout(razorpayOrder, orderData, customer);
         navigate(`/order-confirmation/${order.id}`);
       }

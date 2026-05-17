@@ -25,6 +25,17 @@ app.use('/api/inventory',      require('./routes/inventory'));
 app.use('/api/reports',        require('./routes/reports'));
 app.use('/api/menu-bulk',      require('./routes/menu-bulk'));
 
+const healthPayload = () => ({
+  ok: true,
+  message: 'FeastFleet API is healthy',
+  version,
+  environment: process.env.NODE_ENV || 'development',
+  timestamp: new Date().toISOString(),
+});
+
+app.get('/api/health', (_req, res) => res.json(healthPayload()));
+app.get('/health', (_req, res) => res.json(healthPayload()));
+
 app.get('/', (req, res) => res.json({ 
   message: 'FeastFleet API',
   version: version,

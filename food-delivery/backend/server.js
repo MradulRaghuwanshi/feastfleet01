@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const { version } = require('./package.json');
 const app = express();
 
 app.use(cors());
@@ -24,7 +25,16 @@ app.use('/api/inventory',      require('./routes/inventory'));
 app.use('/api/reports',        require('./routes/reports'));
 app.use('/api/menu-bulk',      require('./routes/menu-bulk'));
 
-app.get('/', (req, res) => res.json({ message: 'FeastFleet API v3' }));
+app.get('/', (req, res) => res.json({ 
+  message: 'FeastFleet API',
+  version: version,
+  environment: process.env.NODE_ENV || 'development',
+  timestamp: new Date().toISOString()
+}));
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server → http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`\n🚀 FeastFleet Backend v${version}`);
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}\n`);
+});

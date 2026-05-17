@@ -98,24 +98,31 @@ export default function Checkout() {
 
   const createRazorpayOrder = async () => {
     const amountPaise = Math.round(total * 100);
-    const response = await fetch(apiUrl('payments/create-order'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: amountPaise,
-        currency: 'INR',
-        receipt: `order_${Date.now()}`,
-        customerName: user?.name || 'Customer',
-        customerEmail: user?.email || 'customer@example.com',
-      }),
-    });
+    try {
+      const response = await fetch(apiUrl('payments/create-order'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: amountPaise,
+          currency: 'INR',
+          receipt: `order_${Date.now()}`,
+          customerName: user?.name || 'Customer',
+          customerEmail: user?.email || 'customer@example.com',
+        }),
+      });
 
-    if (!response.ok) {
-      const err = await readJson(response, 'Failed to create Razorpay order');
-      throw new Error(err.error || 'Failed to create Razorpay order');
+      if (!response.ok) {
+        const err = await readJson(response, 'Failed to create Razorpay order');
+        console.error('Create order error response:', response.status, err);
+        throw new Error(err.error || `Failed to create order (${response.status}): ${err.message || 'Unknown error'}`);
+      }
+
+      const data = await readJson(response, 'Failed to create Razorpay order');
+      return data;
+    } catch (error) {
+      console.error('Razorpay order creation error:', error);
+      throw new Error(`Payment setup failed: ${error?.message || 'Unable to reach payment server'}`);
     }
-
-    return readJson(response, 'Failed to create Razorpay order');
   };
 
   const verifyRazorpayPayment = async (razorpayOrderId, razorpayPaymentId, razorpaySignature) => {
@@ -139,6 +146,11 @@ export default function Checkout() {
 
   const openRazorpayCheckout = (razorpayOrder, orderData) => {
     return new Promise((resolve, reject) => {
+      if (!window.Razorpay) {
+        reject(new Error('Razorpay SDK failed to load. Please refresh the page and try again.'));
+        return;
+      }
+
       const options = {
         key: RAZORPAY_KEY_ID,
         amount: razorpayOrder.amount,
@@ -183,11 +195,15 @@ export default function Checkout() {
         },
       };
 
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', (resp) => {
-        reject(new Error(resp?.error?.description || 'Payment failed'));
-      });
-      rzp.open();
+      try {
+        const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', (resp) => {
+          reject(new Error(`Payment failed: ${resp?.error?.description || 'Unknown error'}`));
+        });
+        rzp.open();
+      } catch (err) {
+        reject(new Error(`Failed to open payment gateway: ${err?.message || 'Unknown error'}`));
+      }
     });
   };
 

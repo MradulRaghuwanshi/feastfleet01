@@ -14,10 +14,10 @@ services:
         value: https://feastfleet-54b7e-default-rtdb.asia-southeast1.firebasedatabase.app
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         value: ""
-        - key: RAZORPAY_KEY_ID
-          value: ""
-        - key: RAZORPAY_KEY_SECRET
-          value: ""
+      - key: RAZORPAY_KEY_ID
+        value: ""
+      - key: RAZORPAY_KEY_SECRET
+        value: ""
 
   - type: web
     name: feastfleet-frontend

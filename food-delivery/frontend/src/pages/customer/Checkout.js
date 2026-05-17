@@ -113,13 +113,15 @@ export default function Checkout() {
 
       if (!response.ok) {
         const err = await readJson(response, 'Failed to create Razorpay order');
-        throw new Error(err.error || 'Failed to create Razorpay order');
+        console.error('Create order error response:', response.status, err);
+        throw new Error(err.error || `Failed to create order (${response.status}): ${err.message || 'Unknown error'}`);
       }
 
-      return await readJson(response, 'Failed to create Razorpay order');
+      const data = await readJson(response, 'Failed to create Razorpay order');
+      return data;
     } catch (error) {
       console.error('Razorpay order creation error:', error);
-      throw error;
+      throw new Error(`Payment setup failed: ${error?.message || 'Unable to reach payment server'}`);
     }
   };
 
@@ -151,6 +153,11 @@ export default function Checkout() {
   // Handle Razorpay checkout
   const openRazorpayCheckout = (razorpayOrder, orderData, customer) => {
     return new Promise((resolve, reject) => {
+      if (!window.Razorpay) {
+        reject(new Error('Razorpay SDK failed to load. Please refresh the page and try again.'));
+        return;
+      }
+
       const options = {
         key: RAZORPAY_KEY_ID,
         amount: razorpayOrder.amount,
@@ -201,8 +208,15 @@ export default function Checkout() {
         },
       };
 
-      const rzp = new window.Razorpay(options);
-      rzp.open();
+      try {
+        const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', (resp) => {
+          reject(new Error(`Payment failed: ${resp?.error?.description || 'Unknown error'}`));
+        });
+        rzp.open();
+      } catch (err) {
+        reject(new Error(`Failed to open payment gateway: ${err?.message || 'Unknown error'}`));
+      }
     });
   };
 

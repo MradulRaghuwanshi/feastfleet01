@@ -50,7 +50,7 @@
     display: flex;
     padding: 8px 10px env(safe-area-inset-bottom, 8px);
     background: rgba(255,255,255,0.92);
-    backdrop-filter: blur(6px);
+    /* backdrop-filter: blur(6px); */
     border-top: 1px solid rgba(0,0,0,0.06);
     box-shadow: 0 6px 18px rgba(0,0,0,0.08);
     left: 8px; right: 8px; bottom: 8px; border-radius: 12px;

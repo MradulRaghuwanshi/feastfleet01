@@ -930,6 +930,7 @@ function Settings({ config, onSave }) {
 /* ── Add Restaurant Modal ────────────────────────────────────────────────── */
 
 function AddRestaurantModal({ onClose, onSave, initial }) {
+  const [generatedCreds, setGeneratedCreds] = useState(null);
   const [form, setForm] = useState(initial || {
     name:'', cuisine:'', address:'', deliveryFee:29, minOrder:149,
     deliveryTime:'30-45 min', rating:4.0, image:'', offer:'', isOpen:true, isFeatured:false, tags:[], loginEmail:'', loginPassword:'', confirmLoginPassword:''
@@ -961,9 +962,8 @@ function AddRestaurantModal({ onClose, onSave, initial }) {
       const creds = generateCredentials(form.name);
       emailToUse = creds.email;
       passwordToUse = creds.password;
-      // show generated credentials so admin can copy/save them
-      // eslint-disable-next-line no-alert
-      alert(`Generated login for ${form.name}\nEmail: ${emailToUse}\nPassword: ${passwordToUse}`);
+      // show generated credentials modal so admin can copy/save them
+      setGeneratedCreds({ name: form.name, email: emailToUse, password: passwordToUse });
     }
 
     setSaving(true);
@@ -1022,9 +1022,53 @@ function AddRestaurantModal({ onClose, onSave, initial }) {
           <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Restaurant'}</button>
         </div>
       </div>
+        {generatedCreds && (
+          <GeneratedCredsModal creds={generatedCreds} onClose={() => setGeneratedCreds(null)} />
+        )}
     </div>
   );
 }
+
+  function GeneratedCredsModal({ creds, onClose }) {
+    const handleCopy = async (text) => {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    return (
+      <div className={styles.modalOverlay}>
+        <div className={styles.modal} style={{ maxWidth: 520 }}>
+          <div className={styles.modalHeader}>
+            <h3>Generated Login for {creds.name}</h3>
+            <button onClick={onClose}>✕</button>
+          </div>
+          <div className={styles.modalBody}>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <label>Username / Email
+                <div className={styles.generatedField}>
+                  <span className={styles.mono}>{creds.email}</span>
+                  <button className={styles.copyBtn} onClick={() => handleCopy(creds.email)}>Copy</button>
+                </div>
+              </label>
+              <label>Password
+                <div className={styles.generatedField}>
+                  <span className={styles.mono}>{creds.password}</span>
+                  <button className={styles.copyBtn} onClick={() => handleCopy(creds.password)}>Copy</button>
+                </div>
+              </label>
+              <p style={{ color: '#666', fontSize: 13 }}>Please copy these credentials now; they will not be shown again.</p>
+            </div>
+          </div>
+          <div className={styles.modalFooter}>
+            <button className={styles.saveBtn} onClick={onClose}>Done</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
 /* ── Add Promo Modal ─────────────────────────────────────────────────────── */
 

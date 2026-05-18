@@ -5,6 +5,7 @@ import {
   addRestaurant, updateRestaurant, deleteRestaurant,
   addPromo, updatePromo, deletePromo,
   getAppConfig, updateAppConfig,
+  addUser,
   updateUserCredentials,
   normalizeOrderStatus,
   ORDER_STATUS,
@@ -120,7 +121,7 @@ export default function AdminDashboard() {
           onDelete={async (code) => { await deletePromo(code); loadData(); }}
         />}
         {tab === 'Users'        && <Users users={users} adminId={user.id} onCredentialsSaved={loadData} />}
-        {tab === 'Delivery Partners' && <DeliveryPartners users={users} orders={orders} onUpdate={loadData} />}
+        {tab === 'Delivery Partners' && <DeliveryPartners users={users} orders={orders} adminId={user.id} onUpdate={loadData} />}
         {tab === 'Wallets'      && <Wallets users={users} orders={orders} />}
         {tab === 'Settlements'  && <Settlements orders={orders} />}
         {tab === 'Settings'     && <Settings config={appConfig} onSave={async (data) => {
@@ -132,14 +133,78 @@ export default function AdminDashboard() {
       {showAddRestaurant && (
         <AddRestaurantModal
           onClose={() => setShowAddRestaurant(false)}
-          onSave={async (data) => { await addRestaurant(data); setShowAddRestaurant(false); loadData(); }}
+          onSave={async (data) => {
+            const loginEmail = String(data.loginEmail || '').trim().toLowerCase();
+            const loginPassword = String(data.loginPassword || '').trim();
+            const restaurantId = await addRestaurant(data);
+
+            if (loginEmail) {
+              const existing = users.find(u => u.role === 'restaurant' && (u.restaurantId === restaurantId || String(u.email || '').toLowerCase() === loginEmail));
+              const restaurantUserId = existing?.id || `rst_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+              if (!existing) {
+                await addUser(restaurantUserId, {
+                  name: `${data.name} Owner`,
+                  email: loginEmail,
+                  role: 'restaurant',
+                  restaurantId,
+                  wallet: 0,
+                  favourites: [],
+                  avatar: '🍽️',
+                  createdAt: new Date().toISOString(),
+                });
+              }
+
+              await updateUserCredentials(restaurantUserId, {
+                adminId: user.id,
+                email: loginEmail,
+                username: loginEmail,
+                ...(loginPassword ? { password: loginPassword } : {}),
+              });
+            }
+
+            setShowAddRestaurant(false);
+            loadData();
+          }}
         />
       )}
       {editRestaurant && (
         <AddRestaurantModal
           initial={editRestaurant}
           onClose={() => setEditRestaurant(null)}
-          onSave={async (data) => { await updateRestaurant(editRestaurant.id, data); setEditRestaurant(null); loadData(); }}
+          onSave={async (data) => {
+            const loginEmail = String(data.loginEmail || '').trim().toLowerCase();
+            const loginPassword = String(data.loginPassword || '').trim();
+            await updateRestaurant(editRestaurant.id, data);
+
+            if (loginEmail) {
+              const existing = users.find(u => u.role === 'restaurant' && (u.restaurantId === editRestaurant.id || String(u.email || '').toLowerCase() === loginEmail));
+              const restaurantUserId = existing?.id || `rst_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+              if (!existing) {
+                await addUser(restaurantUserId, {
+                  name: `${data.name || editRestaurant.name} Owner`,
+                  email: loginEmail,
+                  role: 'restaurant',
+                  restaurantId: editRestaurant.id,
+                  wallet: 0,
+                  favourites: [],
+                  avatar: '🍽️',
+                  createdAt: new Date().toISOString(),
+                });
+              }
+
+              await updateUserCredentials(restaurantUserId, {
+                adminId: user.id,
+                email: loginEmail,
+                username: loginEmail,
+                ...(loginPassword ? { password: loginPassword } : {}),
+              });
+            }
+
+            setEditRestaurant(null);
+            loadData();
+          }}
         />
       )}
       {showAddPromo && (
@@ -413,7 +478,7 @@ function Restaurants({ restaurants, onEdit, onDelete }) {
             </div>
             <div className={styles.restActions}>
               <button className={styles.editBtn} onClick={() => onEdit(r)}>✏️ Edit</button>
-              <button className={styles.editBtn} onClick={() => setSelectedRestaurant(r)}>📊 CSV Menu</button>
+              <button className={styles.editBtn} onClick={() => setSelectedRestaurant(r)}>📊 Excel Menu</button>
               <button className={styles.deleteBtn} onClick={() => { if (window.confirm(`Delete ${r.name}?`)) onDelete(r.id); }}>🗑️ Delete</button>
             </div>
           </div>
@@ -765,7 +830,7 @@ function Settings({ config, onSave }) {
 function AddRestaurantModal({ onClose, onSave, initial }) {
   const [form, setForm] = useState(initial || {
     name:'', cuisine:'', address:'', deliveryFee:29, minOrder:149,
-    deliveryTime:'30-45 min', rating:4.0, image:'', offer:'', isOpen:true, isFeatured:false, tags:[]
+    deliveryTime:'30-45 min', rating:4.0, image:'', offer:'', isOpen:true, isFeatured:false, tags:[], loginEmail:'', loginPassword:'', confirmLoginPassword:''
   });
   const [saving, setSaving] = useState(false);
 
@@ -782,8 +847,19 @@ function AddRestaurantModal({ onClose, onSave, initial }) {
 
   const handleSave = async () => {
     if (!form.name || !form.cuisine || !form.address) return alert('Name, cuisine and address are required');
+    const loginEmail = String(form.loginEmail || '').trim();
+    if (form.loginPassword && form.loginPassword.length < 6) return alert('Restaurant login password must be at least 6 characters');
+    if (form.loginPassword !== form.confirmLoginPassword) return alert('Restaurant login passwords do not match');
+    if (form.loginPassword && !loginEmail) return alert('Please enter restaurant login username/email');
+
     setSaving(true);
-    await onSave({ ...form, reviewCount: form.reviewCount || 0, menu: form.menu || [] });
+    await onSave({
+      ...form,
+      loginEmail,
+      loginPassword: String(form.loginPassword || '').trim(),
+      reviewCount: form.reviewCount || 0,
+      menu: form.menu || [],
+    });
     setSaving(false);
   };
 
@@ -808,6 +884,15 @@ function AddRestaurantModal({ onClose, onSave, initial }) {
               {form.image && <img src={form.image} alt="Restaurant preview" style={{ marginTop: 8, width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 10 }} />}
             </label>
             <label className={styles.fullWidth}>Offer Text<input value={form.offer || ''} onChange={e => setForm({...form, offer:e.target.value})} placeholder="e.g. 50% off on first order" /></label>
+            <label>Restaurant Login (Email/User ID)
+              <input type="email" value={form.loginEmail || ''} onChange={e => setForm({...form, loginEmail:e.target.value})} placeholder="owner@example.com" />
+            </label>
+            <label>Restaurant Login Password
+              <input type="password" value={form.loginPassword || ''} onChange={e => setForm({...form, loginPassword:e.target.value})} placeholder="Set or update password" />
+            </label>
+            <label>Confirm Login Password
+              <input type="password" value={form.confirmLoginPassword || ''} onChange={e => setForm({...form, confirmLoginPassword:e.target.value})} placeholder="Repeat password" />
+            </label>
             <label className={styles.checkLabel}>
               <input type="checkbox" checked={form.isOpen} onChange={e => setForm({...form, isOpen:e.target.checked})} />
               Currently Open

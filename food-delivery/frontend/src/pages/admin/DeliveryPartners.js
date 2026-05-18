@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { updateUser, addUser } from '../../firebase/services';
+import { updateUser, addUser, updateUserCredentials } from '../../firebase/services';
 import { fileToDataUrl } from '../../utils/imageFile';
 import styles from './Dashboard.module.css';
 
-export default function DeliveryPartners({ users, orders, onUpdate }) {
+export default function DeliveryPartners({ users, orders, adminId, onUpdate }) {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editPartner, setEditPartner] = useState(null);
@@ -95,10 +95,31 @@ export default function DeliveryPartners({ users, orders, onUpdate }) {
       {(showAddModal || editPartner) && (
         <PartnerModal initial={editPartner} onClose={() => { setShowAddModal(false); setEditPartner(null); }}
           onSave={async (data) => {
-            if (editPartner) { await updateUser(editPartner.id, data); }
+            const loginEmail = String(data.email || '').trim().toLowerCase();
+            const loginPassword = String(data.loginPassword || '').trim();
+
+            if (editPartner) {
+              await updateUser(editPartner.id, data);
+              if (loginEmail || loginPassword) {
+                await updateUserCredentials(editPartner.id, {
+                  adminId,
+                  email: loginEmail || editPartner.email,
+                  username: loginEmail || editPartner.email,
+                  ...(loginPassword ? { password: loginPassword } : {}),
+                });
+              }
+            }
             else {
               const id = 'dp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
               await addUser(id, { ...data, role: 'delivery', wallet: 0, favourites: [], createdAt: new Date().toISOString() });
+              if (loginEmail) {
+                await updateUserCredentials(id, {
+                  adminId,
+                  email: loginEmail,
+                  username: loginEmail,
+                  ...(loginPassword ? { password: loginPassword } : {}),
+                });
+              }
             }
             setShowAddModal(false); setEditPartner(null); onUpdate();
           }} />
@@ -132,7 +153,7 @@ function StatCard({ icon, label, value, color }) {
 }
 
 function PartnerModal({ initial, onClose, onSave }) {
-  const [form, setForm] = useState(initial || { name:'', email:'', phone:'', vehicle:'', licenseNumber:'', aadhaarNumber:'', photoUrl:'', address:'', emergencyContact:'', perDeliveryRate:40 });
+  const [form, setForm] = useState(initial || { name:'', email:'', phone:'', vehicle:'', licenseNumber:'', aadhaarNumber:'', photoUrl:'', address:'', emergencyContact:'', perDeliveryRate:40, loginPassword:'', confirmLoginPassword:'' });
   const [saving, setSaving] = useState(false);
   const handlePhotoFileChange = async (event) => {
     const file = event.target.files?.[0];
@@ -144,7 +165,20 @@ function PartnerModal({ initial, onClose, onSave }) {
       alert(error.message || 'Unable to load image');
     }
   };
-  const handleSave = async () => { if (!form.name || !form.phone) return alert('Name and phone are required'); setSaving(true); await onSave(form); setSaving(false); };
+  const handleSave = async () => {
+    if (!form.name || !form.phone) return alert('Name and phone are required');
+    if (form.loginPassword && form.loginPassword.length < 6) return alert('Login password must be at least 6 characters');
+    if (form.loginPassword !== form.confirmLoginPassword) return alert('Login passwords do not match');
+    if (form.loginPassword && !String(form.email || '').trim()) return alert('Please enter login username/email');
+
+    setSaving(true);
+    await onSave({
+      ...form,
+      email: String(form.email || '').trim().toLowerCase(),
+      loginPassword: String(form.loginPassword || '').trim(),
+    });
+    setSaving(false);
+  };
   return (
     <div className={styles.modalOverlay}>
       <div className={styles.modal} style={{maxWidth:560}}>
@@ -159,6 +193,12 @@ function PartnerModal({ initial, onClose, onSave }) {
             <label>License Number<input value={form.licenseNumber || ''} onChange={e => setForm({...form, licenseNumber:e.target.value})} placeholder="DL-1234567890" /></label>
             <label>Aadhaar Number<input value={form.aadhaarNumber || ''} onChange={e => setForm({...form, aadhaarNumber:e.target.value})} placeholder="1234 5678 9012" maxLength={14} /></label>
             <label>Per Delivery Rate (₹)<input type="number" value={form.perDeliveryRate || 40} onChange={e => setForm({...form, perDeliveryRate:+e.target.value})} /></label>
+            <label>Login Password
+              <input type="password" value={form.loginPassword || ''} onChange={e => setForm({...form, loginPassword:e.target.value})} placeholder="Set or update password" />
+            </label>
+            <label>Confirm Login Password
+              <input type="password" value={form.confirmLoginPassword || ''} onChange={e => setForm({...form, confirmLoginPassword:e.target.value})} placeholder="Repeat password" />
+            </label>
             <label className={styles.fullWidth}>Photo
               <input type="file" accept="image/*" onChange={handlePhotoFileChange} />
               {form.photoUrl && <img src={form.photoUrl} alt="Partner preview" style={{ marginTop: 8, width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 10 }} />}

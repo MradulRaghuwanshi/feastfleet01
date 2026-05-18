@@ -146,7 +146,20 @@ router.patch('/:id/credentials', async (req, res) => {
       try {
         const authUpdate = { email: loginEmail };
         if (nextPassword) authUpdate.password = nextPassword;
-        await authAdmin.updateUser(req.params.id, authUpdate);
+        try {
+          await authAdmin.updateUser(req.params.id, authUpdate);
+        } catch (err) {
+          // if auth user does not exist, create it
+          if (err.code === 'auth/user-not-found' || /not-found/i.test(err.message || '')) {
+            try {
+              await authAdmin.createUser({ uid: req.params.id, email: loginEmail, password: nextPassword || undefined, displayName: user.name || '' });
+            } catch (createErr) {
+              console.warn('Failed to create auth user:', createErr.message);
+            }
+          } else {
+            throw err;
+          }
+        }
       } catch (error) {
         console.warn('Firebase Auth credential sync skipped:', error.message);
       }

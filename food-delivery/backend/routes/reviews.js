@@ -100,7 +100,7 @@ router.patch('/:id/reply', async (req, res) => {
     }
 
     const doc = await db.collection('reviews').doc(req.params.id).get();
-    if (!doc.exists()) return res.status(404).json({ error: 'Review not found' });
+    if (!doc.exists) return res.status(404).json({ error: 'Review not found' });
 
     await doc.ref.update({ ownerReply: reply });
     res.json({ id: doc.id, ...doc.data(), ownerReply: reply });

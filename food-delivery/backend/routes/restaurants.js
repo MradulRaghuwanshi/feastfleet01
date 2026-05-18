@@ -64,7 +64,7 @@ router.get('/:id', async (req, res) => {
     }
 
     const doc = await db.collection('restaurants').doc(req.params.id).get();
-    if (!doc.exists()) return res.status(404).json({ error: 'Not found' });
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
 
     let menu = [];
     try {
@@ -161,7 +161,7 @@ router.patch('/:id/toggle-status', async (req, res) => {
     }
 
     const doc = await db.collection('restaurants').doc(req.params.id).get();
-    if (!doc.exists()) return res.status(404).json({ error: 'Not found' });
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
 
     const newStatus = !doc.data().isOpen;
     await db.collection('restaurants').doc(req.params.id).update({ isOpen: newStatus });
@@ -187,7 +187,7 @@ router.patch('/:id/menu/:itemId', async (req, res) => {
     }
 
     const itemDoc = await db.collection('restaurants').doc(req.params.id).collection('menu').doc(req.params.itemId).get();
-    if (!itemDoc.exists()) return res.status(404).json({ error: 'Item not found' });
+    if (!itemDoc.exists) return res.status(404).json({ error: 'Item not found' });
 
     const newAvailable = !itemDoc.data().available;
     await itemDoc.ref.update({ available: newAvailable });
@@ -219,7 +219,7 @@ router.patch('/:id/prizes', async (req, res) => {
     }
 
     const doc = await db.collection('restaurants').doc(req.params.id).get();
-    if (!doc.exists()) return res.status(404).json({ error: 'Not found' });
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
 
     await db.collection('restaurants').doc(req.params.id).update({ visitPrize, orderPrize });
     res.json({ visitPrize, orderPrize });
@@ -266,13 +266,13 @@ router.patch('/:id/profile', async (req, res) => {
     }
 
     const doc = await db.collection('restaurants').doc(req.params.id).get();
-    if (!doc.exists()) {
+    if (!doc.exists) {
       console.warn('Update restaurant profile: document not found, creating it', { restaurantId: req.params.id });
     }
 
     await db.collection('restaurants').doc(req.params.id).set(allowed, { merge: true });
     const updatedDoc = await db.collection('restaurants').doc(req.params.id).get();
-    const responseData = updatedDoc.exists() ? updatedDoc.data() : allowed;
+    const responseData = updatedDoc.exists ? updatedDoc.data() : allowed;
     res.json({ id: req.params.id, ...responseData });
   } catch (error) {
     console.error('Update restaurant profile error:', error);

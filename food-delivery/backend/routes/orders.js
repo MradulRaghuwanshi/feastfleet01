@@ -117,7 +117,7 @@ router.post('/', async (req, res) => {
 
     // Firebase mode
     const restDoc = await db.collection('restaurants').doc(restaurantId).get();
-    if (!restDoc.exists()) return res.status(404).json({ error: 'Restaurant not found' });
+    if (!restDoc.exists) return res.status(404).json({ error: 'Restaurant not found' });
 
     const restaurant = restDoc.data();
     const menuSnap = await db.collection('restaurants').doc(restaurantId).collection('menu').get();
@@ -138,7 +138,7 @@ router.post('/', async (req, res) => {
 
     if (promoCode) {
       const promoDoc = await db.collection('promoCodes').doc(promoCode.toUpperCase()).get();
-      if (promoDoc.exists()) {
+      if (promoDoc.exists) {
         const promo = promoDoc.data();
         if (promo.active && subtotal >= promo.minOrder) {
           appliedPromo = promo.code;
@@ -152,7 +152,7 @@ router.post('/', async (req, res) => {
     let walletUsed = 0;
     if (useWallet && customerId) {
       const userDoc = await db.collection('users').doc(customerId).get();
-      if (userDoc.exists()) {
+      if (userDoc.exists) {
         const user = userDoc.data();
         if (user.wallet > 0) {
           const afterDiscount = subtotal - discount + deliveryFee;
@@ -306,7 +306,7 @@ router.get('/:id', async (req, res) => {
     }
 
     const doc = await db.collection('orders').doc(req.params.id).get();
-    if (!doc.exists()) return res.status(404).json({ error: 'Not found' });
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
     res.json({ id: doc.id, ...doc.data() });
   } catch (error) {
     console.error('Get order error:', error);
@@ -471,7 +471,7 @@ router.patch('/:id/status', async (req, res) => {
     }
 
     const doc = await db.collection('orders').doc(req.params.id).get();
-    if (!doc.exists()) return res.status(404).json({ error: 'Not found' });
+    if (!doc.exists) return res.status(404).json({ error: 'Not found' });
 
     const history = doc.data().statusHistory || [];
     history.push({ status, time: new Date().toISOString() });

@@ -52,7 +52,7 @@ router.get('/me', async (req, res) => {
     }
 
     const userSnap = await db.collection('users').doc(userId).get();
-    if (!userSnap.exists()) return res.status(401).json({ error: 'Unauthorized' });
+    if (!userSnap.exists) return res.status(401).json({ error: 'Unauthorized' });
 
     const user = { id: userSnap.id, ...userSnap.data() };
     const { password: _, ...safeUser } = user;

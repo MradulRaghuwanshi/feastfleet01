@@ -18,7 +18,7 @@ router.post('/validate', async (req, res) => {
     }
 
     const doc = await db.collection('promoCodes').doc(code.toUpperCase()).get();
-    if (!doc.exists()) return res.status(404).json({ error: 'Invalid or expired promo code' });
+    if (!doc.exists) return res.status(404).json({ error: 'Invalid or expired promo code' });
 
     const promo = doc.data();
     if (!promo.active) return res.status(404).json({ error: 'This promo code is no longer active' });

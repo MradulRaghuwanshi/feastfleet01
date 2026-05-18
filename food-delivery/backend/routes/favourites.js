@@ -16,7 +16,7 @@ router.get('/:userId', async (req, res) => {
     }
 
     const userDoc = await db.collection('users').doc(req.params.userId).get();
-    if (!userDoc.exists()) return res.status(404).json({ error: 'User not found' });
+    if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });
 
     const favIds = userDoc.data().favourites || [];
     if (favIds.length === 0) return res.json([]);
@@ -24,7 +24,7 @@ router.get('/:userId', async (req, res) => {
     const restaurants = [];
     for (const restId of favIds) {
       const restDoc = await db.collection('restaurants').doc(restId).get();
-      if (restDoc.exists()) {
+      if (restDoc.exists) {
         const menuSnap = await db.collection('restaurants').doc(restId).collection('menu').get();
         restaurants.push({
           id: restDoc.id,
@@ -58,7 +58,7 @@ router.post('/:userId/toggle', async (req, res) => {
 
     const userRef = db.collection('users').doc(req.params.userId);
     const userDoc = await userRef.get();
-    if (!userDoc.exists()) return res.status(404).json({ error: 'User not found' });
+    if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });
 
     const favourites = userDoc.data().favourites || [];
     const idx = favourites.indexOf(restaurantId);

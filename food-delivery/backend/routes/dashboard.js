@@ -42,7 +42,7 @@ router.post('/overview', async (req, res) => {
     }
 
     const userDoc = await db.collection('users').doc(uid).get();
-    if (!userDoc.exists() || userDoc.data().role !== 'restaurant') 
+    if (!userDoc.exists || userDoc.data().role !== 'restaurant')
       return res.status(403).json({ error: 'Access denied' });
     
     const restaurantId = userDoc.data().restaurantId;
@@ -111,7 +111,7 @@ router.patch('/config', async (req, res) => {
       if (!adminUser) return res.status(403).json({ error: 'Admin access required' });
     } else {
       const adminDoc = await db.collection('users').doc(actingAdminId).get();
-      if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
+      if (!adminDoc.exists || adminDoc.data().role !== 'admin') {
         return res.status(403).json({ error: 'Admin access required' });
       }
     }

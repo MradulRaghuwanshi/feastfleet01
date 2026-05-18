@@ -14,7 +14,7 @@ router.post('/import-csv', async (req, res) => {
 
     const restRef = db.collection('restaurants').doc(restaurantId);
     const restDoc = await restRef.get();
-    if (!restDoc.exists()) {
+    if (!restDoc.exists) {
       return res.status(404).json({ error: 'Restaurant not found' });
     }
 

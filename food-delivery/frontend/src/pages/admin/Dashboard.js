@@ -125,7 +125,7 @@ export default function AdminDashboard() {
         {tab === 'Wallets'      && <Wallets users={users} orders={orders} />}
         {tab === 'Settlements'  && <Settlements orders={orders} />}
         {tab === 'Settings'     && <Settings config={appConfig} onSave={async (data) => {
-          await updateAppConfig(data);
+          await updateAppConfig(data, user.id);
           setAppConfig({ ...(appConfig || {}), ...data });
         }} />}
       </main>

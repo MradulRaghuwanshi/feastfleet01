@@ -100,6 +100,22 @@ router.get('/config', async (_req, res) => {
 // PATCH /api/dashboard/config
 router.patch('/config', async (req, res) => {
   try {
+    // require admin privileges to update app config
+    const actingAdminId = String(req.headers['x-admin-id'] || req.body.adminId || '').trim();
+    if (!actingAdminId) return res.status(403).json({ error: 'Admin access required' });
+
+    // verify admin role
+    if (!db) {
+      const { users } = require('../data/db');
+      const adminUser = users.find(u => u.id === actingAdminId && u.role === 'admin');
+      if (!adminUser) return res.status(403).json({ error: 'Admin access required' });
+    } else {
+      const adminDoc = await db.collection('users').doc(actingAdminId).get();
+      if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+    }
+
     const updates = {
       platformFee: Number(req.body.platformFee ?? 8),
       packagingFee: Number(req.body.packagingFee ?? 10),

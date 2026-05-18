@@ -998,10 +998,13 @@ export const deductWallet = async (userId, amount) => {
 // ─── APP CONFIG (Fee Settings) ──────────────────────────────────────────────
 export const getAppConfig = async () => apiJson('/dashboard/config');
 
-export const updateAppConfig = async (data) => {
+export const updateAppConfig = async (data, adminId) => {
+  const headers = { 'Content-Type': 'application/json' };
+  if (adminId) headers['x-admin-id'] = String(adminId);
   await apiJson('/dashboard/config', {
     method: 'PATCH',
-    body: JSON.stringify(data),
+    headers,
+    body: JSON.stringify({ ...data, adminId }),
   });
 };
 

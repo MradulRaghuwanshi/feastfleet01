@@ -6,6 +6,7 @@ import LocationBar from './LocationBar';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
+  // Using logo.png instead of svg for better browser compatibility
   const { user, logout } = useAuth();
   const { totalItems } = useCart();
   const navigate = useNavigate();

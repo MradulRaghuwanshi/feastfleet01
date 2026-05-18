@@ -1023,6 +1023,16 @@ export const updateUserCredentials = async (userId, data) => {
   });
 };
 
+export const updateAdminOrderStatus = async (orderId, status, adminId) => {
+  const headers = { 'Content-Type': 'application/json' };
+  if (adminId) headers['x-admin-id'] = String(adminId);
+  return apiJson(`/orders/${orderId}/admin-status`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ status, adminId }),
+  });
+};
+
 export const addUser = async (userId, data) => {
   await apiJson('/users', {
     method: 'POST',

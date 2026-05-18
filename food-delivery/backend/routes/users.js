@@ -26,17 +26,23 @@ router.post('/', async (req, res) => {
   try {
     const payload = req.body || {};
     const id = payload.id || payload.userId || generateId('u');
+    const password = String(payload.password || '').trim();
     const user = { ...payload, id };
+    delete user.password;
+    delete user.adminId;
 
     if (!user.name || !user.role) {
       return res.status(400).json({ error: 'name and role are required' });
+    }
+    if (password && password.length < 6) {
+      return res.status(400).json({ error: 'password must be at least 6 characters' });
     }
 
     if (!db) {
       const { users } = require('../data/db');
       const exists = users.some(u => u.id === id || (user.email && u.email === user.email));
       if (exists) return res.status(409).json({ error: 'User already exists' });
-      users.push(user);
+      users.push(password ? { ...user, password } : user);
       return res.status(201).json(user);
     }
 
@@ -44,6 +50,42 @@ router.post('/', async (req, res) => {
     const doc = await docRef.get();
     if (doc.exists) return res.status(409).json({ error: 'User already exists' });
     await docRef.set(user);
+
+    if (user.email && password && ['restaurant', 'delivery', 'admin'].includes(user.role)) {
+      const credential = {
+        uid: id,
+        email: String(user.email).trim().toLowerCase(),
+        password,
+        role: user.role,
+        name: user.name || '',
+        avatar: user.avatar || '',
+        createdAt: user.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await db.collection('loginCredentials').doc(id).set(credential, { merge: true });
+
+      if (authAdmin) {
+        try {
+          await authAdmin.createUser({
+            uid: id,
+            email: credential.email,
+            password,
+            displayName: user.name || '',
+          });
+        } catch (err) {
+          if (err.code === 'auth/uid-already-exists' || err.code === 'auth/email-already-exists') {
+            await authAdmin.updateUser(id, {
+              email: credential.email,
+              password,
+              displayName: user.name || '',
+            });
+          } else {
+            console.warn('Firebase Auth user sync skipped:', err.message);
+          }
+        }
+      }
+    }
+
     return res.status(201).json(user);
   } catch (error) {
     console.error('Create user error:', error);

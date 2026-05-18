@@ -7,6 +7,7 @@ import {
   getAppConfig, updateAppConfig,
   addUser,
   updateUserCredentials,
+  updateAdminOrderStatus,
   normalizeOrderStatus,
   ORDER_STATUS,
   reassignDeliveryPartner
@@ -46,6 +47,7 @@ export default function AdminDashboard() {
   const [showAddRestaurant, setShowAddRestaurant] = useState(false);
   const [showAddPromo, setShowAddPromo]           = useState(false);
   const [editRestaurant, setEditRestaurant]       = useState(null);
+  const [generatedAccount, setGeneratedAccount]   = useState(null);
   const [appConfig, setAppConfig]                 = useState(null);
 
   const loadData = useCallback(async () => {
@@ -145,6 +147,7 @@ export default function AdminDashboard() {
       {showAddRestaurant && (
         <AddRestaurantModal
           onClose={() => setShowAddRestaurant(false)}
+          onGenerated={setGeneratedAccount}
           onSave={async (data) => {
             const loginEmail = String(data.loginEmail || '').trim().toLowerCase();
             const loginPassword = String(data.loginPassword || '').trim();
@@ -160,6 +163,7 @@ export default function AdminDashboard() {
                   email: loginEmail,
                   role: 'restaurant',
                   restaurantId,
+                  password: loginPassword,
                   wallet: 0,
                   favourites: [],
                   avatar: '🍽️',
@@ -184,6 +188,7 @@ export default function AdminDashboard() {
         <AddRestaurantModal
           initial={editRestaurant}
           onClose={() => setEditRestaurant(null)}
+          onGenerated={setGeneratedAccount}
           onSave={async (data) => {
             const loginEmail = String(data.loginEmail || '').trim().toLowerCase();
             const loginPassword = String(data.loginPassword || '').trim();
@@ -199,6 +204,7 @@ export default function AdminDashboard() {
                   email: loginEmail,
                   role: 'restaurant',
                   restaurantId: editRestaurant.id,
+                  password: loginPassword,
                   wallet: 0,
                   favourites: [],
                   avatar: '🍽️',
@@ -237,6 +243,9 @@ export default function AdminDashboard() {
             loadData();
           }}
         />
+      )}
+      {generatedAccount && (
+        <GeneratedCredsModal creds={generatedAccount} onClose={() => setGeneratedAccount(null)} />
       )}
     </div>
   );
@@ -332,6 +341,17 @@ function Orders({ orders, users, adminId }) {
     }
   };
 
+  const handleStatusChange = async (order, status) => {
+    setUpdating(order.id);
+    try {
+      await updateAdminOrderStatus(order.id, status, adminId);
+    } catch (error) {
+      alert(error.message || 'Unable to update order status');
+    } finally {
+      setUpdating('');
+    }
+  };
+
   return (
     <div>
       <div className={styles.filterBar}>
@@ -353,7 +373,17 @@ function Orders({ orders, users, adminId }) {
                 <td>{o.items?.length} items</td>
                 <td>₹{o.total}</td>
                 <td>{o.promoCode ? <span className={styles.promoTag}>{o.promoCode}</span> : '—'}</td>
-                <td><span className={styles.statusPill} style={{ background: STATUS_COLOR[status] || '#f0f0f0' }}>{status}</span></td>
+                <td>
+                  <select
+                    className={styles.statusSelect}
+                    value={status}
+                    disabled={updating === o.id}
+                    onChange={e => handleStatusChange(o, e.target.value)}
+                    style={{ background: STATUS_COLOR[status] || '#fff' }}
+                  >
+                    {STATUSES.filter(s => s !== 'All').map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </td>
                 <td>
                   <select
                     className={styles.assignSelect}
@@ -929,8 +959,7 @@ function Settings({ config, onSave }) {
 
 /* ── Add Restaurant Modal ────────────────────────────────────────────────── */
 
-function AddRestaurantModal({ onClose, onSave, initial }) {
-  const [generatedCreds, setGeneratedCreds] = useState(null);
+function AddRestaurantModal({ onClose, onSave, onGenerated, initial }) {
   const [form, setForm] = useState(initial || {
     name:'', cuisine:'', address:'', deliveryFee:29, minOrder:149,
     deliveryTime:'30-45 min', rating:4.0, image:'', offer:'', isOpen:true, isFeatured:false, tags:[], loginEmail:'', loginPassword:'', confirmLoginPassword:''
@@ -958,23 +987,27 @@ function AddRestaurantModal({ onClose, onSave, initial }) {
     // If admin didn't provide credentials, auto-generate and show them once.
     let emailToUse = loginEmail;
     let passwordToUse = String(form.loginPassword || '').trim();
-    if (!emailToUse) {
+    if (!initial && !emailToUse) {
       const creds = generateCredentials(form.name);
       emailToUse = creds.email;
       passwordToUse = creds.password;
-      // show generated credentials modal so admin can copy/save them
-      setGeneratedCreds({ name: form.name, email: emailToUse, password: passwordToUse });
     }
 
     setSaving(true);
-    await onSave({
-      ...form,
-      loginEmail: emailToUse,
-      loginPassword: passwordToUse,
-      reviewCount: form.reviewCount || 0,
-      menu: form.menu || [],
-    });
-    setSaving(false);
+    try {
+      await onSave({
+        ...form,
+        loginEmail: emailToUse,
+        loginPassword: passwordToUse,
+        reviewCount: form.reviewCount || 0,
+        menu: form.menu || [],
+      });
+      if (!initial && !loginEmail && onGenerated) {
+        onGenerated({ name: form.name, email: emailToUse, password: passwordToUse });
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1022,14 +1055,11 @@ function AddRestaurantModal({ onClose, onSave, initial }) {
           <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Restaurant'}</button>
         </div>
       </div>
-        {generatedCreds && (
-          <GeneratedCredsModal creds={generatedCreds} onClose={() => setGeneratedCreds(null)} />
-        )}
     </div>
   );
 }
 
-  function GeneratedCredsModal({ creds, onClose }) {
+function GeneratedCredsModal({ creds, onClose }) {
     const handleCopy = async (text) => {
       try {
         await navigator.clipboard.writeText(text);

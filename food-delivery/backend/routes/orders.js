@@ -488,6 +488,65 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+// PATCH /api/orders/:id/admin-status
+router.patch('/:id/admin-status', async (req, res) => {
+  try {
+    const { status, adminId } = req.body || {};
+    const actingAdminId = String(req.headers['x-admin-id'] || adminId || '').trim();
+    if (!STATUS_FLOW.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    if (!actingAdminId) return res.status(403).json({ error: 'Admin access required' });
+
+    const now = new Date().toISOString();
+
+    if (!db) {
+      const { orders, users } = require('../data/db');
+      const adminUser = users.find(u => u.id === actingAdminId && u.role === 'admin');
+      if (!adminUser) return res.status(403).json({ error: 'Admin access required' });
+      const order = orders.find(o => o.id === req.params.id);
+      if (!order) return res.status(404).json({ error: 'Order not found' });
+      order.status = status;
+      order.updatedAt = now;
+      order.statusHistory = (order.statusHistory || []).concat([{ status, actorId: actingAdminId, note: 'Admin updated order status', time: now }]);
+      if (status === 'Delivered') order.deliveredAt = order.deliveredAt || now;
+      return res.json(order);
+    }
+
+    const adminDoc = await db.collection('users').doc(actingAdminId).get();
+    if (!adminDoc.exists || adminDoc.data().role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const orderRef = db.collection('orders').doc(req.params.id);
+    const orderDoc = await orderRef.get();
+    if (!orderDoc.exists) return res.status(404).json({ error: 'Order not found' });
+
+    const order = orderDoc.data();
+    const statusHistory = (order.statusHistory || []).concat([{
+      status,
+      actorId: actingAdminId,
+      note: 'Admin updated order status',
+      time: now,
+    }]);
+
+    const updates = {
+      status,
+      statusHistory,
+      updatedAt: now,
+    };
+    if (status === 'Delivered') {
+      updates.deliveredAt = order.deliveredAt || now;
+      updates.settlementStatus = order.settlementStatus || 'pending';
+    }
+
+    await orderRef.update(updates);
+    const updatedSnap = await orderRef.get();
+    return res.json({ id: updatedSnap.id, ...updatedSnap.data() });
+  } catch (error) {
+    console.error('Admin update order status error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 
 module.exports = router;

@@ -18,15 +18,26 @@ router.post('/login', async (req, res) => {
       return res.json({ user: safeUser, token: `demo-token-${user.id}` });
     }
 
-    // Query Firestore for user by email
-    const snap = await db.collection('users').where('email', '==', email).limit(1).get();
-    if (snap.empty) return res.status(401).json({ error: 'Invalid email or password' });
+    const loginEmail = String(email).trim().toLowerCase();
+    const credsSnap = await db.collection('loginCredentials').where('email', '==', loginEmail).limit(1).get();
+    let userId = null;
 
-    const userDoc = snap.docs[0];
+    if (!credsSnap.empty) {
+      const creds = credsSnap.docs[0].data();
+      if (creds.password !== password) return res.status(401).json({ error: 'Invalid email or password' });
+      userId = creds.uid || credsSnap.docs[0].id;
+    } else {
+      const fallbackSnap = await db.collection('users').where('email', '==', loginEmail).limit(1).get();
+      if (fallbackSnap.empty) return res.status(401).json({ error: 'Invalid email or password' });
+      const fallbackUser = fallbackSnap.docs[0].data();
+      if (fallbackUser.password !== password) return res.status(401).json({ error: 'Invalid email or password' });
+      userId = fallbackSnap.docs[0].id;
+    }
+
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) return res.status(401).json({ error: 'Invalid email or password' });
+
     const user = { id: userDoc.id, ...userDoc.data() };
-
-    // Verify password (in production, use hashed passwords)
-    if (user.password !== password) return res.status(401).json({ error: 'Invalid email or password' });
 
     const { password: _, ...safeUser } = user;
     res.json({ user: safeUser, token: `demo-token-${user.id}` });

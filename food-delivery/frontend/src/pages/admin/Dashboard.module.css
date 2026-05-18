@@ -51,6 +51,8 @@
 .searchInput:focus { border-color: #ff6b35; outline: none; }
 .assignSelect { border: 1px solid #e5e7eb; border-radius: 8px; padding: 7px 9px; min-width: 160px; font-size: 12px; background: #fff; font-family: inherit; }
 .assignSelect:disabled { opacity: 0.55; background: #f8fafc; }
+.statusSelect { border: 1px solid #e5e7eb; border-radius: 8px; padding: 7px 9px; min-width: 150px; font-size: 12px; font-weight: 700; color: #1f2937; font-family: inherit; }
+.statusSelect:disabled { opacity: 0.6; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { padding: 5px 12px; border-radius: 18px; background: #f0f0f0; font-size: 12px; font-weight: 500; transition: all 0.2s; }
 .chip:hover { background: #ffe0d0; color: #ff6b35; }
@@ -106,6 +108,9 @@
 .cancelBtn { background: #f0f0f0; color: #555; padding: 9px 18px; border-radius: 9px; font-weight: 600; font-size: 13px; }
 .saveBtn { background: #ff6b35; color: #fff; padding: 9px 22px; border-radius: 9px; font-weight: 600; font-size: 13px; }
 .saveBtn:disabled { opacity: 0.6; }
+.generatedField { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid #e5e7eb; border-radius: 9px; padding: 9px 10px; background: #f8fafc; }
+.generatedField span { overflow-wrap: anywhere; }
+.copyBtn { background: #eff6ff; color: #2563eb; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
 
 /* Settings */
 .settingsCard { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); max-width: 640px; }

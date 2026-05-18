@@ -12,8 +12,6 @@ services:
         value: production
       - key: FIREBASE_DATABASE_URL
         value: https://feastfleet-54b7e-default-rtdb.asia-southeast1.firebasedatabase.app
-      - key: FIREBASE_SERVICE_ACCOUNT_JSON
-        value: ""
       - key: RAZORPAY_KEY_ID
         value: rzp_live_SqTWXCzB7KpMF5
       - key: RAZORPAY_KEY_SECRET

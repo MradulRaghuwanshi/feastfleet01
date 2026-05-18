@@ -171,11 +171,32 @@ function PartnerModal({ initial, onClose, onSave }) {
     if (form.loginPassword !== form.confirmLoginPassword) return alert('Login passwords do not match');
     if (form.loginPassword && !String(form.email || '').trim()) return alert('Please enter login username/email');
 
+    // If no email provided, generate credentials automatically for the partner
+    let emailToUse = String(form.email || '').trim().toLowerCase();
+    let passwordToUse = String(form.loginPassword || '').trim();
+    if (!emailToUse) {
+      // create credentials using partner name
+      const creds = (function gen(name){
+        const slug = String(name || 'partner').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '') || 'partner';
+        const short = Date.now().toString().slice(-4) + Math.random().toString(36).slice(2,6);
+        const email = `${slug}-${short}@feastfleet.local`;
+        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*()';
+        let pw = '';
+        for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+        return { email, password: pw };
+      })(form.name);
+      emailToUse = creds.email;
+      passwordToUse = creds.password;
+      // eslint-disable-next-line no-alert
+      alert(`Generated partner login for ${form.name}\nEmail: ${emailToUse}\nPassword: ${passwordToUse}`);
+    }
+
     setSaving(true);
     await onSave({
       ...form,
-      email: String(form.email || '').trim().toLowerCase(),
-      loginPassword: String(form.loginPassword || '').trim(),
+      email: emailToUse,
+      loginPassword: passwordToUse,
     });
     setSaving(false);
   };

@@ -16,6 +16,18 @@ import styles from './Dashboard.module.css';
 import { fileToDataUrl } from '../../utils/imageFile';
 import * as XLSX from 'xlsx';
 
+// Generate a simple email and password for new accounts when admin doesn't provide them.
+function generateCredentials(name = 'user') {
+  const slug = String(name || 'user').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'user';
+  const short = Date.now().toString().slice(-4) + Math.random().toString(36).slice(2,6);
+  const email = `${slug}-${short}@feastfleet.local`;
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*()';
+  let pw = '';
+  for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+  return { email, password: pw };
+}
+
 const TABS = ['Overview', 'Orders', 'Restaurants', 'Promos', 'Users', 'Delivery Partners', 'Wallets', 'Settlements', 'Settings'];
 
 function tabIcon(t) {
@@ -852,11 +864,23 @@ function AddRestaurantModal({ onClose, onSave, initial }) {
     if (form.loginPassword !== form.confirmLoginPassword) return alert('Restaurant login passwords do not match');
     if (form.loginPassword && !loginEmail) return alert('Please enter restaurant login username/email');
 
+    // If admin didn't provide credentials, auto-generate and show them once.
+    let emailToUse = loginEmail;
+    let passwordToUse = String(form.loginPassword || '').trim();
+    if (!emailToUse) {
+      const creds = generateCredentials(form.name);
+      emailToUse = creds.email;
+      passwordToUse = creds.password;
+      // show generated credentials so admin can copy/save them
+      // eslint-disable-next-line no-alert
+      alert(`Generated login for ${form.name}\nEmail: ${emailToUse}\nPassword: ${passwordToUse}`);
+    }
+
     setSaving(true);
     await onSave({
       ...form,
-      loginEmail,
-      loginPassword: String(form.loginPassword || '').trim(),
+      loginEmail: emailToUse,
+      loginPassword: passwordToUse,
       reviewCount: form.reviewCount || 0,
       menu: form.menu || [],
     });

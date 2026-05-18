@@ -384,6 +384,95 @@ function Restaurants({ restaurants, onEdit, onDelete }) {
   const [csvResult, setCsvResult] = useState(null);
   const csvFileInputRef = React.useRef(null);
 
+  const exportRestaurantsExcel = async () => {
+    if (!restaurants || restaurants.length === 0) return alert('No restaurants to export');
+    const rows = restaurants.map(r => ({
+      id: r.id,
+      name: r.name,
+      cuisine: r.cuisine,
+      address: r.address,
+      deliveryFee: r.deliveryFee,
+      minOrder: r.minOrder,
+      deliveryTime: r.deliveryTime,
+      rating: r.rating,
+      image: r.image || r.imageUrl || '',
+      offer: r.offer || '',
+      isOpen: !!r.isOpen,
+      isFeatured: !!r.isFeatured,
+      tags: Array.isArray(r.tags) ? r.tags.join('|') : (r.tags || ''),
+      loginEmail: r.loginEmail || ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Restaurants');
+    XLSX.writeFile(wb, 'restaurants.xlsx');
+  };
+
+  const handleRestaurantsFileSelect = async (file) => {
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) return alert('Please upload an Excel file (.xlsx or .xls)');
+    setCsvUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const workbook = XLSX.read(e.target.result, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        // rows should contain restaurant objects; create or update accordingly
+        for (const row of rows) {
+          const payload = {
+            name: row.name || row.Name || '',
+            cuisine: row.cuisine || row.Cuisine || '',
+            address: row.address || row.Address || '',
+            deliveryFee: Number(row.deliveryFee || row.DeliveryFee || 0) || 0,
+            minOrder: Number(row.minOrder || row.MinOrder || 0) || 0,
+            deliveryTime: row.deliveryTime || row.DeliveryTime || '',
+            rating: Number(row.rating || row.Rating || 4) || 4,
+            image: row.image || row.Image || '',
+            offer: row.offer || row.Offer || '',
+            isOpen: String(row.isOpen || row.IsOpen || '').toLowerCase() === 'true' || row.isOpen === true,
+            isFeatured: String(row.isFeatured || row.IsFeatured || '').toLowerCase() === 'true' || row.isFeatured === true,
+            tags: String(row.tags || row.Tags || '').split('|').map(s => s.trim()).filter(Boolean),
+          };
+          // if id provided, update, else create
+          if (row.id || row.ID) {
+            const id = row.id || row.ID;
+            await updateRestaurant(id, payload);
+          } else {
+            const newId = await addRestaurant(payload);
+            // if excel includes loginEmail and optional password, create user/credentials
+            const loginEmail = String(row.loginEmail || row.LoginEmail || '').trim();
+            const loginPassword = String(row.loginPassword || row.LoginPassword || '').trim();
+            if (loginEmail) {
+              const restaurantUserId = `rst_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+              await addUser(restaurantUserId, {
+                name: `${payload.name} Owner`,
+                email: loginEmail,
+                role: 'restaurant',
+                restaurantId: newId,
+                wallet: 0,
+                favourites: [],
+                avatar: '🍽️',
+                createdAt: new Date().toISOString(),
+              });
+              await updateUserCredentials(restaurantUserId, { adminId: user.id, email: loginEmail, username: loginEmail, ...(loginPassword ? { password: loginPassword } : {}) });
+            }
+          }
+        }
+        alert('Restaurants import complete');
+        loadData();
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (err) {
+      alert('Error importing restaurants: ' + (err.message || err));
+    } finally {
+      setCsvUploading(false);
+      if (csvFileInputRef.current) csvFileInputRef.current.value = '';
+    }
+  };
+
   const handleCSVFileSelect = async (file) => {
     if (!selectedRestaurant) {
       alert('Please select a restaurant first');
@@ -449,9 +538,10 @@ function Restaurants({ restaurants, onEdit, onDelete }) {
           </div>
           <div className={styles.csvActions}>
             <button className={styles.csvDownloadBtn} onClick={downloadTemplate}>📥 Download Excel Template</button>
-            <label className={styles.csvUploadBtn}>
-              📤 Upload Excel
-              <input ref={csvFileInputRef} type="file" accept=".xlsx,.xls" className={styles.csvInput} onChange={e => e.target.files?.[0] && handleCSVFileSelect(e.target.files[0])} disabled={csvUploading} />
+            <button className={styles.csvDownloadBtn} onClick={exportRestaurantsExcel} style={{ marginLeft: 8 }}>📥 Export Restaurants</button>
+            <label className={styles.csvUploadBtn} style={{ marginLeft: 8 }}>
+              📤 Upload Restaurants Excel
+              <input ref={csvFileInputRef} type="file" accept=".xlsx,.xls" className={styles.csvInput} onChange={e => e.target.files?.[0] && handleRestaurantsFileSelect(e.target.files[0])} disabled={csvUploading} />
             </label>
           </div>
           {csvUploading && (

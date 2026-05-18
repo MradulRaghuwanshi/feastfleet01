@@ -92,6 +92,77 @@ export default function DeliveryPartners({ users, orders, adminId, onUpdate }) {
       </table>
       {filtered.length === 0 && <p className={styles.empty}>No delivery partners found</p>}
 
+      <div style={{ marginTop: 18 }}>
+        <button className={styles.csvDownloadBtn} onClick={() => {
+          const rows = users.filter(u => u.role === 'delivery').map(p => ({
+            id: p.id,
+            name: p.name,
+            email: p.email || '',
+            phone: p.phone || '',
+            vehicle: p.vehicle || '',
+            licenseNumber: p.licenseNumber || '',
+            aadhaarNumber: p.aadhaarNumber || '',
+            perDeliveryRate: p.perDeliveryRate || '',
+            address: p.address || '',
+            emergencyContact: p.emergencyContact || ''
+          }));
+          const ws = XLSX.utils.json_to_sheet(rows);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'DeliveryPartners');
+          XLSX.writeFile(wb, 'delivery-partners.xlsx');
+        }}>📥 Export Delivery Partners</button>
+
+        <label style={{ marginLeft: 12 }} className={styles.csvUploadBtn}>
+          📤 Import Delivery Partners
+          <input type="file" accept=".xlsx,.xls" className={styles.csvInput} onChange={async e => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const fname = file.name.toLowerCase();
+            if (!fname.endsWith('.xlsx') && !fname.endsWith('.xls')) return alert('Please upload an Excel file (.xlsx or .xls)');
+            try {
+              const reader = new FileReader();
+              reader.onload = async (ev) => {
+                const wb = XLSX.read(ev.target.result, { type: 'array' });
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+                for (const r of rows) {
+                  const payload = {
+                    name: r.name || r.Name || '',
+                    email: String(r.email || r.Email || '').trim(),
+                    phone: String(r.phone || r.Phone || ''),
+                    vehicle: r.vehicle || r.Vehicle || '',
+                    licenseNumber: r.licenseNumber || r.LicenseNumber || '',
+                    aadhaarNumber: r.aadhaarNumber || r.AadhaarNumber || '',
+                    perDeliveryRate: Number(r.perDeliveryRate || r.PerDeliveryRate || 40) || 40,
+                    address: r.address || r.Address || '',
+                    emergencyContact: r.emergencyContact || r.EmergencyContact || ''
+                  };
+                  if (r.id || r.ID) {
+                    await updateUser(r.id || r.ID, payload);
+                  } else {
+                    const id = 'dp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+                    await addUser(id, { ...payload, role: 'delivery', wallet: 0, favourites: [], createdAt: new Date().toISOString() });
+                    // if email and optional password columns exist, create credentials
+                    const loginEmail = payload.email;
+                    const loginPassword = String(r.loginPassword || r.LoginPassword || '').trim();
+                    if (loginEmail) {
+                      await updateUserCredentials(id, { adminId, email: loginEmail, username: loginEmail, ...(loginPassword ? { password: loginPassword } : {}) });
+                    }
+                  }
+                }
+                alert('Delivery partners import complete');
+                onUpdate();
+              };
+              reader.readAsArrayBuffer(file);
+            } catch (err) {
+              alert('Error importing file: ' + (err.message || err));
+            } finally {
+              e.target.value = '';
+            }
+          }} />
+        </label>
+      </div>
+
       {(showAddModal || editPartner) && (
         <PartnerModal initial={editPartner} onClose={() => { setShowAddModal(false); setEditPartner(null); }}
           onSave={async (data) => {

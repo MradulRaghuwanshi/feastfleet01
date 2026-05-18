@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import styles from './BottomNav.module.css';
+import { HomeIcon, BoxIcon, CartIcon, CoinIcon, HeartIcon, PhoneIcon } from './Icons';
 
 export default function BottomNav() {
   const { totalItems } = useCart();
@@ -32,27 +33,27 @@ export default function BottomNav() {
   return (
     <nav className={styles.nav}>
       <NavLink to="/" end className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ''}`}>
-        <span>🏠</span><span>Home</span>
+        <span className={styles.icon}><HomeIcon /></span><span>Home</span>
       </NavLink>
       <NavLink to="/orders" className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ''}`}>
-        <span>📦</span><span>Orders</span>
+        <span className={styles.icon}><BoxIcon /></span><span>Orders</span>
       </NavLink>
       <NavLink to="/checkout" className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ''}`}>
-        <span className={styles.cartIcon}>🛒{totalItems > 0 && <span className={styles.badge}>{totalItems}</span>}</span>
+        <span className={styles.icon + ' ' + styles.cartIcon}><CartIcon />{totalItems > 0 && <span className={styles.badge}>{totalItems}</span>}</span>
         <span>Cart</span>
       </NavLink>
-      <NavLink to="/wallet" className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ''}`}>
-        <span>🪙</span><span>Coins</span>
+      <NavLink to="/wallet" className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ''} ${styles.walletItem}`}>
+        <span className={styles.icon}><CoinIcon /></span><span>Coins</span>
       </NavLink>
-      <NavLink to="/favourites" className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ''}`}>
-        <span>❤️</span><span>Saved</span>
+      <NavLink to="/favourites" className={({ isActive }) => `${styles.item} ${isActive ? styles.active : ''} ${styles.savedItem}`}>
+        <span className={styles.icon}><HeartIcon /></span><span>Saved</span>
       </NavLink>
       <button
         className={`${styles.item} ${styles.installBtn} ${isInstalling ? styles.installing : ''}`}
         onClick={handleInstallClick}
         title="Download and install native app"
       >
-        <span>{isInstalling ? '⬇️' : '📲'}</span>
+        <span className={styles.icon}><PhoneIcon /></span>
         <span>{isInstalling ? 'Installing...' : 'Install'}</span>
       </button>
     </nav>

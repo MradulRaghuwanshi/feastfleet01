@@ -383,7 +383,7 @@ export default function Checkout() {
             <h3>Order from <span>{cart.restaurantName}</span></h3>
             {cart.items.map(item => (
               <div key={item.id} className={styles.cartItem}>
-                <img src={item.image} alt={item.name} />
+                {item.image && <img src={item.image} alt={item.name} />}
                 <div className={styles.itemInfo}>
                   <span className={styles.itemName}>{item.name}</span>
                   <span className={styles.itemPrice}>₹{(item.price * item.quantity).toFixed(0)}</span>

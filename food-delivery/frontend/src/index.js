@@ -20,6 +20,8 @@ if ('serviceWorker' in navigator) {
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
       }
+
+      localStorage.removeItem('ff_sw_cleanup_done');
     } catch (error) {
       console.warn('Service worker cleanup failed:', error);
     }

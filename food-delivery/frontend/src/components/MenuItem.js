@@ -10,7 +10,7 @@ export default function MenuItem({ item, restaurantId, restaurantName, hasOwnDel
 
   return (
     <div className={`${styles.card} ${!isAvailableToOrder ? styles.unavailable : ''}`}>
-      <img src={item.image} alt={item.name} className={styles.img} />
+      {item.image && <img src={item.image} alt={item.name} className={styles.img} />}
       <div className={styles.info}>
         <div className={styles.nameRow}>
           <h4>{item.name}</h4>

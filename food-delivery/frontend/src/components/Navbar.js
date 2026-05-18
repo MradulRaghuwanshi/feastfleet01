@@ -2,7 +2,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { listenToWallet } from '../firebase/services';
 import LocationBar from './LocationBar';
 import styles from './Navbar.module.css';
 
@@ -18,13 +17,25 @@ export default function Navbar() {
 
   useEffect(() => {
     if (user?.role !== 'customer' || !user?.id) return undefined;
-    return listenToWallet(user.id, setWallet);
+
+    let unsub = () => {};
+    let cancelled = false;
+
+    import('../firebase/services').then(({ listenToWallet }) => {
+      if (cancelled) return;
+      unsub = listenToWallet(user.id, setWallet);
+    });
+
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, [user?.id, user?.role]);
 
   return (
     <nav className={styles.nav}>
       <Link to="/" className={styles.logo}>
-        <img src="/logo.svg" alt="FeastFleet" className={styles.logoImg} />
+        <img src="/logo.png" alt="FeastFleet" className={styles.logoImg} />
         <span>FeastFleet</span>
       </Link>
 

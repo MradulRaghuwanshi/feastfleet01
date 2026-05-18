@@ -214,4 +214,49 @@ router.patch('/:id/credentials', async (req, res) => {
   }
 });
 
+// DELETE /api/users/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    if (!db) {
+      const { users } = require('../data/db');
+      const idx = users.findIndex(u => u.id === req.params.id);
+      if (idx === -1) return res.status(404).json({ error: 'User not found' });
+      const deletedUser = users.splice(idx, 1)[0];
+      return res.json({ success: true, deletedUser });
+    }
+
+    const userRef = db.collection('users').doc(req.params.id);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });
+
+    const deletedUser = { id: userDoc.id, ...userDoc.data() };
+
+    // Delete user document
+    await userRef.delete();
+
+    // Delete loginCredentials document if exists
+    try {
+      await db.collection('loginCredentials').doc(req.params.id).delete();
+    } catch (credErr) {
+      console.warn('Failed to delete login credentials:', credErr.message);
+    }
+
+    // Delete Firebase Auth user if exists
+    if (authAdmin) {
+      try {
+        await authAdmin.deleteUser(req.params.id);
+      } catch (authErr) {
+        if (authErr.code !== 'auth/user-not-found') {
+          console.warn('Failed to delete Firebase Auth user:', authErr.message);
+        }
+      }
+    }
+
+    return res.json({ success: true, deletedUser });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

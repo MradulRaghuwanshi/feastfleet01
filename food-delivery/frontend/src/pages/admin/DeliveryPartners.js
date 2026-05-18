@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { updateUser, addUser, updateUserCredentials } from '../../firebase/services';
+import { updateUser, addUser, updateUserCredentials, deleteUser } from '../../firebase/services';
 import { fileToDataUrl } from '../../utils/imageFile';
+import * as XLSX from 'xlsx';
 import styles from './Dashboard.module.css';
 
 export default function DeliveryPartners({ users, orders, adminId, onUpdate }) {
@@ -83,6 +84,7 @@ export default function DeliveryPartners({ users, orders, adminId, onUpdate }) {
                     <button className={styles.viewBtn} onClick={() => setViewPartner(p)} title="View">👁️</button>
                     <button className={styles.editBtn} onClick={() => setEditPartner(p)} title="Edit">✏️</button>
                     <button className={styles.payBtn} onClick={() => setPaymentPartner(p)} title="Pay">💰</button>
+                    <button className={styles.deleteBtn} onClick={() => { if (window.confirm(`Delete ${p.name}?`)) { deleteUser(p.id).then(() => onUpdate()).catch(err => alert(err.message || 'Unable to delete partner')); } }} title="Delete">🗑️</button>
                   </div>
                 </td>
               </tr>
@@ -264,12 +266,17 @@ function PartnerModal({ initial, onClose, onSave }) {
     }
 
     setSaving(true);
-    await onSave({
-      ...form,
-      email: emailToUse,
-      loginPassword: passwordToUse,
-    });
-    setSaving(false);
+    try {
+      await onSave({
+        ...form,
+        email: emailToUse,
+        loginPassword: passwordToUse,
+      });
+    } catch (error) {
+      alert(error?.message || 'Unable to save delivery partner');
+    } finally {
+      setSaving(false);
+    }
   };
   return (
     <div className={styles.modalOverlay}>
@@ -427,8 +434,13 @@ function PaymentModal({ partner, orders, onClose, onSave }) {
     if (!amount || amount <= 0) return alert('Enter a valid amount');
     if (amount > balance) return alert(`Amount cannot exceed remaining balance ₹${balance.toFixed(0)}`);
     setSaving(true);
-    await onSave({ ...form, amount, date: form.date || new Date().toISOString() });
-    setSaving(false);
+    try {
+      await onSave({ ...form, amount, date: form.date || new Date().toISOString() });
+    } catch (error) {
+      alert(error?.message || 'Unable to save payment');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

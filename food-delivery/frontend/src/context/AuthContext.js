@@ -1,7 +1,4 @@
 ﻿import React, { createContext, useContext, useState, useEffect } from 'react';
-import { collection, query, where, getDocs, setDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase/config';
-import { getUserProfile } from '../firebase/services';
 
 const AuthContext = createContext();
 
@@ -33,6 +30,12 @@ export function AuthProvider({ children }) {
 
   // ── Login ──────────────────────────────────────────────────────────────────
   const login = async (email, password) => {
+    const [{ collection, query, where, getDocs }, { db }, { getUserProfile }] = await Promise.all([
+      import('firebase/firestore'),
+      import('../firebase/config'),
+      import('../firebase/services'),
+    ]);
+
     // Try Firestore loginCredentials first; this app no longer depends on Firebase Auth.
     try {
       // Query by email only to avoid needing a composite index on email+password.
@@ -64,6 +67,11 @@ export function AuthProvider({ children }) {
 
   // ── Register (customers only — no Firebase Auth needed) ───────────────────
   const register = async ({ name, email, phone, password }) => {
+    const [{ collection, query, where, getDocs, setDoc, doc }, { db }] = await Promise.all([
+      import('firebase/firestore'),
+      import('../firebase/config'),
+    ]);
+
     // Check if email already exists
     const existing = await getDocs(
       query(collection(db, 'loginCredentials'), where('email', '==', email))

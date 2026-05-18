@@ -9,7 +9,7 @@ export default function RestaurantCard({ restaurant, isFavourite, onToggleFavour
   return (
     <div className={`${styles.card} ${!acceptingOrders ? styles.closed : ''}`}>
       <div className={styles.imgWrapper}>
-        <img src={restaurant.image} alt={restaurant.name} className={styles.img} />
+        {restaurant.image && <img src={restaurant.image} alt={restaurant.name} className={styles.img} />}
         {!acceptingOrders && <div className={styles.closedOverlay}>{statusLabel}</div>}
         {restaurant.offer && <div className={styles.offerBadge}>🏷️ {restaurant.offer}</div>}
         {onToggleFavourite && (

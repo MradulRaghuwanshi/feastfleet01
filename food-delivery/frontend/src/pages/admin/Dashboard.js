@@ -51,9 +51,21 @@ export default function AdminDashboard() {
   const [appConfig, setAppConfig]                 = useState(null);
 
   const loadData = useCallback(async () => {
-    const [u, r, p, cfg] = await Promise.all([getAllUsers(), getRestaurants(), getAllPromos(), getAppConfig()]);
-    setUsers(u); setRestaurants(r); setPromos(p); setAppConfig(cfg);
-    setLoading(false);
+    try {
+      const [u, r, p, cfg] = await Promise.allSettled([getAllUsers(), getRestaurants(), getAllPromos(), getAppConfig()]);
+
+      if (u.status === 'fulfilled') setUsers(u.value);
+      if (r.status === 'fulfilled') setRestaurants(r.value);
+      if (p.status === 'fulfilled') setPromos(p.value);
+      if (cfg.status === 'fulfilled') setAppConfig(cfg.value);
+
+      const failures = [u, r, p, cfg].filter(result => result.status === 'rejected');
+      if (failures.length) {
+        console.warn('Admin dashboard refresh had partial failures:', failures.map(result => result.reason?.message || result.reason));
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -78,7 +90,7 @@ export default function AdminDashboard() {
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
-          <img src="/logo.svg" alt="FeastFleet" className={styles.brandLogo} />
+          <img src="/logo.png" alt="FeastFleet" className={styles.brandLogo} />
           <div>FeastFleet<span>Admin</span></div>
         </div>
         <nav className={styles.nav}>
@@ -192,7 +204,23 @@ export default function AdminDashboard() {
           onSave={async (data) => {
             const loginEmail = String(data.loginEmail || '').trim().toLowerCase();
             const loginPassword = String(data.loginPassword || '').trim();
-            await updateRestaurant(editRestaurant.id, data);
+            const updatedRestaurant = await updateRestaurant(editRestaurant.id, data);
+            const visibleRestaurantUpdate = {
+              ...data,
+              id: editRestaurant.id,
+            };
+
+            delete visibleRestaurantUpdate.loginEmail;
+            delete visibleRestaurantUpdate.loginPassword;
+            delete visibleRestaurantUpdate.confirmLoginPassword;
+
+            if (updatedRestaurant || visibleRestaurantUpdate) {
+              setRestaurants(prev => prev.map(restaurant => (
+                restaurant.id === editRestaurant.id
+                  ? { ...restaurant, ...visibleRestaurantUpdate, ...(updatedRestaurant || {}) }
+                  : restaurant
+              )));
+            }
 
             if (loginEmail) {
               const existing = users.find(u => u.role === 'restaurant' && (u.restaurantId === editRestaurant.id || String(u.email || '').toLowerCase() === loginEmail));
@@ -221,7 +249,7 @@ export default function AdminDashboard() {
             }
 
             setEditRestaurant(null);
-            loadData();
+            await loadData();
           }}
         />
       )}
@@ -897,10 +925,15 @@ function Settings({ config, onSave }) {
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave({ ...form, cuisines, gstPercent: 0 });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    try {
+      await onSave({ ...form, cuisines, gstPercent: 0 });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (error) {
+      alert(error?.message || 'Unable to save settings');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1109,8 +1142,13 @@ function AddPromoModal({ onClose, onSave }) {
   const handleSave = async () => {
     if (!form.code || !form.description) return alert('Code and description are required');
     setSaving(true);
-    await onSave({ ...form, code: form.code.toUpperCase() });
-    setSaving(false);
+    try {
+      await onSave({ ...form, code: form.code.toUpperCase() });
+    } catch (error) {
+      alert(error?.message || 'Unable to save promo code');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

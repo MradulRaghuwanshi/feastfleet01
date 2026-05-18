@@ -26,6 +26,7 @@ const API_ROOT = API_BASE_URL;
 
 const apiJson = async (path, options = {}) => {
   const response = await fetch(`${API_ROOT}${path}`, {
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   });
@@ -240,7 +241,9 @@ export const getUserProfile = async (uid) => {
 
 // ─── RESTAURANTS ──────────────────────────────────────────────────────────────
 export const getRestaurants = async (cuisine) => {
-  const queryParam = cuisine && cuisine !== 'All' ? `?cuisine=${encodeURIComponent(cuisine)}` : '';
+  const queryParam = cuisine && cuisine !== 'All'
+    ? `?cuisine=${encodeURIComponent(cuisine)}&ts=${Date.now()}`
+    : `?ts=${Date.now()}`;
   const restaurants = await apiJson(`/restaurants${queryParam}`);
   return restaurants.map(enhanceRestaurant);
 };
@@ -935,9 +938,9 @@ export const listenToAgentLocation = (agentId, cb) => {
 };
 
 // ─── ADMIN ────────────────────────────────────────────────────────────────────
-export const getAllOrders = async () => apiJson('/orders');
+export const getAllOrders = async () => apiJson(`/orders?ts=${Date.now()}`);
 
-export const getAllUsers = async () => apiJson('/users');
+export const getAllUsers = async () => apiJson(`/users?ts=${Date.now()}`);
 
 export const addRestaurant = async (data) => {
   const created = await apiJson('/restaurants', {
@@ -948,7 +951,7 @@ export const addRestaurant = async (data) => {
 };
 
 export const updateRestaurant = async (id, data) => {
-  await apiJson(`/restaurants/${id}/profile`, {
+  return apiJson(`/restaurants/${id}/profile`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -956,6 +959,10 @@ export const updateRestaurant = async (id, data) => {
 
 export const deleteRestaurant = async (id) => {
   await apiJson(`/restaurants/${id}`, { method: 'DELETE' });
+};
+
+export const deleteUser = async (id) => {
+  await apiJson(`/users/${id}`, { method: 'DELETE' });
 };
 
 export const addPromo = async (promo) => {
@@ -976,7 +983,7 @@ export const deletePromo = async (code) => {
   await apiJson(`/promos/${String(code || '').toUpperCase()}`, { method: 'DELETE' });
 };
 
-export const getAllPromos = async () => apiJson('/promos?all=1');
+export const getAllPromos = async () => apiJson(`/promos?all=1&ts=${Date.now()}`);
 
 export const listenToAllOrders = (cb) => {
   const q = query(collection(db, 'orders'), orderBy('placedAt', 'desc'));

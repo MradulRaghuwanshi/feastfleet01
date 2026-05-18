@@ -1,26 +1,34 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { LocationProvider } from './context/LocationContext';
 
-import Login from './pages/Login';
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
-import PWAInstall from './components/PWAInstall';
-import Home from './pages/customer/Home';
-import RestaurantMenu from './pages/customer/RestaurantMenu';
-import Checkout from './pages/customer/Checkout';
-import OrderConfirmation from './pages/customer/OrderConfirmation';
-import MyOrders from './pages/customer/MyOrders';
-import Favourites from './pages/customer/Favourites';
-import Wallet from './pages/customer/Wallet';
-import RestaurantDashboard from './pages/restaurant/Dashboard';
-import DeliveryDashboard from './pages/delivery/Dashboard';
-import AdminDashboard from './pages/admin/Dashboard';
-import POS from './pages/restaurant/POS';
-import RestaurantHistory from './pages/restaurant/History';
 
+const Login = React.lazy(() => import('./pages/Login'));
+const Home = React.lazy(() => import('./pages/customer/Home'));
+const RestaurantMenu = React.lazy(() => import('./pages/customer/RestaurantMenu'));
+const Checkout = React.lazy(() => import('./pages/customer/Checkout'));
+const OrderConfirmation = React.lazy(() => import('./pages/customer/OrderConfirmation'));
+const MyOrders = React.lazy(() => import('./pages/customer/MyOrders'));
+const Favourites = React.lazy(() => import('./pages/customer/Favourites'));
+const Wallet = React.lazy(() => import('./pages/customer/Wallet'));
+const RestaurantDashboard = React.lazy(() => import('./pages/restaurant/Dashboard'));
+const DeliveryDashboard = React.lazy(() => import('./pages/delivery/Dashboard'));
+const AdminDashboard = React.lazy(() => import('./pages/admin/Dashboard'));
+const POS = React.lazy(() => import('./pages/restaurant/POS'));
+const RestaurantHistory = React.lazy(() => import('./pages/restaurant/History'));
+const PWAInstall = React.lazy(() => import('./components/PWAInstall'));
+
+function PageLoader() {
+  return (
+    <div style={{ minHeight: '50vh', display: 'grid', placeItems: 'center', color: '#666' }}>
+      Loading...
+    </div>
+  );
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -46,64 +54,73 @@ function AppRoutes() {
   if (!user) return (
     <>
       <Navbar />
-      <Routes>
-        <Route path="/"                       element={<Home />} />
-        <Route path="/login"                  element={<Login />} />
-        <Route path="/restaurant/:id"         element={<RestaurantMenu />} />
-        <Route path="/checkout"               element={<Checkout />} />
-        <Route path="/order-confirmation/:id" element={<OrderConfirmation />} />
-        <Route path="/orders"                 element={<Navigate to="/login" />} />
-        <Route path="/favourites"             element={<Navigate to="/login" />} />
-        <Route path="/wallet"                 element={<Navigate to="/login" />} />
-        <Route path="*"                       element={<Navigate to="/" />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/"                       element={<Home />} />
+          <Route path="/login"                  element={<Login />} />
+          <Route path="/restaurant/:id"         element={<RestaurantMenu />} />
+          <Route path="/checkout"               element={<Checkout />} />
+          <Route path="/order-confirmation/:id" element={<OrderConfirmation />} />
+          <Route path="/orders"                 element={<Navigate to="/login" />} />
+          <Route path="/favourites"             element={<Navigate to="/login" />} />
+          <Route path="/wallet"                 element={<Navigate to="/login" />} />
+          <Route path="*"                       element={<Navigate to="/" />} />
+        </Routes>
+      </Suspense>
       <BottomNav />
     </>
   );
 
   if (user.role === 'admin') return (
-    <Routes>
-      <Route path="/" element={<AdminDashboard />} />
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/" element={<AdminDashboard />} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </Suspense>
   );
 
   if (user.role === 'restaurant') return (
     <>
       <Navbar />
-      <Routes>
-        <Route path="/" element={<RestaurantDashboard />} />
-        <Route path="/history" element={<RestaurantHistory />} />
-        <Route path="/pos" element={<POS />} />
-        <Route path="*" element={<Navigate to="/" />} />
-
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={<RestaurantDashboard />} />
+          <Route path="/history" element={<RestaurantHistory />} />
+          <Route path="/pos" element={<POS />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Suspense>
     </>
   );
 
   if (user.role === 'delivery') return (
     <>
       <Navbar />
-      <Routes>
-        <Route path="/" element={<DeliveryDashboard />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={<DeliveryDashboard />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Suspense>
     </>
   );
 
   return (
     <>
       <Navbar />
-      <Routes>
-        <Route path="/"                       element={<Home />} />
-        <Route path="/restaurant/:id"         element={<RestaurantMenu />} />
-        <Route path="/checkout"               element={<Checkout />} />
-        <Route path="/order-confirmation/:id" element={<OrderConfirmation />} />
-        <Route path="/orders"                 element={<MyOrders />} />
-        <Route path="/favourites"             element={<Favourites />} />
-        <Route path="/wallet"                 element={<Wallet />} />
-        <Route path="*"                       element={<Navigate to="/" />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/"                       element={<Home />} />
+          <Route path="/restaurant/:id"         element={<RestaurantMenu />} />
+          <Route path="/checkout"               element={<Checkout />} />
+          <Route path="/order-confirmation/:id" element={<OrderConfirmation />} />
+          <Route path="/orders"                 element={<MyOrders />} />
+          <Route path="/favourites"             element={<Favourites />} />
+          <Route path="/wallet"                 element={<Wallet />} />
+          <Route path="*"                       element={<Navigate to="/" />} />
+        </Routes>
+      </Suspense>
       <BottomNav />
     </>
   );
@@ -117,7 +134,9 @@ export default function App() {
           <CartProvider>
             <BrowserRouter basename="/">
               <AppRoutes />
-              <PWAInstall />
+              <Suspense fallback={null}>
+                <PWAInstall />
+              </Suspense>
             </BrowserRouter>
           </CartProvider>
         </LocationProvider>

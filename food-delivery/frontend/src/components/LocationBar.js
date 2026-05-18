@@ -1,7 +1,8 @@
 ﻿import React, { useState, Suspense } from 'react';
 import { useDeliveryLocation } from '../context/LocationContext';
-import LocationPicker from './LocationPicker';
 import styles from './LocationBar.module.css';
+
+const LocationPicker = React.lazy(() => import('./LocationPicker'));
 
 export default function LocationBar() {
   const { location, detectLocation, setManualLocation } = useDeliveryLocation();
@@ -49,11 +50,13 @@ export default function LocationBar() {
       </div>
 
       {showPicker && (
-        <LocationPicker
-          initialLocation={location}
-          onConfirm={handleConfirm}
-          onClose={() => setShowPicker(false)}
-        />
+        <Suspense fallback={null}>
+          <LocationPicker
+            initialLocation={location}
+            onConfirm={handleConfirm}
+            onClose={() => setShowPicker(false)}
+          />
+        </Suspense>
       )}
     </>
   );

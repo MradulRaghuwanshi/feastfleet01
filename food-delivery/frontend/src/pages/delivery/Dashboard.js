@@ -216,9 +216,19 @@ export default function DeliveryDashboard() {
             const sc = STATUS_COLOR[status] || {};
             const currentIdx = Math.max(0, STATUS_FLOW.indexOf(status));
             const isRequest = !order.deliveryAgentId;
+            const acceptedByMe = order.deliveryAgentId === user.id;
             const canVerifyPickup = order.deliveryAgentId === user.id && !order.pickupOtpVerified && status !== ORDER_STATUS.ON_THE_WAY && status !== ORDER_STATUS.DELIVERED;
             const canDeliver = order.deliveryAgentId === user.id && status === ORDER_STATUS.ON_THE_WAY;
             const placedAt = dateOf(order.placedAt);
+            const customerPhone = String(order.customerPhone || '').trim();
+            const callHref = customerPhone ? `tel:${customerPhone.replace(/[^+\d]/g, '')}` : '';
+            const paymentMethod = String(order.paymentMethod || '').toLowerCase();
+            const paymentStatus = String(order.paymentStatus || '').toLowerCase();
+            const isPaid = paymentStatus === 'completed' || paymentStatus === 'paid';
+            const paymentLabel = isPaid
+              ? 'Paid'
+              : (paymentMethod === 'cod' ? 'COD' : 'Payment Pending');
+            const paymentClass = isPaid ? styles.paid : (paymentMethod === 'cod' ? styles.cod : styles.pending);
 
             return (
               <div key={order.id} className={styles.orderCard}>
@@ -228,6 +238,9 @@ export default function DeliveryDashboard() {
                     <span className={styles.statusBadge} style={{ background: sc.bg, color: sc.color }}>
                       {status}
                     </span>
+                    {acceptedByMe && status !== ORDER_STATUS.DELIVERED && (
+                      <span className={styles.acceptedChip}>Order Accepted</span>
+                    )}
                   </div>
                   <span className={styles.orderTime}>{placedAt.toLocaleTimeString()}</span>
                 </div>
@@ -262,6 +275,13 @@ export default function DeliveryDashboard() {
                     {order.customerPhone ? ` · 📞 ${String(order.customerPhone).trim()}` : ''}
                   </div>
                   <span className={styles.orderTotal}>₹{order.total.toFixed(0)}</span>
+                </div>
+
+                <div className={styles.metaRow}>
+                  <span className={`${styles.paymentChip} ${paymentClass}`}>{paymentLabel}</span>
+                  {!isRequest && callHref && (
+                    <a className={styles.callBtn} href={callHref}>Call Customer</a>
+                  )}
                 </div>
 
                 <div className={styles.progressBar}>

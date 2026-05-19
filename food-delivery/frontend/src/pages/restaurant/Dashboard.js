@@ -4,6 +4,7 @@ import {
   acceptRestaurantOrder,
   getVisiblePickupOtp,
   listenToOrdersByRestaurant,
+  getOrdersByRestaurant,
   getRestaurant,
   normalizeOrderStatus,
   ORDER_STATUS,
@@ -116,9 +117,28 @@ export default function RestaurantDashboard() {
   }, [user.restaurantId]);
 
   useEffect(() => {
+    let mounted = true;
+    // Debug: log authenticated user info to help troubleshoot missing orders
+    // eslint-disable-next-line no-console
+    console.debug('[RestaurantDashboard] mounted, user=', user);
+    // eslint-disable-next-line no-console
+    console.debug('[RestaurantDashboard] user.restaurantId=', user?.restaurantId);
     fetchRestaurant();
-    const unsub = listenToOrdersByRestaurant(user.restaurantId, data => setOrders(data));
-    return unsub;
+
+    // Start realtime listener
+    const unsub = listenToOrdersByRestaurant(user.restaurantId, data => {
+      // If realtime returns empty but component is mounted, try a one-time fetch as fallback
+      if (mounted && Array.isArray(data) && data.length === 0) {
+        getOrdersByRestaurant(user.restaurantId).then(fallback => {
+          if (!mounted) return;
+          // Only set orders if realtime still empty to avoid flicker
+          setOrders(prev => (Array.isArray(prev) && prev.length > 0) ? prev : (fallback || []));
+        }).catch(() => { /* ignore */ });
+      }
+      if (mounted) setOrders(data);
+    });
+
+    return () => { mounted = false; unsub(); };
   }, [fetchRestaurant, user.restaurantId]);
 
   // Keep hooks above early returns so the hook order never changes between renders.

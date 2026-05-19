@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   listenToOrdersByRestaurant,
   normalizeOrderStatus,
+  getOrdersByRestaurant,
   ORDER_STATUS,
 } from '../../firebase/services';
 import styles from './History.module.css';
@@ -46,10 +47,20 @@ export default function RestaurantHistory() {
 
   useEffect(() => {
     if (!user?.restaurantId) return;
+    let mounted = true;
+    // Realtime listener
     const unsub = listenToOrdersByRestaurant(user.restaurantId, (data) => {
-      setOrders(data || []);
+      // fallback to one-time fetch if realtime returns empty
+      if (mounted && Array.isArray(data) && data.length === 0) {
+        getOrdersByRestaurant(user.restaurantId).then(fallback => {
+          if (!mounted) return;
+          setOrders(fallback || []);
+        }).catch(() => { /* ignore */ });
+      }
+      if (mounted) setOrders(data || []);
     });
-    return unsub;
+
+    return () => { mounted = false; unsub(); };
   }, [user?.restaurantId]);
 
   const deliveredOrders = useMemo(() => {

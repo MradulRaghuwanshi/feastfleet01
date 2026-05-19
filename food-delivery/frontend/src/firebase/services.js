@@ -1071,7 +1071,25 @@ export const listenToOrder = (orderId, cb) => {
 // Real-time orders listener for restaurant/agent
 export const listenToOrdersByRestaurant = (restaurantId, cb) => {
   const q = query(collection(db, 'orders'), where('restaurantId', '==', restaurantId), orderBy('placedAt', 'desc'));
-  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  return onSnapshot(q, snap => {
+    try {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Debug logging for troubleshooting order visibility
+      // eslint-disable-next-line no-console
+      console.debug(`[listenToOrdersByRestaurant] restaurantId=${restaurantId} snapshotDocs=${snap.size}`);
+      // eslint-disable-next-line no-console
+      console.debug('[listenToOrdersByRestaurant] docIds=', docs.map(d => d.id).join(','));
+      cb(docs);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[listenToOrdersByRestaurant] snapshot processing error', err);
+      cb([]);
+    }
+  }, (error) => {
+    // eslint-disable-next-line no-console
+    console.error(`[listenToOrdersByRestaurant] realtime error for ${restaurantId}:`, error);
+    cb([]);
+  });
 };
 
 export const listenToOrdersByAgent = (agentId, cb) => {

@@ -54,6 +54,7 @@ jobs:
       working-directory: food-delivery/frontend
       run: |
         touch build/.nojekyll
+        cp ../../CNAME build/CNAME
         if [ -f build/index.html ]; then
           cp build/index.html build/404.html
         else

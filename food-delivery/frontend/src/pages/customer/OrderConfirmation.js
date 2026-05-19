@@ -29,13 +29,42 @@ export default function OrderConfirmation() {
   const status = LEGACY_STATUS[order.status] || order.status;
   const currentStep = Math.max(0, STATUS_STEPS.indexOf(status));
   const isActive = order.status !== 'Delivered';
+  const coinsEarned = Number(order.feastCoinsEarned || 0);
 
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <div className={styles.icon}>{order.status === 'Delivered' ? '✅' : '🎉'}</div>
-        <h2>{order.status === 'Delivered' ? 'Order Delivered!' : 'Order Confirmed!'}</h2>
-        <p className={styles.orderId}>Order #{order.id}</p>
+        <div className={styles.successCard}>
+          <div className={styles.successIcon}>✓</div>
+          <div>
+            <h2>Your order is placed</h2>
+            <p>Order #{order.id}</p>
+          </div>
+        </div>
+
+        <div className={styles.promiseGrid}>
+          <div className={styles.promiseItem}>
+            <span className={styles.promiseIcon}>01</span>
+            <div>
+              <strong>Order confirmed</strong>
+              <p>Kitchen has received your order.</p>
+            </div>
+          </div>
+          <div className={styles.promiseItem}>
+            <span className={styles.promiseIcon}>₹</span>
+            <div>
+              <strong>{coinsEarned} FeastCoins added</strong>
+              <p>Coins are credited to your account.</p>
+            </div>
+          </div>
+          <div className={styles.promiseItem}>
+            <span className={styles.promiseIcon}>30</span>
+            <div>
+              <strong>Delivery within 30 minutes</strong>
+              <p>Track the order live until it arrives.</p>
+            </div>
+          </div>
+        </div>
 
         <div className={styles.tracker}>
           {STATUS_STEPS.map((step, i) => (

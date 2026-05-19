@@ -27,6 +27,27 @@ export const CoinIcon = ({className}) => (
   </svg>
 );
 
+export const ReceiptIcon = ({className}) => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M7 3h10a2 2 0 0 1 2 2v16l-3-1.7-2 1.2-2-1.2-2 1.2-2-1.2L5 21V5a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+    <path d="M8.5 8h7M8.5 12h7M8.5 16h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+
+export const HistoryIcon = ({className}) => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M4 12a8 8 0 1 0 2.3-5.6L4 8.7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M4 4.5v4.2h4.2M12 7.5v5l3.2 1.9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+export const AdminIcon = ({className}) => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M12 3.5l7 3v5.2c0 4.2-2.8 7.6-7 8.8-4.2-1.2-7-4.6-7-8.8V6.5l7-3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+    <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
 export const HeartIcon = ({className}) => (
   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
     <path d="M20.8 8.6a4.6 4.6 0 0 0-6.5-.5L12 10.5l-2.3-2.4a4.6 4.6 0 0 0-6.5.5A5 5 0 0 0 5.5 18L12 22l6.5-4A5 5 0 0 0 20.8 8.6z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>

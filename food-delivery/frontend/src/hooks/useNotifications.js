@@ -9,11 +9,12 @@ import { getMessagingInstance } from '../firebase/config';
 const VAPID_KEY = process.env.REACT_APP_FIREBASE_VAPID_KEY || 'YOUR_VAPID_KEY_HERE';
 
 export function useNotifications(user) {
-  const [permission, setPermission] = useState(Notification.permission);
+  const notificationsSupported = typeof window !== 'undefined' && 'Notification' in window;
+  const [permission, setPermission] = useState(notificationsSupported ? Notification.permission : 'unsupported');
   const [inAppNotif, setInAppNotif] = useState(null); // for foreground toasts
 
   const registerToken = useCallback(async () => {
-    if (!user || user.role !== 'customer') return;
+    if (!notificationsSupported || !user?.id) return;
     if (VAPID_KEY === 'YOUR_VAPID_KEY_HERE') return; // not configured yet
 
     try {
@@ -40,9 +41,10 @@ export function useNotifications(user) {
     } catch (err) {
       console.warn('FCM registration failed:', err.message);
     }
-  }, [user]);
+  }, [notificationsSupported, user]);
 
   const requestPermission = async () => {
+    if (!notificationsSupported) return 'unsupported';
     const result = await Notification.requestPermission();
     setPermission(result);
     if (result === 'granted') await registerToken();

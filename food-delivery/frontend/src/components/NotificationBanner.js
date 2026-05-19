@@ -14,8 +14,8 @@ export default function NotificationBanner({ onAllow, onDismiss }) {
     <div className={styles.banner}>
       <span className={styles.icon}>🔔</span>
       <div className={styles.text}>
-        <strong>Get notified about exclusive offers!</strong>
-        <span>Allow notifications to receive promo codes and deals.</span>
+        <strong>Get real-time order alerts</strong>
+        <span>Allow notifications for new orders, delivery requests, and important updates.</span>
       </div>
       <div className={styles.actions}>
         <button className={styles.allowBtn} onClick={handleAllow} disabled={loading}>

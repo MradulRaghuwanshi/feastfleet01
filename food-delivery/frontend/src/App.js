@@ -6,8 +6,12 @@ import { LocationProvider } from './context/LocationContext';
 
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
+import NotificationBanner from './components/NotificationBanner';
+import NotificationToast from './components/NotificationToast';
+import { useNotifications } from './hooks/useNotifications';
 
 const Login = React.lazy(() => import('./pages/Login'));
+const About = React.lazy(() => import('./pages/About'));
 const Home = React.lazy(() => import('./pages/customer/Home'));
 const RestaurantMenu = React.lazy(() => import('./pages/customer/RestaurantMenu'));
 const Checkout = React.lazy(() => import('./pages/customer/Checkout'));
@@ -59,6 +63,21 @@ class ErrorBoundary extends React.Component {
 
 function AppRoutes() {
   const { user } = useAuth();
+  const { permission, requestPermission, inAppNotif, dismissNotif } = useNotifications(user);
+  const [hideNotificationBanner, setHideNotificationBanner] = React.useState(false);
+  const canReceiveOrderAlerts = Boolean(user && ['customer', 'restaurant', 'delivery'].includes(user.role));
+  const showNotificationBanner = canReceiveOrderAlerts && permission === 'default' && !hideNotificationBanner;
+  const notificationLayer = (
+    <>
+      {showNotificationBanner && (
+        <NotificationBanner
+          onAllow={requestPermission}
+          onDismiss={() => setHideNotificationBanner(true)}
+        />
+      )}
+      <NotificationToast notif={inAppNotif} onDismiss={dismissNotif} />
+    </>
+  );
 
   if (!user) return (
     <>
@@ -67,26 +86,34 @@ function AppRoutes() {
         <Routes>
           <Route path="/"                       element={<Home />} />
           <Route path="/login"                  element={<Login />} />
+          <Route path="/about"                  element={<About />} />
           <Route path="/restaurant/:id"         element={<RestaurantMenu />} />
           <Route path="/checkout"               element={<Checkout />} />
           <Route path="/order-confirmation/:id" element={<OrderConfirmation />} />
           <Route path="/orders"                 element={<Navigate to="/login" />} />
           <Route path="/favourites"             element={<Navigate to="/login" />} />
           <Route path="/wallet"                 element={<Navigate to="/login" />} />
+          <Route path="/admin"                  element={<Navigate to="/login" />} />
           <Route path="*"                       element={<Navigate to="/" />} />
         </Routes>
       </Suspense>
       <BottomNav />
+      {notificationLayer}
     </>
   );
 
   if (user.role === 'admin') return (
-    <Suspense fallback={<PageLoader />}>
-      <Routes>
-        <Route path="/" element={<AdminDashboard />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </Suspense>
+    <>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={<AdminDashboard />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/about" element={<About />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Suspense>
+      {notificationLayer}
+    </>
   );
 
   if (user.role === 'restaurant') return (
@@ -97,9 +124,11 @@ function AppRoutes() {
           <Route path="/" element={<RestaurantDashboard />} />
           <Route path="/history" element={<RestaurantHistory />} />
           <Route path="/pos" element={<POS />} />
+          <Route path="/about" element={<About />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Suspense>
+      {notificationLayer}
     </>
   );
 
@@ -109,9 +138,11 @@ function AppRoutes() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<DeliveryDashboard />} />
+          <Route path="/about" element={<About />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Suspense>
+      {notificationLayer}
     </>
   );
 
@@ -121,16 +152,19 @@ function AppRoutes() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/"                       element={<Home />} />
+          <Route path="/about"                  element={<About />} />
           <Route path="/restaurant/:id"         element={<RestaurantMenu />} />
           <Route path="/checkout"               element={<Checkout />} />
           <Route path="/order-confirmation/:id" element={<OrderConfirmation />} />
           <Route path="/orders"                 element={<MyOrders />} />
           <Route path="/favourites"             element={<Favourites />} />
           <Route path="/wallet"                 element={<Wallet />} />
+          <Route path="/admin"                  element={<Navigate to="/" />} />
           <Route path="*"                       element={<Navigate to="/" />} />
         </Routes>
       </Suspense>
       <BottomNav />
+      {notificationLayer}
     </>
   );
 }

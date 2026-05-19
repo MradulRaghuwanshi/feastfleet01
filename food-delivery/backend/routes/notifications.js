@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { admin, db } = require('../firebase/admin');
+const { sendOrderPlacedNotifications } = require('../lib/orderNotifications');
 
 // POST /api/notifications/promo  — send promo notification to all customers
 router.post('/promo', async (req, res) => {
@@ -75,6 +76,33 @@ router.post('/save-token', async (req, res) => {
     });
     res.json({ ok: true });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/notifications/order-placed — notify restaurant and delivery partners
+router.post('/order-placed', async (req, res) => {
+  if (!db || !admin.messaging) {
+    return res.status(503).json({ error: 'Firebase not configured' });
+  }
+
+  const { orderId } = req.body || {};
+  if (!orderId) return res.status(400).json({ error: 'orderId required' });
+
+  try {
+    const orderSnap = await db.collection('orders').doc(orderId).get();
+    if (!orderSnap.exists) return res.status(404).json({ error: 'Order not found' });
+
+    const result = await sendOrderPlacedNotifications({
+      db,
+      admin,
+      orderId,
+      order: orderSnap.data(),
+    });
+
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('Order notification error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

@@ -50,6 +50,7 @@ export default function Navbar() {
             <Link to="/favourites" className={styles.link} title="Favourites">❤️</Link>
             <Link to="/orders" className={styles.link}>My Orders</Link>
             <Link to="/wallet" className={styles.wallet}>🪙 {Math.floor(feastCoins)} Coins</Link>
+            <Link to="/about" className={styles.link}>About</Link>
             <Link to="/checkout" className={styles.cartBtn}>
               🛒 {totalItems > 0 && <span className={styles.badge}>{totalItems}</span>}
             </Link>
@@ -58,6 +59,7 @@ export default function Navbar() {
 
         {!user && (
           <>
+            <Link to="/about" className={styles.link}>About</Link>
             <Link to="/checkout" className={styles.cartBtn}>
               🛒 {totalItems > 0 && <span className={styles.badge}>{totalItems}</span>}
             </Link>

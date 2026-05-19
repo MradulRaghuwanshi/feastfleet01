@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { db, admin } = require('../firebase/admin');
+const { sendOrderPlacedNotifications } = require('../lib/orderNotifications');
 
 const canUseDemoFallback = () => !db && (
   process.env.NODE_ENV !== 'production' ||
@@ -234,39 +235,9 @@ router.post('/', async (req, res) => {
       paymentStatus: orderData.paymentStatus,
     });
     
-    // Send notification to restaurant
+    // Send notification to restaurant and delivery partners.
     try {
-      const restaurantOwnerSnap = await db.collection('users')
-        .where('role', '==', 'restaurant')
-        .where('restaurantId', '==', restaurantId)
-        .limit(1)
-        .get();
-      
-      if (!restaurantOwnerSnap.empty) {
-        const ownerId = restaurantOwnerSnap.docs[0].id;
-        const fcmTokensSnap = await db.collection('fcmTokens')
-          .where('userId', '==', ownerId)
-          .get();
-        
-        if (!fcmTokensSnap.empty && admin.messaging) {
-          const tokens = fcmTokensSnap.docs.map(d => d.data().token);
-          const message = {
-            notification: {
-              title: '🆕 New Order Received!',
-              body: `Order from ${customerName} - ₹${total.toFixed(0)}`,
-            },
-            data: {
-              type: 'new_order',
-              orderId: orderRef.id,
-              restaurantId,
-              amount: total.toFixed(0)
-            },
-            tokens,
-          };
-          
-          await admin.messaging().sendEachForMulticast(message);
-        }
-      }
+      await sendOrderPlacedNotifications({ db, admin, orderId: orderRef.id, order: orderData });
     } catch (notificationError) {
       console.warn('Could not send order notification:', notificationError.message);
     }
@@ -577,3 +548,4 @@ router.patch('/:id/admin-status', async (req, res) => {
 
 
 module.exports = router;
+

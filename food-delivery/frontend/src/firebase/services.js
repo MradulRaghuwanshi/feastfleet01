@@ -43,6 +43,18 @@ const apiJson = async (path, options = {}) => {
   return payload;
 };
 
+const notifyOrderPlaced = async (orderId) => {
+  if (!orderId) return;
+  try {
+    await apiJson('/notifications/order-placed', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    });
+  } catch (error) {
+    console.warn('Order notification trigger failed:', error?.message || error);
+  }
+};
+
 const CACHE_TTL_MS = 60 * 1000;
 const requestCache = new Map();
 const pendingRequests = new Map();
@@ -596,7 +608,9 @@ export const placeOrder = async (orderData) => {
     throw new Error('Restaurant, customer details and cart items are required');
   }
 
-  return placeOrderDocumentOnly(orderData, 'Customer placed order');
+  const order = await placeOrderDocumentOnly(orderData, 'Customer placed order');
+  await notifyOrderPlaced(order.id);
+  return order;
 
   try {
     const customerId = orderData.customerId || `guest_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -810,6 +824,7 @@ export const createOrder = async (orderData) => {
     placedAt: serverTimestamp(),
     statusHistory: [{ status: orderData.status || 'Placed', time: new Date().toISOString() }]
   });
+  await notifyOrderPlaced(ref_.id);
   return { id: ref_.id, ...orderData };
 };
 

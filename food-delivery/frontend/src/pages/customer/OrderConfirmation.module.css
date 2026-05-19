@@ -7,6 +7,77 @@
 .card h2 { font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 4px; }
 .orderId { text-align: center; color: #888; font-size: 12px; margin-bottom: 20px; }
 
+.successCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #fff7ed 0%, #ecfdf5 100%);
+  border: 1px solid #fed7aa;
+  margin-bottom: 14px;
+}
+.successIcon {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #16a34a;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+.successCard h2 {
+  text-align: left;
+  margin: 0 0 3px;
+  color: #231f20;
+}
+.successCard p {
+  margin: 0;
+  color: #7c6f66;
+  font-size: 13px;
+  font-weight: 600;
+}
+.promiseGrid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.promiseItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #fbfaf9;
+  border: 1px solid #f0ebe7;
+  border-radius: 12px;
+}
+.promiseIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: #231f20;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+.promiseItem strong {
+  display: block;
+  color: #2f2a27;
+  font-size: 14px;
+}
+.promiseItem p {
+  margin: 2px 0 0;
+  color: #8a817c;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
 .tracker { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; position: relative; }
 .step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
 .dot { width: 26px; height: 26px; border-radius: 50%; background: #e0e0e0; color: #aaa; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; z-index: 1; }

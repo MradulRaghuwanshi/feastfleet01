@@ -24,6 +24,7 @@ app.use('/api/dashboard',     require('./routes/dashboard'));
 app.use('/api/inventory',      require('./routes/inventory'));
 app.use('/api/reports',        require('./routes/reports'));
 app.use('/api/menu-bulk',      require('./routes/menu-bulk'));
+app.use('/api/debug',          require('./routes/debug'));
 
 const healthPayload = () => ({
   ok: true,

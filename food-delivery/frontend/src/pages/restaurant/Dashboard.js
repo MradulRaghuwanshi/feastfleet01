@@ -121,6 +121,19 @@ export default function RestaurantDashboard() {
     return unsub;
   }, [fetchRestaurant, user.restaurantId]);
 
+  // Keep hooks above early returns so the hook order never changes between renders.
+  const activeOrders = useMemo(() => orders, [orders]);
+  const completedOrders = useMemo(
+    () => orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED),
+    [orders]
+  );
+  const todayRevenue = useMemo(
+    () => completedOrders.reduce((s, o) => s + (o.total || 0), 0),
+    [completedOrders]
+  );
+  const categories = restaurant?.menu ? ['All', ...new Set(restaurant.menu.map(i => i.category))] : ['All'];
+  const filteredMenu = restaurant?.menu?.filter(i => posCategory === 'All' || i.category === posCategory) || [];
+
   if (loading) return <div className={styles.loading}>Loading POS...</div>;
   if (!restaurant) return <div className={styles.loading}>Restaurant data unavailable.</div>;
 
@@ -265,20 +278,6 @@ export default function RestaurantDashboard() {
     await deleteDoc(doc(db, 'restaurants', user.restaurantId, 'menu', itemId));
     fetchRestaurant();
   };
-
-  // Always normalize status so refresh / backend variants map consistently
-  const activeOrders = useMemo(() => orders, [orders]);
-  const completedOrders = useMemo(
-    () => orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED),
-    [orders]
-  );
-  const todayRevenue = useMemo(
-    () => completedOrders.reduce((s, o) => s + (o.total || 0), 0),
-    [completedOrders]
-  );
-
-  const categories   = restaurant?.menu ? ['All', ...new Set(restaurant.menu.map(i => i.category))] : ['All'];
-  const filteredMenu = restaurant?.menu?.filter(i => posCategory === 'All' || i.category === posCategory) || [];
 
   return (
     <div className={styles.page}>

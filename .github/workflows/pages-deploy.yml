@@ -34,10 +34,19 @@ jobs:
     - name: Install and Build
       working-directory: food-delivery/frontend
       run: |
-        npm install --legacy-peer-deps
+        npm ci --legacy-peer-deps
         npm run build
       env:
         CI: false
+        REACT_APP_API_URL: "https://feastfleet-backend-0ozz.onrender.com"
+        REACT_APP_RAZORPAY_KEY_ID: "rzp_live_SqTWXCzB7KpMF5"
+        REACT_APP_FIREBASE_API_KEY: "AIzaSyAjz7-JdOVMYXHEsb-BOQ0V3MoaGH2Qo_Y"
+        REACT_APP_FIREBASE_AUTH_DOMAIN: "feastfleet-54b7e.firebaseapp.com"
+        REACT_APP_FIREBASE_DATABASE_URL: "https://feastfleet-54b7e-default-rtdb.asia-southeast1.firebasedatabase.app"
+        REACT_APP_FIREBASE_PROJECT_ID: "feastfleet-54b7e"
+        REACT_APP_FIREBASE_STORAGE_BUCKET: "feastfleet-54b7e.firebasestorage.app"
+        REACT_APP_FIREBASE_MESSAGING_SENDER_ID: "72016164039"
+        REACT_APP_FIREBASE_APP_ID: "1:72016164039:web:f9ff1f82721b3c81c67ae2"
     
     - name: Setup Pages
       uses: actions/configure-pages@v4

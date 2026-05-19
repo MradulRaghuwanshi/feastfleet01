@@ -20,7 +20,7 @@ export default function RestaurantMenu() {
     getRestaurant(id).then(setRestaurant);
   }, [id]);
 
-  if (!restaurant) return <p className={styles.loading}>Loading menu...</p>;
+  if (!restaurant) return <MenuSkeleton />;
 
   const canOrder = restaurant.isAcceptingOrdersNow ?? restaurant.isOpen;
   const categories = ['All', ...new Set(restaurant.menu.map(i => i.category))];
@@ -64,7 +64,7 @@ export default function RestaurantMenu() {
           ))}
         </div>
         <div className={styles.menuGrid}>
-          {filtered.map(item => (
+          {filtered.map((item, index) => (
             <MenuItem
               key={item.id}
               item={item}
@@ -72,6 +72,7 @@ export default function RestaurantMenu() {
               restaurantName={restaurant.name}
               hasOwnDelivery={restaurant.hasOwnDelivery}
               canOrder={canOrder}
+              priority={index < 3}
             />
           ))}
         </div>
@@ -89,6 +90,31 @@ export default function RestaurantMenu() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function MenuSkeleton() {
+  return (
+    <div className={styles.page}>
+      <div className={styles.headerSkeleton} />
+      <div className={styles.content}>
+        <div className={styles.categorySkeleton}>
+          {Array.from({ length: 5 }).map((_, index) => <span key={index} />)}
+        </div>
+        <div className={styles.menuGrid}>
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className={styles.itemSkeleton}>
+              <div />
+              <section>
+                <span />
+                <span />
+                <span />
+              </section>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

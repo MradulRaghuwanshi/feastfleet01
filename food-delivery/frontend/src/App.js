@@ -33,6 +33,15 @@ function PageLoader() {
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(e) { return { error: e }; }
+  componentDidCatch(error) {
+    const isChunkLoadError = /Loading chunk \d+ failed|ChunkLoadError/i.test(error?.message || error?.name || '');
+    const retryKey = 'ff_chunk_reload_attempted';
+
+    if (isChunkLoadError && sessionStorage.getItem(retryKey) !== '1') {
+      sessionStorage.setItem(retryKey, '1');
+      window.location.reload();
+    }
+  }
   render() {
     if (this.state.error) {
       return (

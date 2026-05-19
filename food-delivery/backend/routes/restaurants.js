@@ -28,24 +28,14 @@ router.get('/', async (req, res) => {
     }
 
     const snap = await query.get();
-    const restaurants = [];
-
-    for (const doc of snap.docs) {
-      // Fetch menu only to compute itemCount; do NOT include full menu in list responses
-      let itemCount = 0;
-      try {
-        const menuSnap = await db.collection('restaurants').doc(doc.id).collection('menu').get();
-        itemCount = menuSnap.docs.length;
-      } catch (menuError) {
-        console.warn('Could not count menu items for restaurant', doc.id, menuError.message);
-      }
-
-      restaurants.push({
+    const restaurants = snap.docs.map(doc => {
+      const data = doc.data();
+      return {
         id: doc.id,
-        ...doc.data(),
-        itemCount,
-      });
-    }
+        ...data,
+        itemCount: Number(data.itemCount || data.menuItemCount || 0),
+      };
+    });
 
     res.json(restaurants);
   } catch (error) {

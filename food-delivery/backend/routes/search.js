@@ -15,24 +15,35 @@ router.get('/', async (req, res) => {
     const matchedRestaurants = [];
     const dishes = [];
 
+    const seenRestaurantIds = new Set();
+
     for (const restDoc of restSnap.docs) {
       const rest = restDoc.data();
       
+      const menuSnap = await db.collection('restaurants').doc(restDoc.id).collection('menu').get();
+
       // Search restaurants by name or cuisine
-      if (rest.name.toLowerCase().includes(q) || rest.cuisine.toLowerCase().includes(q)) {
-        const menuSnap = await db.collection('restaurants').doc(restDoc.id).collection('menu').get();
+      const restaurantMatches = [rest.name, rest.cuisine, ...(Array.isArray(rest.tags) ? rest.tags : [])]
+        .filter(Boolean)
+        .some(value => String(value).toLowerCase().includes(q));
+
+      if (restaurantMatches && !seenRestaurantIds.has(restDoc.id)) {
         matchedRestaurants.push({
           id: restDoc.id,
           ...rest,
           itemCount: menuSnap.size
         });
+        seenRestaurantIds.add(restDoc.id);
       }
 
       // Search menu items
-      const menuSnap = await db.collection('restaurants').doc(restDoc.id).collection('menu').get();
       menuSnap.docs.forEach(menuDoc => {
         const item = menuDoc.data();
-        if (item.name.toLowerCase().includes(q) || item.description?.toLowerCase().includes(q)) {
+        const itemMatches = [item.name, item.description, item.category]
+          .filter(Boolean)
+          .some(value => String(value).toLowerCase().includes(q));
+
+        if (itemMatches) {
           dishes.push({
             id: menuDoc.id,
             ...item,

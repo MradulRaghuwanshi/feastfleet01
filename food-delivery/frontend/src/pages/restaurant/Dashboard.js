@@ -1,7 +1,5 @@
-﻿import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import ReviewSection from '../../components/ReviewSection';
-import LiveTrackingMap from '../../components/LiveTrackingMap';
 import {
   acceptRestaurantOrder,
   getVisiblePickupOtp,
@@ -17,6 +15,9 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, setDoc 
 import { db } from '../../firebase/config';
 import { fileToDataUrl } from '../../utils/imageFile';
 import styles from './Dashboard.module.css';
+
+const ReviewSection = React.lazy(() => import('../../components/ReviewSection'));
+const LiveTrackingMap = React.lazy(() => import('../../components/LiveTrackingMap'));
 
 const NEXT_ACTION = {
   [ORDER_STATUS.PLACED]: { label: 'Accept Order', next: ORDER_STATUS.RESTAURANT_ACCEPTED },
@@ -75,8 +76,6 @@ function PickupOtp({ order, user }) {
 export default function RestaurantDashboard() {
   const { user } = useAuth();
   const [tab, setTab]                         = useState('orders');
-
-  // Orders delivered filtering is done via normalizeOrderStatus to prevent refresh disappearance.
 
   const [orders, setOrders]                   = useState([]);
   const [restaurant, setRestaurant]           = useState(null);
@@ -268,10 +267,15 @@ export default function RestaurantDashboard() {
   };
 
   // Always normalize status so refresh / backend variants map consistently
-  const activeOrders = orders.filter(o => normalizeOrderStatus(o.status) !== ORDER_STATUS.DELIVERED);
-  const todayRevenue = orders
-    .filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED)
-    .reduce((s, o) => s + (o.total || 0), 0);
+  const activeOrders = useMemo(() => orders, [orders]);
+  const completedOrders = useMemo(
+    () => orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED),
+    [orders]
+  );
+  const todayRevenue = useMemo(
+    () => completedOrders.reduce((s, o) => s + (o.total || 0), 0),
+    [completedOrders]
+  );
 
   const categories   = restaurant?.menu ? ['All', ...new Set(restaurant.menu.map(i => i.category))] : ['All'];
   const filteredMenu = restaurant?.menu?.filter(i => posCategory === 'All' || i.category === posCategory) || [];
@@ -431,7 +435,7 @@ export default function RestaurantDashboard() {
 // ── Live Orders Tab ──────────────────────────────────────────────────────────
 function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, STATUS_COLOR, NEXT_ACTION, user }) {
   const [filter, setFilter] = useState('active');
-  const active    = orders.filter(o => normalizeOrderStatus(o.status) !== ORDER_STATUS.DELIVERED);
+  const active    = orders;
   const completed = orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED);
   const display   = filter === 'active' ? active : completed;
 
@@ -452,7 +456,7 @@ function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, STATUS_COLOR
 
       {display.length === 0 ? (
         <div className={styles.empty}>
-          {filter === 'active' ? 'No active orders' : 'No completed orders'}
+          {filter === 'active' ? 'No orders yet' : 'No completed orders'}
         </div>
       ) : (
         <div className={styles.orderGrid}>

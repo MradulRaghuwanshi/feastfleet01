@@ -43,6 +43,73 @@ const apiJson = async (path, options = {}) => {
   return payload;
 };
 
+const CACHE_TTL_MS = 60 * 1000;
+const requestCache = new Map();
+const pendingRequests = new Map();
+const RESTAURANTS_CACHE_PREFIX = 'feastfleet:restaurants:';
+
+const getPersistentCache = (key) => {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const setPersistentCache = (key, data) => {
+  try {
+    window.localStorage.setItem(key, JSON.stringify({ timestamp: Date.now(), data }));
+  } catch {
+    // Ignore storage failures in private mode or quota-limited environments.
+  }
+};
+
+export const getCachedRestaurantsSnapshot = (cuisine) => {
+  const key = `${RESTAURANTS_CACHE_PREFIX}${cuisine || 'all'}`;
+  const cached = getPersistentCache(key);
+  return cached?.data || null;
+};
+
+const cacheRestaurantsSnapshot = (cuisine, restaurants) => {
+  const key = `${RESTAURANTS_CACHE_PREFIX}${cuisine || 'all'}`;
+  setPersistentCache(key, restaurants);
+};
+
+export const clearRestaurantsSnapshotCache = () => {
+  try {
+    const keys = [];
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (key && key.startsWith(RESTAURANTS_CACHE_PREFIX)) keys.push(key);
+    }
+    keys.forEach(key => window.localStorage.removeItem(key));
+  } catch {
+    // Ignore storage failures.
+  }
+};
+
+const cachedApiJson = async (key, path, options = {}) => {
+  const cached = requestCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) return cached.data;
+  if (pendingRequests.has(key)) return pendingRequests.get(key);
+
+  const request = apiJson(path, options)
+    .then(data => {
+      requestCache.set(key, { data, timestamp: Date.now() });
+      pendingRequests.delete(key);
+      return data;
+    })
+    .catch(error => {
+      pendingRequests.delete(key);
+      throw error;
+    });
+
+  pendingRequests.set(key, request);
+  return request;
+};
+
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const WEEKDAY_NAMES = {
   sun: ['sun', 'sunday'],
@@ -242,15 +309,16 @@ export const getUserProfile = async (uid) => {
 // ─── RESTAURANTS ──────────────────────────────────────────────────────────────
 export const getRestaurants = async (cuisine) => {
   const queryParam = cuisine && cuisine !== 'All'
-    ? `?cuisine=${encodeURIComponent(cuisine)}&ts=${Date.now()}`
-    : `?ts=${Date.now()}`;
-  const restaurants = await apiJson(`/restaurants${queryParam}`);
+    ? `?cuisine=${encodeURIComponent(cuisine)}`
+    : '';
+  const restaurants = await cachedApiJson(`restaurants:${cuisine || 'all'}`, `/restaurants${queryParam}`);
+  cacheRestaurantsSnapshot(cuisine, restaurants);
   return restaurants.map(enhanceRestaurant);
 };
 
 export const getRestaurant = async (id) => {
   try {
-    const restaurant = await apiJson(`/restaurants/${id}`);
+    const restaurant = await cachedApiJson(`restaurant:${id}`, `/restaurants/${id}`);
     return enhanceRestaurant(restaurant);
   } catch (error) {
     console.error('Get restaurant error:', error);
@@ -260,10 +328,14 @@ export const getRestaurant = async (id) => {
 
 export const toggleRestaurantStatus = async (id) => {
   await apiJson(`/restaurants/${id}/toggle-status`, { method: 'PATCH', body: '{}' });
+  requestCache.clear();
+  clearRestaurantsSnapshotCache();
 };
 
 export const toggleMenuItemAvailability = async (restaurantId, itemId) => {
   await apiJson(`/restaurants/${restaurantId}/menu/${itemId}`, { method: 'PATCH', body: '{}' });
+  requestCache.delete(`restaurant:${restaurantId}`);
+  clearRestaurantsSnapshotCache();
 };
 
 export const searchRestaurants = async (q) => {
@@ -343,10 +415,146 @@ export const redeemableFeastCoins = (balance = 0, payable = Infinity) => {
 };
 
 // ─── ORDERS ───────────────────────────────────────────────────────────────────
+const resolveOrderItems = async (restaurantId, items = []) => {
+  const normalized = items.map(item => ({
+    id: item.id,
+    name: item.name || '',
+    price: Number(item.price || 0),
+    quantity: Number(item.quantity || item.qty || 0),
+    image: item.image || '',
+  })).filter(item => item.id && item.quantity > 0);
+
+  if (normalized.every(item => item.name && item.price > 0)) return normalized;
+
+  const menuSnap = await getDocs(collection(doc(db, 'restaurants', restaurantId), 'menu'));
+  const menu = menuSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  return normalized.map(item => {
+    const menuItem = menu.find(candidate => candidate.id === item.id);
+    return {
+      id: item.id,
+      name: item.name || menuItem?.name || 'Menu item',
+      price: Number(item.price || menuItem?.price || 0),
+      quantity: item.quantity,
+      image: item.image || menuItem?.image || '',
+    };
+  }).filter(item => item.price > 0);
+};
+
+const placeOrderDocumentOnly = async (orderData, reason) => {
+  const customerId = orderData.customerId || `guest_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const isGuestOrder = Boolean(orderData.isGuest || String(customerId).startsWith('guest_'));
+  const orderRef = doc(collection(db, 'orders'));
+  const restaurantRef = doc(db, 'restaurants', orderData.restaurantId);
+  const restaurantSnap = await getDoc(restaurantRef);
+  if (!restaurantSnap.exists()) throw new Error('Restaurant not found');
+
+  const restaurant = restaurantSnap.data();
+  const availability = getRestaurantOrderStatus(restaurant);
+  const usesRestaurantDelivery = Boolean(restaurant.hasOwnDelivery || orderData.restaurantHasOwnDelivery);
+  if (!availability.isAcceptingOrdersNow) {
+    throw new Error(availability.orderStatusReason || 'Restaurant is currently closed');
+  }
+
+  let promo = null;
+  if (orderData.promoCode) {
+    const promoSnap = await getDoc(doc(db, 'promoCodes', String(orderData.promoCode).toUpperCase()));
+    if (promoSnap.exists()) {
+      const p = promoSnap.data();
+      if (p.active && Number(orderData.subtotal || 0) >= Number(p.minOrder || 0)) {
+        promo = { ...p, code: p.code || promoSnap.id };
+      }
+    }
+  }
+
+  const items = await resolveOrderItems(orderData.restaurantId, orderData.items);
+  if (!items.length) throw new Error('Cart items could not be saved');
+
+  const bill = calculateBill({
+    items,
+    subtotal: orderData.subtotal,
+    promo,
+    feastCoinBalance: Number(orderData.feastCoinRedemption || 0),
+    redeemFeastCoins: Boolean(orderData.feastCoinRedemption),
+  });
+
+  const otp = generatePickupOtp();
+  const encryptedOtp = await encryptPickupOtp(otp);
+  const placedAt = nowIso();
+  const orderNumber = `FF-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${orderRef.id.slice(0, 6).toUpperCase()}`;
+  const subtotal = Number(orderData.subtotal ?? bill.subtotal);
+  const platformCommission = Number(orderData.platformCommission ?? bill.platformCommission);
+
+  const orderPayload = {
+    id: orderRef.id,
+    orderNumber,
+    customerId,
+    customerName: orderData.customerName,
+    customerPhone: orderData.customerPhone || null,
+    customerEmail: orderData.customerEmail || null,
+    isGuest: isGuestOrder,
+    restaurantId: orderData.restaurantId,
+    restaurantName: orderData.restaurantName || restaurant.name,
+    restaurantOpenNow: availability.isAcceptingOrdersNow,
+    deliveryAgentId: null,
+    deliveryAgentName: usesRestaurantDelivery ? 'Restaurant Delivery' : 'Unassigned',
+    deliveryType: usesRestaurantDelivery ? 'restaurant' : 'platform',
+    items,
+    subtotal,
+    gstPercent: 0,
+    gstAmount: 0,
+    platformFee: Number(orderData.platformFee ?? bill.platformFee),
+    packagingFee: Number(orderData.packagingFee ?? bill.packagingFee),
+    deliveryFee: Number(orderData.deliveryFee ?? bill.deliveryFee),
+    discount: Number(orderData.discount ?? bill.discount),
+    walletUsed: Number(orderData.walletUsed || 0),
+    feastCoinRedemption: Number(orderData.feastCoinRedemption || bill.feastCoinRedemption || 0),
+    feastCoinsEarned: Number(orderData.feastCoinsEarned ?? bill.coinsEarned),
+    platformCommission,
+    platformCommissionPercent: Number(orderData.platformCommissionPercent ?? bill.commissionPercent),
+    grossFoodAmount: Number(orderData.grossFoodAmount ?? bill.grossFoodAmount),
+    netSettlementAmount: Number(orderData.netSettlementAmount ?? roundMoney(subtotal - platformCommission)),
+    total: Number(orderData.total ?? bill.finalPayable),
+    promoCode: promo?.code || orderData.promoCode || null,
+    deliveryAddress: orderData.deliveryAddress,
+    deliveryLat: orderData.deliveryLat || null,
+    deliveryLng: orderData.deliveryLng || null,
+    status: ORDER_STATUS.PLACED,
+    restaurantAcceptedAt: null,
+    assignmentStatus: usesRestaurantDelivery ? 'restaurant_delivery' : 'broadcast',
+    deliveryBroadcast: {
+      status: usesRestaurantDelivery ? 'not_required' : 'open',
+      radiusKm: 8,
+      openedAt: placedAt,
+      acceptedAt: null,
+    },
+    pickupOtpVerified: false,
+    pickupOtpVerifiedAt: null,
+    pickupOtpMaxAttempts: OTP_MAX_ATTEMPTS,
+    ...encryptedOtp,
+    reviewed: false,
+    paymentMethod: orderData.paymentMethod || 'cod',
+    paymentStatus: orderData.paymentStatus || 'pending',
+    razorpayOrderId: orderData.razorpayOrderId || null,
+    razorpayPaymentId: orderData.razorpayPaymentId || null,
+    placedAt,
+    updatedAt: placedAt,
+    statusHistory: [makeStatusEvent(ORDER_STATUS.PLACED, customerId, reason || 'Customer placed order')],
+    financialsPosted: false,
+    deliveryEarningPosted: false,
+    settlementPosted: false,
+  };
+
+  await setDoc(orderRef, orderPayload);
+  return isCustomerVisibleOrder(orderPayload);
+};
+
 export const placeOrder = async (orderData) => {
   if (!orderData?.restaurantId || !orderData?.items?.length || !orderData?.customerName) {
     throw new Error('Restaurant, customer details and cart items are required');
   }
+
+  return placeOrderDocumentOnly(orderData, 'Customer placed order');
 
   try {
     const customerId = orderData.customerId || `guest_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -474,6 +682,10 @@ export const placeOrder = async (orderData) => {
         pickupOtpMaxAttempts: OTP_MAX_ATTEMPTS,
         ...encryptedOtp,
         reviewed: false,
+        paymentMethod: orderData.paymentMethod || 'cod',
+        paymentStatus: orderData.paymentStatus || 'pending',
+        razorpayOrderId: orderData.razorpayOrderId || null,
+        razorpayPaymentId: orderData.razorpayPaymentId || null,
         placedAt,
         updatedAt: placedAt,
         statusHistory: [makeStatusEvent(ORDER_STATUS.PLACED, customerId, isGuestOrder ? 'Guest placed order' : 'Customer placed order')],
@@ -534,7 +746,13 @@ export const placeOrder = async (orderData) => {
 
     return isCustomerVisibleOrder(order);
   } catch (error) {
-    console.warn('placeOrder Firestore write failed, falling back to API:', error?.message || error);
+    console.warn('placeOrder Firestore transaction failed, retrying order-only write:', error?.message || error);
+    try {
+      return await placeOrderDocumentOnly(orderData, 'Customer placed order after wallet sync failed');
+    } catch (orderOnlyError) {
+      console.warn('placeOrder order-only Firestore write failed, falling back to API:', orderOnlyError?.message || orderOnlyError);
+    }
+
     const payload = await apiJson('/orders', {
       method: 'POST',
       body: JSON.stringify(orderData),
@@ -582,6 +800,7 @@ export const listenToDeliveryWorkQueue = (agentId, cb) => {
     const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     cb(orders.filter(order => {
       const status = normalizeOrderStatus(order.status);
+      if (order.assignmentStatus === 'restaurant_delivery' || order.deliveryType === 'restaurant') return false;
       if (status === ORDER_STATUS.DELIVERED) return order.deliveryAgentId === agentId;
       return !order.deliveryAgentId || order.deliveryAgentId === agentId;
     }));
@@ -947,18 +1166,22 @@ export const addRestaurant = async (data) => {
     method: 'POST',
     body: JSON.stringify(data),
   });
+  requestCache.clear();
   return created.id;
 };
 
 export const updateRestaurant = async (id, data) => {
-  return apiJson(`/restaurants/${id}/profile`, {
+  const updated = await apiJson(`/restaurants/${id}/profile`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
+  requestCache.clear();
+  return updated;
 };
 
 export const deleteRestaurant = async (id) => {
   await apiJson(`/restaurants/${id}`, { method: 'DELETE' });
+  requestCache.clear();
 };
 
 export const deleteUser = async (id) => {

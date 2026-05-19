@@ -349,6 +349,41 @@ export const getOrdersByRestaurantApi = async (restaurantId) => {
     : [];
 };
 
+export const getDeliveryWorkQueueApi = async (agentId) => {
+  const orders = await apiJson('/orders');
+  const list = Array.isArray(orders) ? orders : [];
+  return list.filter(order => {
+    const status = normalizeOrderStatus(order.status);
+    if (order.assignmentStatus === 'restaurant_delivery' || order.deliveryType === 'restaurant') return false;
+    if (status === ORDER_STATUS.DELIVERED) return order.deliveryAgentId === agentId;
+    return !order.deliveryAgentId || order.deliveryAgentId === agentId;
+  });
+};
+
+export const acceptBroadcastOrderApi = async (orderId, agent) => {
+  if (!orderId || !agent?.id) throw new Error('Order id and delivery partner are required');
+  return apiJson(`/orders/${orderId}/accept`, {
+    method: 'POST',
+    body: JSON.stringify({ agentId: agent.id, agentName: agent.name || 'Delivery Partner' }),
+  });
+};
+
+export const verifyPickupOtpApi = async (orderId, otp, agentId) => {
+  if (!orderId) throw new Error('Order id is required');
+  return apiJson(`/orders/${orderId}/verify-otp`, {
+    method: 'PATCH',
+    body: JSON.stringify({ otp: String(otp || '').trim(), agentId }),
+  });
+};
+
+export const updateOrderStatusApi = async (orderId, status) => {
+  if (!orderId) throw new Error('Order id is required');
+  return apiJson(`/orders/${orderId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: normalizeOrderStatus(status) }),
+  });
+};
+
 // ─── FEAST COINS WALLET ──────────────────────────────────────────────────────
 export const getWalletRef = (userId) => doc(db, 'wallets', userId);
 

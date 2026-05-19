@@ -2,13 +2,17 @@
 import { useAuth } from '../../context/AuthContext';
 import {
   acceptBroadcastOrder,
+  acceptBroadcastOrderApi,
+  getDeliveryWorkQueueApi,
   getVisiblePickupOtp,
   listenToDeliveryWorkQueue,
   normalizeOrderStatus,
   ORDER_STATUS,
   PLATFORM_FEES,
   updateOrderStatus,
+  updateOrderStatusApi,
   verifyPickupOtp,
+  verifyPickupOtpApi,
 } from '../../firebase/services';
 import styles from './Dashboard.module.css';
 
@@ -60,16 +64,52 @@ export default function DeliveryDashboard() {
   const [trackingOrderId, setTrackingOrderId] = useState(null);
 
   useEffect(() => {
-    const unsub = listenToDeliveryWorkQueue(user.id, data => {
-      setOrders(data); setLoading(false);
-    });
-    return unsub;
+    let mounted = true;
+    let unsub = null;
+
+    const loadQueue = async () => {
+      try {
+        const queue = await getDeliveryWorkQueueApi(user.id);
+        if (mounted) {
+          setOrders(queue);
+          setLoading(false);
+          return;
+        }
+      } catch (apiError) {
+        console.warn('[DeliveryDashboard] backend queue API failed, falling back to Firestore listener:', apiError?.message || apiError);
+      }
+
+      unsub = listenToDeliveryWorkQueue(user.id, data => {
+        if (!mounted) return;
+        setOrders(data || []);
+        setLoading(false);
+      });
+    };
+
+    loadQueue();
+
+    const intervalId = setInterval(() => {
+      getDeliveryWorkQueueApi(user.id)
+        .then(queue => { if (mounted) setOrders(queue); })
+        .catch(() => { /* ignore polling errors */ });
+    }, 5000);
+
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+      if (typeof unsub === 'function') unsub();
+    };
   }, [user.id]);
 
   const acceptOrder = async (orderId) => {
     setUpdating(orderId);
     try {
-      await acceptBroadcastOrder(orderId, user);
+      try {
+        await acceptBroadcastOrderApi(orderId, user);
+      } catch {
+        await acceptBroadcastOrder(orderId, user);
+      }
+      setOrders(await getDeliveryWorkQueueApi(user.id));
     } catch (error) {
       alert(error.message || 'Order was already accepted');
     } finally {
@@ -80,7 +120,12 @@ export default function DeliveryDashboard() {
   const markDelivered = async (orderId) => {
     setUpdating(orderId);
     try {
-      await updateOrderStatus(orderId, ORDER_STATUS.DELIVERED, user.id);
+      try {
+        await updateOrderStatusApi(orderId, ORDER_STATUS.DELIVERED);
+      } catch {
+        await updateOrderStatus(orderId, ORDER_STATUS.DELIVERED, user.id);
+      }
+      setOrders(await getDeliveryWorkQueueApi(user.id));
     } catch (error) {
       alert(error.message || 'Could not mark delivered');
     } finally {
@@ -91,7 +136,12 @@ export default function DeliveryDashboard() {
   const verifyOtp = async (orderId, otp) => {
     setUpdating(orderId);
     try {
-      await verifyPickupOtp(orderId, otp, user.id);
+      try {
+        await verifyPickupOtpApi(orderId, otp, user.id);
+      } catch {
+        await verifyPickupOtp(orderId, otp, user.id);
+      }
+      setOrders(await getDeliveryWorkQueueApi(user.id));
     } catch (error) {
       alert(error.message || 'Pickup verification failed');
     } finally {
@@ -166,8 +216,7 @@ export default function DeliveryDashboard() {
             const sc = STATUS_COLOR[status] || {};
             const currentIdx = Math.max(0, STATUS_FLOW.indexOf(status));
             const isRequest = !order.deliveryAgentId;
-            const restaurantAccepted = Boolean(order.restaurantAcceptedAt) || ['Confirmed', 'Preparing'].includes(order.status);
-            const canVerifyPickup = order.deliveryAgentId === user.id && restaurantAccepted && !order.pickupOtpVerified && status !== ORDER_STATUS.ON_THE_WAY && status !== ORDER_STATUS.DELIVERED;
+            const canVerifyPickup = order.deliveryAgentId === user.id && !order.pickupOtpVerified && status !== ORDER_STATUS.ON_THE_WAY && status !== ORDER_STATUS.DELIVERED;
             const canDeliver = order.deliveryAgentId === user.id && status === ORDER_STATUS.ON_THE_WAY;
             const placedAt = dateOf(order.placedAt);
 
@@ -268,8 +317,8 @@ export default function DeliveryDashboard() {
                     {updating === order.id ? 'Updating...' : `Mark Delivered · Earn ₹${PLATFORM_FEES.deliveryEarning}`}
                   </button>
                 )}
-                {!isRequest && status === ORDER_STATUS.DELIVERY_ASSIGNED && !restaurantAccepted && (
-                  <div className={styles.waitingChip}>Waiting for restaurant acceptance.</div>
+                {!isRequest && status === ORDER_STATUS.DELIVERY_ASSIGNED && !canVerifyPickup && (
+                  <div className={styles.waitingChip}>Waiting for pickup handoff.</div>
                 )}
               </div>
             );

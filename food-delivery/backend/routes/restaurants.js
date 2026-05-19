@@ -18,8 +18,7 @@ router.get('/', async (req, res) => {
       // Remove full menu from response, just include itemCount
       return res.json(result.map(r => ({
         ...r,
-        itemCount: r.menu.length,
-        menu: r.menu
+        itemCount: Array.isArray(r.menu) ? r.menu.length : (r.itemCount || 0),
       })));
     }
 
@@ -32,13 +31,19 @@ router.get('/', async (req, res) => {
     const restaurants = [];
 
     for (const doc of snap.docs) {
-      const menuSnap = await db.collection('restaurants').doc(doc.id).collection('menu').get();
-      const menu = menuSnap.docs.map(m => m.data());
+      // Fetch menu only to compute itemCount; do NOT include full menu in list responses
+      let itemCount = 0;
+      try {
+        const menuSnap = await db.collection('restaurants').doc(doc.id).collection('menu').get();
+        itemCount = menuSnap.docs.length;
+      } catch (menuError) {
+        console.warn('Could not count menu items for restaurant', doc.id, menuError.message);
+      }
+
       restaurants.push({
         id: doc.id,
         ...doc.data(),
-        itemCount: menu.length,
-        menu: menu
+        itemCount,
       });
     }
 

@@ -1,9 +1,9 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useDeliveryLocation } from '../../context/LocationContext';
-import LocationPicker from '../../components/LocationPicker';
+const LocationPicker = React.lazy(() => import('../../components/LocationPicker'));
 import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES, getRestaurant, updateOrderFields } from '../../firebase/services';
 import { apiUrl } from '../../utils/apiConfig';
 import styles from './Checkout.module.css';
@@ -383,7 +383,9 @@ export default function Checkout() {
             <h3>Order from <span>{cart.restaurantName}</span></h3>
             {cart.items.map(item => (
               <div key={item.id} className={styles.cartItem}>
-                {item.image && <img src={item.image} alt={item.name} />}
+                {item.image && (
+                  <img src={item.image} alt={item.name} loading="lazy" decoding="async" />
+                )}
                 <div className={styles.itemInfo}>
                   <span className={styles.itemName}>{item.name}</span>
                   <span className={styles.itemPrice}>₹{(item.price * item.quantity).toFixed(0)}</span>
@@ -544,9 +546,11 @@ export default function Checkout() {
       </div>
 
       {showPicker && (
-        <LocationPicker initialLocation={location}
-          onConfirm={(loc) => { setManualLocation(loc); setDeliveryAddress(loc.address); setShowPicker(false); }}
-          onClose={() => setShowPicker(false)} />
+        <Suspense fallback={<div className={styles.pickerLoading}>Loading location...</div>}>
+          <LocationPicker initialLocation={location}
+            onConfirm={(loc) => { setManualLocation(loc); setDeliveryAddress(loc.address); setShowPicker(false); }}
+            onClose={() => setShowPicker(false)} />
+        </Suspense>
       )}
     </div>
   );

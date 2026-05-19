@@ -257,7 +257,10 @@ export default function DeliveryDashboard() {
                 </div>
 
                 <div className={styles.orderFooter}>
-                  <div className={styles.customerChip}>👤 {order.customerName}</div>
+                  <div className={styles.customerChip}>
+                    👤 {order.customerName}
+                    {order.customerPhone ? ` · 📞 ${String(order.customerPhone).trim()}` : ''}
+                  </div>
                   <span className={styles.orderTotal}>₹{order.total.toFixed(0)}</span>
                 </div>
 

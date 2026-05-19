@@ -3,6 +3,11 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { db, admin } = require('../firebase/admin');
 
+const canUseDemoFallback = () => !db && (
+  process.env.NODE_ENV !== 'production' ||
+  String(process.env.ALLOW_DEMO_MODE || '').toLowerCase() === 'true'
+);
+
 const STATUS_FLOW = [
   'Order Placed',
   'Restaurant Accepted',
@@ -30,6 +35,10 @@ router.post('/', async (req, res) => {
       paymentStatus: paymentStatus || 'pending',
       useFirestore: Boolean(db),
     });
+
+    if (!db && !canUseDemoFallback()) {
+      return res.status(503).json({ error: 'Database is not connected. Demo fallback is disabled.' });
+    }
 
     if (!db) {
       console.warn('[orders.create] firestore unavailable, using in-memory fallback');
@@ -273,6 +282,10 @@ router.get('/', async (req, res) => {
   try {
     const { customerId, restaurantId, agentId } = req.query;
 
+    if (!db && !canUseDemoFallback()) {
+      return res.status(503).json({ error: 'Database is not connected. Demo fallback is disabled.' });
+    }
+
     if (!db) {
       const { orders } = require('../data/db');
       let result = [...orders].reverse();
@@ -300,6 +313,10 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
+    if (!db && !canUseDemoFallback()) {
+      return res.status(503).json({ error: 'Database is not connected. Demo fallback is disabled.' });
+    }
+
     if (!db) {
       const { orders } = require('../data/db');
       const order = orders.find(o => o.id === req.params.id);
@@ -320,6 +337,10 @@ router.post('/:id/accept', async (req, res) => {
   try {
     const { agentId, agentName } = req.body;
     if (!agentId) return res.status(400).json({ error: 'agentId required' });
+
+    if (!db && !canUseDemoFallback()) {
+      return res.status(503).json({ error: 'Database is not connected. Demo fallback is disabled.' });
+    }
 
     if (!db) {
       const { orders, users } = require('../data/db');
@@ -373,6 +394,10 @@ router.patch('/:id/verify-otp', async (req, res) => {
   try {
     const { otp } = req.body;
     if (!otp) return res.status(400).json({ error: 'otp required' });
+
+    if (!db && !canUseDemoFallback()) {
+      return res.status(503).json({ error: 'Database is not connected. Demo fallback is disabled.' });
+    }
 
     if (!db) {
       const { orders } = require('../data/db');

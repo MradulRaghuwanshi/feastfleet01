@@ -109,6 +109,36 @@ export default function Home() {
     return p.code;
   };
 
+  const searchBox = (
+    <div className={styles.searchWrap}>
+      <label className={styles.searchLabel} htmlFor="restaurant-search">Search restaurants, items or categories</label>
+      <div className={styles.searchBar}>
+        <input
+          id="restaurant-search"
+          type="search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Try: roll express, maggi, shakes, fast food"
+          className={styles.searchInput}
+        />
+        {searchQuery && (
+          <button className={styles.clearBtn} onClick={() => setSearchQuery('')} type="button">
+            Clear
+          </button>
+        )}
+      </div>
+      {(searchLoading || searchError || searchQuery.trim()) && (
+        <div className={styles.searchMeta}>
+          {searchLoading && <span>Searching...</span>}
+          {searchError && <span className={styles.searchError}>{searchError}</span>}
+          {!searchLoading && !searchError && searchQuery.trim() && (
+            <span>{searchResults.restaurants.length} restaurants, {searchResults.dishes.length} items found</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
@@ -122,35 +152,8 @@ export default function Home() {
             <span><TagIcon /> Easy savings</span>
           </div>
         </div>
+        {searchBox}
       </section>
-
-      <div className={styles.searchWrap}>
-        <label className={styles.searchLabel} htmlFor="restaurant-search">Search restaurants, items or categories</label>
-        <div className={styles.searchBar}>
-          <input
-            id="restaurant-search"
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Try: roll express, maggi, shakes, fast food"
-            className={styles.searchInput}
-          />
-          {searchQuery && (
-            <button className={styles.clearBtn} onClick={() => setSearchQuery('')} type="button">
-              Clear
-            </button>
-          )}
-        </div>
-        {(searchLoading || searchError || searchQuery.trim()) && (
-          <div className={styles.searchMeta}>
-            {searchLoading && <span>Searching...</span>}
-            {searchError && <span className={styles.searchError}>{searchError}</span>}
-            {!searchLoading && !searchError && searchQuery.trim() && (
-              <span>{searchResults.restaurants.length} restaurants, {searchResults.dishes.length} items found</span>
-            )}
-          </div>
-        )}
-      </div>
 
       {searchQuery.trim() ? (
         <SearchResults restaurants={searchResults.restaurants} dishes={searchResults.dishes} loading={searchLoading} />

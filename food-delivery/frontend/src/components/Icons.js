@@ -48,6 +48,14 @@ export const AdminIcon = ({className}) => (
   </svg>
 );
 
+export const DownloadAppIcon = ({className}) => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M12 3v11m0 0l-4-4m4 4l4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M5 15.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+    <path d="M8 4.5h8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+  </svg>
+);
+
 export const HeartIcon = ({className}) => (
   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
     <path d="M20.8 8.6a4.6 4.6 0 0 0-6.5-.5L12 10.5l-2.3-2.4a4.6 4.6 0 0 0-6.5.5A5 5 0 0 0 5.5 18L12 22l6.5-4A5 5 0 0 0 20.8 8.6z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>

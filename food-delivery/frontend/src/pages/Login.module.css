@@ -28,7 +28,17 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.downloadIcon {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
 }
 
 .downloadAppBtn:hover {

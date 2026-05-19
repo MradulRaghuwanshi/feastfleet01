@@ -282,13 +282,15 @@ router.get('/', async (req, res) => {
       return res.json(result);
     }
 
-    let query = db.collection('orders').orderBy('placedAt', 'desc');
+    let query = db.collection('orders');
     if (customerId) query = query.where('customerId', '==', customerId);
     if (restaurantId) query = query.where('restaurantId', '==', restaurantId);
     if (agentId) query = query.where('deliveryAgentId', '==', agentId);
 
     const snap = await query.get();
-    const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const orders = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime());
     res.json(orders);
   } catch (error) {
     console.error('Get orders error:', error);

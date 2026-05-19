@@ -777,21 +777,27 @@ export const getOrder = async (id) => {
 };
 
 export const getOrdersByCustomer = async (customerId) => {
-  const q = query(collection(db, 'orders'), where('customerId', '==', customerId), orderBy('placedAt', 'desc'));
+  const q = query(collection(db, 'orders'), where('customerId', '==', customerId));
   const snap = await getDocs(q);
-  return snap.docs.map(d => isCustomerVisibleOrder({ id: d.id, ...d.data() }));
+  return snap.docs
+    .map(d => isCustomerVisibleOrder({ id: d.id, ...d.data() }))
+    .sort((a, b) => new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime());
 };
 
 export const getOrdersByRestaurant = async (restaurantId) => {
-  const q = query(collection(db, 'orders'), where('restaurantId', '==', restaurantId), orderBy('placedAt', 'desc'));
+  const q = query(collection(db, 'orders'), where('restaurantId', '==', restaurantId));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime());
 };
 
 export const getOrdersByAgent = async (agentId) => {
-  const q = query(collection(db, 'orders'), where('deliveryAgentId', '==', agentId), orderBy('placedAt', 'desc'));
+  const q = query(collection(db, 'orders'), where('deliveryAgentId', '==', agentId));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime());
 };
 
 export const listenToDeliveryWorkQueue = (agentId, cb) => {
@@ -1070,10 +1076,12 @@ export const listenToOrder = (orderId, cb) => {
 
 // Real-time orders listener for restaurant/agent
 export const listenToOrdersByRestaurant = (restaurantId, cb) => {
-  const q = query(collection(db, 'orders'), where('restaurantId', '==', restaurantId), orderBy('placedAt', 'desc'));
+  const q = query(collection(db, 'orders'), where('restaurantId', '==', restaurantId));
   return onSnapshot(q, snap => {
     try {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const docs = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime());
       // Debug logging for troubleshooting order visibility
       // eslint-disable-next-line no-console
       console.debug(`[listenToOrdersByRestaurant] restaurantId=${restaurantId} snapshotDocs=${snap.size}`);
@@ -1093,8 +1101,13 @@ export const listenToOrdersByRestaurant = (restaurantId, cb) => {
 };
 
 export const listenToOrdersByAgent = (agentId, cb) => {
-  const q = query(collection(db, 'orders'), where('deliveryAgentId', '==', agentId), orderBy('placedAt', 'desc'));
-  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  const q = query(collection(db, 'orders'), where('deliveryAgentId', '==', agentId));
+  return onSnapshot(q, snap => {
+    const docs = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime());
+    cb(docs);
+  });
 };
 
 // ─── REVIEWS ──────────────────────────────────────────────────────────────────

@@ -342,6 +342,13 @@ export const searchRestaurants = async (q) => {
   return apiJson(`/search?q=${encodeURIComponent(q)}`);
 };
 
+export const getOrdersByRestaurantApi = async (restaurantId) => {
+  const orders = await apiJson(`/orders?restaurantId=${encodeURIComponent(restaurantId)}`);
+  return Array.isArray(orders)
+    ? orders.sort((a, b) => new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime())
+    : [];
+};
+
 // ─── FEAST COINS WALLET ──────────────────────────────────────────────────────
 export const getWalletRef = (userId) => doc(db, 'wallets', userId);
 

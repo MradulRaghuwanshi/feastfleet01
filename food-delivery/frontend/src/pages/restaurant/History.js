@@ -4,6 +4,7 @@ import {
   listenToOrdersByRestaurant,
   normalizeOrderStatus,
   getOrdersByRestaurant,
+  getOrdersByRestaurantApi,
   ORDER_STATUS,
 } from '../../firebase/services';
 import styles from './History.module.css';
@@ -48,19 +49,37 @@ export default function RestaurantHistory() {
   useEffect(() => {
     if (!user?.restaurantId) return;
     let mounted = true;
-    // Realtime listener
-    const unsub = listenToOrdersByRestaurant(user.restaurantId, (data) => {
-      // fallback to one-time fetch if realtime returns empty
-      if (mounted && Array.isArray(data) && data.length === 0) {
-        getOrdersByRestaurant(user.restaurantId).then(fallback => {
-          if (!mounted) return;
-          setOrders(fallback || []);
-        }).catch(() => { /* ignore */ });
-      }
-      if (mounted) setOrders(data || []);
-    });
+    let unsub = null;
 
-    return () => { mounted = false; unsub(); };
+    const loadOrders = async () => {
+      try {
+        const apiOrders = await getOrdersByRestaurantApi(user.restaurantId);
+        if (mounted) {
+          setOrders(apiOrders);
+          return;
+        }
+      } catch (apiError) {
+        console.warn('[RestaurantHistory] backend orders API failed, falling back to Firestore listener:', apiError?.message || apiError);
+      }
+
+      unsub = listenToOrdersByRestaurant(user.restaurantId, (data) => {
+        if (mounted) setOrders(data || []);
+      });
+    };
+
+    loadOrders();
+
+    const intervalId = setInterval(() => {
+      getOrdersByRestaurantApi(user.restaurantId)
+        .then(apiOrders => { if (mounted) setOrders(apiOrders); })
+        .catch(() => { /* ignore polling errors */ });
+    }, 5000);
+
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+      if (typeof unsub === 'function') unsub();
+    };
   }, [user?.restaurantId]);
 
   const deliveredOrders = useMemo(() => {

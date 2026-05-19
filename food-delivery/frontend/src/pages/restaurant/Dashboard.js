@@ -5,6 +5,7 @@ import {
   getVisiblePickupOtp,
   listenToOrdersByRestaurant,
   getOrdersByRestaurant,
+  getOrdersByRestaurantApi,
   getRestaurant,
   normalizeOrderStatus,
   ORDER_STATUS,
@@ -125,20 +126,38 @@ export default function RestaurantDashboard() {
     console.debug('[RestaurantDashboard] user.restaurantId=', user?.restaurantId);
     fetchRestaurant();
 
-    // Start realtime listener
-    const unsub = listenToOrdersByRestaurant(user.restaurantId, data => {
-      // If realtime returns empty but component is mounted, try a one-time fetch as fallback
-      if (mounted && Array.isArray(data) && data.length === 0) {
-        getOrdersByRestaurant(user.restaurantId).then(fallback => {
-          if (!mounted) return;
-          // Only set orders if realtime still empty to avoid flicker
-          setOrders(prev => (Array.isArray(prev) && prev.length > 0) ? prev : (fallback || []));
-        }).catch(() => { /* ignore */ });
+    const syncOrders = async () => {
+      try {
+        const apiOrders = await getOrdersByRestaurantApi(user.restaurantId);
+        if (mounted) {
+          setOrders(apiOrders);
+          return;
+        }
+      } catch (apiError) {
+        console.warn('[RestaurantDashboard] backend orders API failed, falling back to Firestore listener:', apiError?.message || apiError);
       }
-      if (mounted) setOrders(data);
-    });
 
-    return () => { mounted = false; unsub(); };
+      const unsub = listenToOrdersByRestaurant(user.restaurantId, data => {
+        if (mounted) setOrders(data || []);
+      });
+
+      return unsub;
+    };
+
+    let stopListening = null;
+    syncOrders().then(unsub => { stopListening = unsub || null; });
+
+    const intervalId = setInterval(() => {
+      getOrdersByRestaurantApi(user.restaurantId)
+        .then(apiOrders => { if (mounted) setOrders(apiOrders); })
+        .catch(() => { /* ignore polling errors */ });
+    }, 5000);
+
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+      if (typeof stopListening === 'function') stopListening();
+    };
   }, [fetchRestaurant, user.restaurantId]);
 
   // Keep hooks above early returns so the hook order never changes between renders.

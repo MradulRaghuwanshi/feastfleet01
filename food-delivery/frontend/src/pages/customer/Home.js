@@ -152,8 +152,8 @@ export default function Home() {
             <span><TagIcon /> Easy savings</span>
           </div>
         </div>
-        {searchBox}
       </section>
+      {searchBox}
 
       {searchQuery.trim() ? (
         <SearchResults restaurants={searchResults.restaurants} dishes={searchResults.dishes} loading={searchLoading} />

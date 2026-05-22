@@ -78,6 +78,17 @@ const normalizeQuery = (item = {}) => {
   return [name, category, 'food dish'].filter(Boolean).join(' ');
 };
 
+const buildSearchQueries = (item = {}) => {
+  const name = String(item.name || item.title || '').trim();
+  const category = String(item.category || '').trim();
+  return [
+    [name, category, 'food'].filter(Boolean).join(' '),
+    [name, 'food dish'].filter(Boolean).join(' '),
+    [name, 'restaurant food'].filter(Boolean).join(' '),
+    name,
+  ].filter(Boolean);
+};
+
 const isUsableImage = (url) => {
   if (!url || typeof url !== 'string') return false;
   try {
@@ -88,15 +99,10 @@ const isUsableImage = (url) => {
   }
 };
 
-async function fetchGoogleMenuItemImage(item = {}) {
+async function requestGoogleImageSearch(query) {
   const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
   const cx = process.env.GOOGLE_CUSTOM_SEARCH_CX;
-  const query = normalizeQuery(item);
   if (!apiKey || !cx || !query) return '';
-
-  const cacheKey = query.toLowerCase();
-  const cached = imageCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) return cached.url;
 
   const params = new URLSearchParams({
     key: apiKey,
@@ -104,7 +110,6 @@ async function fetchGoogleMenuItemImage(item = {}) {
     q: query,
     searchType: 'image',
     num: '3',
-    imgType: 'photo',
     safe: 'active',
   });
 
@@ -122,6 +127,25 @@ async function fetchGoogleMenuItemImage(item = {}) {
   return url;
 }
 
+async function fetchGoogleMenuItemImage(item = {}) {
+  const queries = buildSearchQueries(item);
+  if (!process.env.GOOGLE_CUSTOM_SEARCH_API_KEY || !process.env.GOOGLE_CUSTOM_SEARCH_CX || !queries.length) return '';
+
+  const cacheKey = normalizeQuery(item).toLowerCase();
+  const cached = imageCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) return cached.url;
+
+  for (const query of queries) {
+    const url = await requestGoogleImageSearch(query);
+    if (url) {
+      imageCache.set(cacheKey, { url, timestamp: Date.now() });
+      return url;
+    }
+  }
+
+  return '';
+}
+
 async function resolveMenuItemImageOnline(item = {}, options = {}) {
   if (item.image && !options.preferOnline) return item.image;
   try {
@@ -131,6 +155,53 @@ async function resolveMenuItemImageOnline(item = {}, options = {}) {
     console.warn('Menu image lookup failed:', error.message);
   }
   return options.preferOnline ? resolveMenuItemImage({ ...item, image: '' }) : resolveMenuItemImage(item);
+}
+
+async function getGoogleImageSearchDiagnostics(item = {}) {
+  const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
+  const cx = process.env.GOOGLE_CUSTOM_SEARCH_CX;
+  const queries = buildSearchQueries(item);
+  const query = queries[0] || normalizeQuery(item);
+
+  if (!apiKey || !cx) {
+    return {
+      configured: false,
+      query,
+      status: null,
+      error: 'GOOGLE_CUSTOM_SEARCH_API_KEY or GOOGLE_CUSTOM_SEARCH_CX is missing',
+    };
+  }
+
+  const params = new URLSearchParams({
+    key: apiKey,
+    cx,
+    q: query,
+    searchType: 'image',
+    num: '3',
+    safe: 'active',
+  });
+
+  const response = await fetch(`https://www.googleapis.com/customsearch/v1?${params.toString()}`);
+  const data = await response.json().catch(() => ({}));
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  return {
+    configured: true,
+    query,
+    status: response.status,
+    ok: response.ok,
+    error: data.error ? {
+      code: data.error.code,
+      message: data.error.message,
+      status: data.error.status,
+      reason: data.error.errors?.[0]?.reason,
+    } : null,
+    totalResults: data.searchInformation?.totalResults || '0',
+    itemCount: items.length,
+    firstImage: items[0]?.link || items[0]?.image?.thumbnailLink || '',
+    firstTitle: items[0]?.title || '',
+    queriesTriedByResolver: queries,
+  };
 }
 
 async function resolveMenuItemImageWithSource(item = {}, options = {}) {
@@ -143,4 +214,9 @@ async function resolveMenuItemImageWithSource(item = {}, options = {}) {
   };
 }
 
-module.exports = { resolveMenuItemImage, resolveMenuItemImageOnline, resolveMenuItemImageWithSource };
+module.exports = {
+  resolveMenuItemImage,
+  resolveMenuItemImageOnline,
+  resolveMenuItemImageWithSource,
+  getGoogleImageSearchDiagnostics,
+};

@@ -69,4 +69,68 @@ function resolveMenuItemImage(item = {}) {
   return IMAGE_BY_CATEGORY[String(item.category || '').toLowerCase()] || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=500&auto=format&fit=crop&q=72';
 }
 
-module.exports = { resolveMenuItemImage };
+const imageCache = new Map();
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+const normalizeQuery = (item = {}) => {
+  const name = String(item.name || item.title || '').trim();
+  const category = String(item.category || '').trim();
+  return [name, category, 'food dish'].filter(Boolean).join(' ');
+};
+
+const isUsableImage = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    return ['http:', 'https:'].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+};
+
+async function fetchGoogleMenuItemImage(item = {}) {
+  const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
+  const cx = process.env.GOOGLE_CUSTOM_SEARCH_CX;
+  const query = normalizeQuery(item);
+  if (!apiKey || !cx || !query) return '';
+
+  const cacheKey = query.toLowerCase();
+  const cached = imageCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) return cached.url;
+
+  const params = new URLSearchParams({
+    key: apiKey,
+    cx,
+    q: query,
+    searchType: 'image',
+    num: '3',
+    imgType: 'photo',
+    safe: 'active',
+  });
+
+  const response = await fetch(`https://www.googleapis.com/customsearch/v1?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(`Google image search failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const url = (data.items || [])
+    .map(result => result.link || result.image?.thumbnailLink)
+    .find(isUsableImage) || '';
+
+  if (url) imageCache.set(cacheKey, { url, timestamp: Date.now() });
+  return url;
+}
+
+async function resolveMenuItemImageOnline(item = {}, options = {}) {
+  if (item.image && !options.preferOnline) return item.image;
+  try {
+    const googleImage = await fetchGoogleMenuItemImage(item);
+    if (googleImage) return googleImage;
+  } catch (error) {
+    console.warn('Menu image lookup failed:', error.message);
+  }
+  return options.preferOnline ? resolveMenuItemImage({ ...item, image: '' }) : resolveMenuItemImage(item);
+}
+
+module.exports = { resolveMenuItemImage, resolveMenuItemImageOnline };

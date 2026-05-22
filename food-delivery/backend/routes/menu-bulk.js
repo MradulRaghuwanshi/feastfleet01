@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../firebase/admin');
+const { resolveMenuItemImageOnline } = require('../utils/menuImages');
 
 // POST /api/menu-bulk/import-csv
 // Body: { restaurantId, csvData: [ { name, description, price, category, available } ] }
@@ -30,6 +31,11 @@ router.post('/import-csv', async (req, res) => {
         }
 
         const docId = item.id || `item_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+        const image = await resolveMenuItemImageOnline({
+          name: item.name,
+          category: item.category,
+          image: item.image || item.imageUrl,
+        }, { preferOnline: true });
         await menuRef.doc(docId).set({
           name: item.name.trim(),
           description: item.description?.trim() || '',
@@ -39,7 +45,9 @@ router.post('/import-csv', async (req, res) => {
           veg: item.veg === 'yes' || item.veg === 'true' || item.veg === true,
           bestseller: item.bestseller === 'yes' || item.bestseller === 'true' || item.bestseller === true,
           spicy: item.spicy === 'yes' || item.spicy === 'true' || item.spicy === true,
-          imageUrl: item.imageUrl?.trim() || '',
+          image,
+          imageUrl: image,
+          imageSource: 'google-auto',
           prepTime: parseInt(item.prepTime) || 15,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()

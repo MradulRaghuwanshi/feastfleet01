@@ -1,3 +1,5 @@
+import { apiUrl } from './apiConfig';
+
 const IMAGE_BY_KEYWORD = [
   ['mango', 'https://images.unsplash.com/photo-1623065422902-30a2d299bbe4?w=500&auto=format&fit=crop&q=72'],
   ['banana', 'https://images.unsplash.com/photo-1603833665858-e61d17a86224?w=500&auto=format&fit=crop&q=72'],
@@ -75,3 +77,25 @@ export const withMenuItemImage = (item = {}) => ({
   ...item,
   image: resolveMenuItemImage(item),
 });
+
+export const fetchMenuItemImage = async (item = {}) => {
+  const name = String(item.name || '').trim();
+  if (!name) return resolveMenuItemImage(item);
+
+  const params = new URLSearchParams({
+    name,
+    category: item.category || '',
+  });
+
+  try {
+    const response = await fetch(apiUrl(`/menu-images/resolve?${params.toString()}`), {
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Image lookup failed with status ${response.status}`);
+    const data = await response.json();
+    return data.image || resolveMenuItemImage({ ...item, image: '' });
+  } catch (error) {
+    console.warn('Menu image lookup failed:', error);
+    return resolveMenuItemImage({ ...item, image: '' });
+  }
+};

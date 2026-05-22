@@ -6,7 +6,6 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
 } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
@@ -193,7 +192,6 @@ export function AuthProvider({ children }) {
       const credential = await signInWithPopup(auth, provider);
       return hydrateUserFromAuth(credential.user);
     } catch (err) {
-      // Popup blocked or environment doesn't support popups — fallback to redirect
       const code = err?.code || '';
       if (
         code === 'auth/popup-blocked' ||
@@ -201,8 +199,10 @@ export function AuthProvider({ children }) {
         code === 'auth/popup-closed-by-user' ||
         code === 'auth/cancelled-popup-request'
       ) {
-        await signInWithRedirect(auth, provider);
-        return null;
+        throw new Error('Google sign-in was blocked by this browser. Open FeastFleet in Chrome/Safari, or use email and password sign-in.');
+      }
+      if (code === 'auth/unauthorized-domain') {
+        throw new Error('This domain is not allowed in Firebase Authentication. Add your FeastFleet domain in Firebase Auth authorized domains.');
       }
       throw err;
     }
@@ -213,7 +213,10 @@ export function AuthProvider({ children }) {
     if (!normalizedEmail) throw new Error('Email is required');
 
     try {
-      await sendPasswordResetEmail(auth, normalizedEmail);
+      await sendPasswordResetEmail(auth, normalizedEmail, {
+        url: `${window.location.origin}/login`,
+        handleCodeInApp: false,
+      });
       return { ok: true, message: `Password reset email sent to ${normalizedEmail}. Check your inbox and spam folder.` };
     } catch (error) {
       try {

@@ -16,6 +16,7 @@ import {
 import { collection, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { fileToDataUrl } from '../../utils/imageFile';
+import { fetchMenuItemImage } from '../../utils/menuImages';
 import styles from './Dashboard.module.css';
 
 const ReviewSection = React.lazy(() => import('../../components/ReviewSection'));
@@ -290,17 +291,19 @@ export default function RestaurantDashboard() {
   const saveMenuItem = async (item, isEdit) => {
     setSavingItem(true);
     try {
+      const autoImage = await fetchMenuItemImage(item);
       if (isEdit) {
         await updateDoc(doc(db, 'restaurants', user.restaurantId, 'menu', item.id), {
           name: item.name, description: item.description,
-          price: +item.price, category: item.category, image: item.image,
+          price: +item.price, category: item.category, image: autoImage,
+          imageSource: 'google-auto',
         });
       } else {
         const id = `${user.restaurantId}-${Date.now()}`;
         await setDoc(doc(db, 'restaurants', user.restaurantId, 'menu', id), {
           id, name: item.name, description: item.description,
           price: +item.price, category: item.category,
-          image: item.image || '', available: true, isPopular: false,
+          image: autoImage, imageSource: 'google-auto', available: true, isPopular: false,
         });
       }
       await fetchRestaurant();

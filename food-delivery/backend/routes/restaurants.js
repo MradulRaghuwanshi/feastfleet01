@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../firebase/admin');
+const { resolveMenuItemImageOnline } = require('../utils/menuImages');
 
 const generateId = (prefix) => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -64,7 +65,10 @@ router.get('/:id', async (req, res) => {
     let menu = [];
     try {
       const menuSnap = await db.collection('restaurants').doc(req.params.id).collection('menu').get();
-      menu = menuSnap.docs.map(m => ({ id: m.id, ...m.data() }));
+      menu = await Promise.all(menuSnap.docs.map(async (m) => {
+        const item = { id: m.id, ...m.data() };
+        return { ...item, image: await resolveMenuItemImageOnline(item, { preferOnline: true }) };
+      }));
     } catch (menuError) {
       console.warn('Get restaurant menu error:', { restaurantId: req.params.id, message: menuError.message });
     }
@@ -122,17 +126,19 @@ router.post('/', async (req, res) => {
 
     if (menu.length) {
       const batch = db.batch();
-      menu.forEach((item) => {
+      for (const item of menu) {
         const itemId = item.id || generateId('m');
+        const image = await resolveMenuItemImageOnline(item, { preferOnline: true });
         batch.set(db.collection('restaurants').doc(id).collection('menu').doc(itemId), {
           name: item.name,
           description: item.description || '',
           price: Number(item.price || 0),
           category: item.category || 'Main Course',
-          image: item.image || '',
+          image,
+          imageSource: 'google-auto',
           available: item.available !== false,
         });
-      });
+      }
       await batch.commit();
     }
 

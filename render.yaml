@@ -16,6 +16,10 @@ services:
         value: rzp_live_SqTWXCzB7KpMF5
       - key: RAZORPAY_KEY_SECRET
         value: HtPOrDaOAH9HILTG336H7UsN
+      - key: GOOGLE_CUSTOM_SEARCH_API_KEY
+        sync: false
+      - key: GOOGLE_CUSTOM_SEARCH_CX
+        sync: false
 
   - type: web
     name: feastfleet-frontend

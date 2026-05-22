@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../firebase/admin');
-const { resolveMenuItemImage } = require('../utils/menuImages');
+const { resolveMenuItemImageOnline } = require('../utils/menuImages');
 
 // GET /api/search?q=pizza
 router.get('/', async (req, res) => {
@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
       }
 
       // Search menu items
-      menuSnap.docs.forEach(menuDoc => {
+      for (const menuDoc of menuSnap.docs) {
         const item = menuDoc.data();
         const itemMatches = [item.name, item.description, item.category]
           .filter(Boolean)
@@ -50,7 +50,7 @@ router.get('/', async (req, res) => {
           dishes.push({
             id: menuDoc.id,
             ...item,
-            image: resolveMenuItemImage(item),
+            image: await resolveMenuItemImageOnline(item, { preferOnline: true }),
             restaurantId: restDoc.id,
             restaurantName: rest.name,
             restaurantCuisine: rest.cuisine,
@@ -59,7 +59,7 @@ router.get('/', async (req, res) => {
             restaurantDeliveryTime: rest.deliveryTime
           });
         }
-      });
+      }
     }
 
     res.json({ restaurants: matchedRestaurants, dishes });

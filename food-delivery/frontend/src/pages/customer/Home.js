@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import RestaurantCard from '../../components/RestaurantCard';
 import { FlameIcon, SparkleIcon, TagIcon, TruckIcon } from '../../components/Icons';
+import { useCart } from '../../context/CartContext';
 import { getRestaurants, getActivePromos, getRestaurant, getCachedRestaurantsSnapshot, searchRestaurants } from '../../firebase/services';
+import { withMenuItemImage } from '../../utils/menuImages';
 import styles from './Home.module.css';
 
 const DEFAULT_CUISINES = ['All', 'Pizza', 'Biryani', 'Rolls', 'Burger', 'Chinese', 'Healthy', 'Desserts'];
@@ -10,6 +12,8 @@ const OFFER_BG = ['#ff6b35', '#0f766e', '#7c3aed', '#dc2626', '#2563eb', '#ca8a0
 const TRENDING_SEARCHES = ['Paneer roll', 'Cold coffee', 'Veg thali', 'Maggi', 'Fresh juice'];
 
 export default function Home() {
+  const navigate = useNavigate();
+  const { totalItems, subtotal } = useCart();
   const [restaurants, setRestaurants] = useState(() => getCachedRestaurantsSnapshot('') || []);
   const [loading, setLoading] = useState(() => !(getCachedRestaurantsSnapshot('') || []).length);
   const [promos, setPromos] = useState([]);
@@ -18,6 +22,8 @@ export default function Home() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResults, setSearchResults] = useState({ restaurants: [], dishes: [] });
   const [searchError, setSearchError] = useState('');
+  const [menuIndex, setMenuIndex] = useState([]);
+  const [indexLoading, setIndexLoading] = useState(false);
   const [activeCuisine, setActiveCuisine] = useState('All');
   const [recentSearches, setRecentSearches] = useState(() => {
     try { return JSON.parse(localStorage.getItem('ff_recent_searches') || '[]'); }
@@ -49,44 +55,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    let alive = true;
-    const query = searchQuery.trim();
-
-    if (!query) {
-      setSearchResults({ restaurants: [], dishes: [] });
-      setSearchLoading(false);
-      setSearchError('');
-      return () => { alive = false; };
-    }
-
-    setSearchLoading(true);
-    setSearchError('');
-    const timer = setTimeout(() => {
-      searchRestaurants(query)
-        .then(data => {
-          if (!alive) return;
-          setSearchResults({
-            restaurants: data?.restaurants || [],
-            dishes: data?.dishes || [],
-          });
-        })
-        .catch(error => {
-          if (!alive) return;
-          setSearchResults({ restaurants: [], dishes: [] });
-          setSearchError(error?.message || 'Search failed');
-        })
-        .finally(() => {
-          if (alive) setSearchLoading(false);
-        });
-    }, 250);
-
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, [searchQuery]);
-
-  useEffect(() => {
     const query = searchQuery.trim();
     if (!query || searchLoading || searchError) return undefined;
     const timer = setTimeout(() => {
@@ -101,18 +69,117 @@ export default function Home() {
 
   useEffect(() => {
     if (!restaurants.length) return undefined;
+    let alive = true;
     const preload = () => {
-      restaurants.slice(0, 4).forEach(restaurant => {
-        getRestaurant(restaurant.id).catch(() => {});
-      });
+      setIndexLoading(true);
+      Promise.allSettled(restaurants.map(restaurant => getRestaurant(restaurant.id)))
+        .then(results => {
+          if (!alive) return;
+          const index = results
+            .map(result => result.status === 'fulfilled' ? result.value : null)
+            .filter(Boolean)
+            .flatMap(restaurant => (restaurant.menu || []).map(item => ({
+              ...withMenuItemImage(item),
+              restaurantId: restaurant.id,
+              restaurantName: restaurant.name,
+              restaurantCuisine: restaurant.cuisine,
+              restaurantHasOwnDelivery: restaurant.hasOwnDelivery,
+              restaurantCanOrder: restaurant.isAcceptingOrdersNow ?? restaurant.isOpen,
+              restaurantDeliveryTime: restaurant.deliveryTime,
+            })));
+          setMenuIndex(index);
+        })
+        .finally(() => {
+          if (alive) setIndexLoading(false);
+        });
     };
     if ('requestIdleCallback' in window) {
       const id = window.requestIdleCallback(preload, { timeout: 1500 });
-      return () => window.cancelIdleCallback?.(id);
+      return () => {
+        alive = false;
+        window.cancelIdleCallback?.(id);
+      };
     }
     const timer = setTimeout(preload, 600);
-    return () => clearTimeout(timer);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   }, [restaurants]);
+
+  const localSearchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return { restaurants: [], dishes: [] };
+
+    const terms = query.split(/\s+/).filter(Boolean);
+    const matches = (value) => {
+      const text = String(value || '').toLowerCase();
+      return terms.every(term => text.includes(term));
+    };
+    const score = (text) => {
+      const normalized = String(text || '').toLowerCase();
+      if (normalized === query) return 0;
+      if (normalized.startsWith(query)) return 1;
+      return 2;
+    };
+
+    const foundRestaurants = restaurants
+      .filter(r => matches(`${r.name || ''} ${r.cuisine || ''} ${(r.tags || []).join(' ')}`))
+      .sort((a, b) => score(a.name) - score(b.name))
+      .slice(0, 8);
+
+    const foundDishes = menuIndex
+      .filter(item => matches(`${item.name || ''} ${item.description || ''} ${item.category || ''} ${item.restaurantName || ''}`))
+      .sort((a, b) => score(a.name) - score(b.name))
+      .slice(0, 18);
+
+    return { restaurants: foundRestaurants, dishes: foundDishes };
+  }, [menuIndex, restaurants, searchQuery]);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+
+    if (!query) {
+      setSearchResults({ restaurants: [], dishes: [] });
+      setSearchLoading(false);
+      setSearchError('');
+      return undefined;
+    }
+
+    if (menuIndex.length) {
+      setSearchResults(localSearchResults);
+      setSearchLoading(indexLoading);
+      setSearchError('');
+      return undefined;
+    }
+
+    let alive = true;
+    setSearchLoading(true);
+    setSearchError('');
+    const timer = setTimeout(() => {
+      searchRestaurants(query)
+        .then(data => {
+          if (!alive) return;
+          setSearchResults({
+            restaurants: data?.restaurants || [],
+            dishes: (data?.dishes || []).map(withMenuItemImage),
+          });
+        })
+        .catch(error => {
+          if (!alive) return;
+          setSearchResults(localSearchResults);
+          setSearchError(error?.message || 'Search failed');
+        })
+        .finally(() => {
+          if (alive) setSearchLoading(false);
+        });
+    }, 120);
+
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [indexLoading, localSearchResults, menuIndex.length, searchQuery]);
 
   const cuisineOptions = useMemo(() => {
     const detected = restaurants
@@ -132,7 +199,7 @@ export default function Home() {
 
   const trendingDishes = useMemo(() => {
     return restaurants
-      .flatMap(r => (r.menu || []).map(item => ({ ...item, restaurantId: r.id, restaurantName: r.name })))
+      .flatMap(r => (r.menu || []).map(item => ({ ...withMenuItemImage(item), restaurantId: r.id, restaurantName: r.name })))
       .filter(item => item.isPopular || Number(item.rating || 0) >= 4)
       .slice(0, 8);
   }, [restaurants]);
@@ -322,11 +389,23 @@ export default function Home() {
           )}
         </>
       )}
+
+      {totalItems > 0 && (
+        <div className={styles.quickCart}>
+          <div>
+            <strong>{totalItems} item{totalItems === 1 ? '' : 's'} in cart</strong>
+            <span>Rs {Number(subtotal || 0).toFixed(0)}</span>
+          </div>
+          <button type="button" onClick={() => navigate('/checkout')}>Checkout</button>
+        </div>
+      )}
     </div>
   );
 }
 
 function SearchResults({ restaurants, dishes, loading }) {
+  const { cart, addItem, removeItem } = useCart();
+
   if (loading) {
     return <div className={styles.searchEmpty}>Searching restaurants and menu items...</div>;
   }
@@ -358,18 +437,48 @@ function SearchResults({ restaurants, dishes, loading }) {
             <span>{dishes.length} match{dishes.length === 1 ? '' : 'es'}</span>
           </div>
           <div className={styles.searchItemList}>
-            {dishes.map(item => (
-              <Link key={`${item.restaurantId}:${item.id}`} to={`/restaurant/${item.restaurantId}`} className={styles.searchItemCard}>
+            {dishes.map(item => {
+              const qty = cart.restaurantId === item.restaurantId
+                ? cart.items.find(i => i.id === item.id)?.quantity || 0
+                : 0;
+              const canOrder = item.restaurantCanOrder !== false && item.available !== false;
+              const handleAdd = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                addItem(item, item.restaurantId, item.restaurantName, item.restaurantHasOwnDelivery);
+              };
+              const handleRemove = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                removeItem(item.id);
+              };
+
+              return (
+                <Link key={`${item.restaurantId}:${item.id}`} to={`/restaurant/${item.restaurantId}`} className={styles.searchItemCard}>
+                <img src={item.image} alt={item.name} loading="lazy" decoding="async" />
                 <div className={styles.searchItemMeta}>
                   <strong>{item.name}</strong>
                   <span>{item.category || 'Menu item'} · {item.restaurantName}</span>
                 </div>
                 <div className={styles.searchItemAction}>
                   <div className={styles.searchItemPrice}>Rs {Number(item.price || 0).toFixed(0)}</div>
-                  <span>Open restaurant</span>
+                  {canOrder ? (
+                    qty === 0 ? (
+                      <button type="button" onClick={handleAdd}>Add</button>
+                    ) : (
+                      <div className={styles.searchQty}>
+                        <button type="button" onClick={handleRemove} aria-label={`Remove ${item.name}`}>-</button>
+                        <span>{qty}</span>
+                        <button type="button" onClick={handleAdd} aria-label={`Add ${item.name}`}>+</button>
+                      </div>
+                    )
+                  ) : (
+                    <span>Unavailable</span>
+                  )}
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}

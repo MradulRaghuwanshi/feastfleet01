@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../firebase/admin');
+const { resolveMenuItemImage } = require('../utils/menuImages');
 
 // GET /api/search?q=pizza
 router.get('/', async (req, res) => {
@@ -17,11 +18,13 @@ router.get('/', async (req, res) => {
 
     const seenRestaurantIds = new Set();
 
-    for (const restDoc of restSnap.docs) {
+    const restaurantMenus = await Promise.all(restSnap.docs.map(async (restDoc) => {
       const rest = restDoc.data();
-      
       const menuSnap = await db.collection('restaurants').doc(restDoc.id).collection('menu').get();
+      return { restDoc, rest, menuSnap };
+    }));
 
+    for (const { restDoc, rest, menuSnap } of restaurantMenus) {
       // Search restaurants by name or cuisine
       const restaurantMatches = [rest.name, rest.cuisine, ...(Array.isArray(rest.tags) ? rest.tags : [])]
         .filter(Boolean)
@@ -47,9 +50,13 @@ router.get('/', async (req, res) => {
           dishes.push({
             id: menuDoc.id,
             ...item,
+            image: resolveMenuItemImage(item),
             restaurantId: restDoc.id,
             restaurantName: rest.name,
-            restaurantCuisine: rest.cuisine
+            restaurantCuisine: rest.cuisine,
+            restaurantHasOwnDelivery: rest.hasOwnDelivery,
+            restaurantCanOrder: rest.isAcceptingOrdersNow ?? rest.isOpen,
+            restaurantDeliveryTime: rest.deliveryTime
           });
         }
       });

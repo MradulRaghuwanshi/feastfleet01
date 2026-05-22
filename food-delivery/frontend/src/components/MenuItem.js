@@ -1,6 +1,7 @@
 import React from 'react';
 import { useCart } from '../context/CartContext';
 import { FlameIcon, SparkleIcon } from './Icons';
+import { resolveMenuItemImage } from '../utils/menuImages';
 import styles from './MenuItem.module.css';
 
 export default function MenuItem({
@@ -15,13 +16,14 @@ export default function MenuItem({
   const cartItem = cart.items.find(i => i.id === item.id);
   const qty = cartItem ? cartItem.quantity : 0;
   const isAvailableToOrder = canOrder && item.available;
+  const image = resolveMenuItemImage(item);
 
   return (
     <div className={`${styles.card} ${!isAvailableToOrder ? styles.unavailable : ''}`}>
       <div className={styles.media}>
-        {item.image ? (
+        {image ? (
           <img
-            src={item.image}
+            src={image}
             alt={item.name}
             className={styles.img}
             loading={priority ? 'eager' : 'lazy'}

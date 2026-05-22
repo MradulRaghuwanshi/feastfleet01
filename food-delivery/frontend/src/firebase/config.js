@@ -3,15 +3,30 @@ import { getAuth }       from 'firebase/auth';
 import { getFirestore }  from 'firebase/firestore';
 import { getDatabase }   from 'firebase/database';
 
+const isPlaceholder = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return (
+    !normalized ||
+    normalized === 'leave as is' ||
+    normalized.includes('your_') ||
+    normalized.includes('your-project')
+  );
+};
+
+const fromEnv = (key, fallback) => {
+  const value = process.env[key];
+  return isPlaceholder(value) ? fallback : value;
+};
+
 const firebaseConfig = {
-  apiKey:            process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyAjz7-JdOVMYXHEsb-BOQ0V3MoaGH2Qo_Y",
-  authDomain:        process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "feastfleet-54b7e.firebaseapp.com",
-  projectId:         process.env.REACT_APP_FIREBASE_PROJECT_ID || "feastfleet-54b7e",
-  storageBucket:     process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "feastfleet-54b7e.firebasestorage.app",
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "72016164039",
-  appId:             process.env.REACT_APP_FIREBASE_APP_ID || "1:72016164039:web:f9ff1f82721b3c81c67ae2",
-  measurementId:     process.env.REACT_APP_FIREBASE_MEASUREMENT_ID || "G-PL6MMZQNTR",
-  databaseURL:       process.env.REACT_APP_FIREBASE_DATABASE_URL || "https://feastfleet-54b7e-default-rtdb.asia-southeast1.firebasedatabase.app",
+  apiKey:            fromEnv('REACT_APP_FIREBASE_API_KEY', "AIzaSyAjz7-JdOVMYXHEsb-BOQ0V3MoaGH2Qo_Y"),
+  authDomain:        fromEnv('REACT_APP_FIREBASE_AUTH_DOMAIN', "feastfleet-54b7e.firebaseapp.com"),
+  projectId:         fromEnv('REACT_APP_FIREBASE_PROJECT_ID', "feastfleet-54b7e"),
+  storageBucket:     fromEnv('REACT_APP_FIREBASE_STORAGE_BUCKET', "feastfleet-54b7e.firebasestorage.app"),
+  messagingSenderId: fromEnv('REACT_APP_FIREBASE_MESSAGING_SENDER_ID', "72016164039"),
+  appId:             fromEnv('REACT_APP_FIREBASE_APP_ID', "1:72016164039:web:f9ff1f82721b3c81c67ae2"),
+  measurementId:     fromEnv('REACT_APP_FIREBASE_MEASUREMENT_ID', "G-PL6MMZQNTR"),
+  databaseURL:       fromEnv('REACT_APP_FIREBASE_DATABASE_URL', "https://feastfleet-54b7e-default-rtdb.asia-southeast1.firebasedatabase.app"),
 };
 
 const app = initializeApp(firebaseConfig);

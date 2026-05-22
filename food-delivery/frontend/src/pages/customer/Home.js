@@ -137,12 +137,6 @@ export default function Home() {
       .slice(0, 8);
   }, [restaurants]);
 
-  const nearbyRestaurants = useMemo(() => {
-    return [...filteredRestaurants]
-      .sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))
-      .slice(0, 6);
-  }, [filteredRestaurants]);
-
   const ownDelivery = filteredRestaurants.filter(r => r.hasOwnDelivery);
   const platformDelivery = filteredRestaurants.filter(r => !r.hasOwnDelivery);
   const copyCode = (code) => {
@@ -307,20 +301,6 @@ export default function Home() {
                 </section>
               )}
 
-              {nearbyRestaurants.length > 0 && (
-                <section className={styles.section}>
-                  <div className={styles.sectionHeader}>
-                    <h2><SparkleIcon /> Nearby best rated</h2>
-                    <span>High trust picks</span>
-                  </div>
-                  <div className={styles.grid}>
-                    {nearbyRestaurants.map((r, index) => (
-                      <RestaurantCard key={`nearby-${r.id}`} restaurant={r} priority={index < 2} />
-                    ))}
-                  </div>
-                </section>
-              )}
-
               {platformDelivery.length > 0 && (
                 <section className={styles.section}>
                   <div className={styles.sectionHeader}>
@@ -379,13 +359,16 @@ function SearchResults({ restaurants, dishes, loading }) {
           </div>
           <div className={styles.searchItemList}>
             {dishes.map(item => (
-              <div key={`${item.restaurantId}:${item.id}`} className={styles.searchItemCard}>
+              <Link key={`${item.restaurantId}:${item.id}`} to={`/restaurant/${item.restaurantId}`} className={styles.searchItemCard}>
                 <div className={styles.searchItemMeta}>
                   <strong>{item.name}</strong>
                   <span>{item.category || 'Menu item'} · {item.restaurantName}</span>
                 </div>
-                <div className={styles.searchItemPrice}>Rs {Number(item.price || 0).toFixed(0)}</div>
-              </div>
+                <div className={styles.searchItemAction}>
+                  <div className={styles.searchItemPrice}>Rs {Number(item.price || 0).toFixed(0)}</div>
+                  <span>Open restaurant</span>
+                </div>
+              </Link>
             ))}
           </div>
         </section>

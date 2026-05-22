@@ -151,8 +151,8 @@
 
 .searchBar {
   position: relative;
-  display: flex;
-  gap: 10px;
+  color: inherit;
+  text-decoration: none;
   align-items: center;
 }
 
@@ -492,6 +492,18 @@
   flex-shrink: 0;
   font-weight: 900;
   color: #ff6b35;
+}
+.searchItemAction {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.searchItemAction span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .skeletonCard {

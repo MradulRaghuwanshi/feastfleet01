@@ -22,28 +22,30 @@ export default function RestaurantCard({
   return (
     <div className={`${styles.card} ${!acceptingOrders ? styles.closed : ''}`}>
       <div className={styles.imgWrapper}>
-        {restaurant.image && (
-          <img
-            src={restaurant.image}
-            alt={restaurant.name}
-            className={styles.img}
-            loading={priority ? 'eager' : 'lazy'}
-            fetchPriority={priority ? 'high' : 'auto'}
-            decoding="async"
-          />
-        )}
-        <div className={styles.imageWash} />
-        {!acceptingOrders && <div className={styles.closedOverlay}>{statusLabel}</div>}
-        {restaurant.offer && (
-          <div className={styles.offerBadge}>
-            <TagIcon className={styles.badgeIcon} />
-            <span>{restaurant.offer}</span>
+        <Link to={`/restaurant/${restaurant.id}`} className={styles.imageLink} aria-label={`Open ${restaurant.name}`}>
+          {restaurant.image && (
+            <img
+              src={restaurant.image}
+              alt={restaurant.name}
+              className={styles.img}
+              loading={priority ? 'eager' : 'lazy'}
+              fetchPriority={priority ? 'high' : 'auto'}
+              decoding="async"
+            />
+          )}
+          <div className={styles.imageWash} />
+          {!acceptingOrders && <div className={styles.closedOverlay}>{statusLabel}</div>}
+          {restaurant.offer && (
+            <div className={styles.offerBadge}>
+              <TagIcon className={styles.badgeIcon} />
+              <span>{restaurant.offer}</span>
+            </div>
+          )}
+          <div className={styles.timeChip}>
+            <ClockIcon className={styles.factIcon} />
+            {restaurant.deliveryTime || '30-45 min'}
           </div>
-        )}
-        <div className={styles.timeChip}>
-          <ClockIcon className={styles.factIcon} />
-          {restaurant.deliveryTime || '30-45 min'}
-        </div>
+        </Link>
         <div className={styles.topMeta}>
           <span className={styles.ratingPill}>
             <StarIcon className={styles.pillIcon} />

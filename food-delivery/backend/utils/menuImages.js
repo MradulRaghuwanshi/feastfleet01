@@ -212,9 +212,11 @@ async function getGoogleImageSearchDiagnostics(item = {}) {
     query,
     web,
     image,
-    likelyIssue: !web.ok
-      ? 'GOOGLE_CUSTOM_SEARCH_CX is invalid or the Programmable Search Engine is not available to this API key/project.'
-      : (!image.ok ? 'Image Search is disabled or unsupported for this Programmable Search Engine.' : null),
+    likelyIssue: web.status === 429 || image.status === 429
+      ? 'Google Custom Search daily quota is exhausted for this project.'
+      : (!web.ok
+        ? 'GOOGLE_CUSTOM_SEARCH_CX is invalid or the Programmable Search Engine is not available to this API key/project.'
+        : (!image.ok ? 'Image Search is disabled or unsupported for this Programmable Search Engine.' : null)),
     queriesTriedByResolver: queries,
   };
 }

@@ -65,12 +65,40 @@ const IMAGE_BY_CATEGORY = {
   salad: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=500&auto=format&fit=crop&q=72',
 };
 
+const normalizeImagePromptPart = (value) => String(value || '')
+  .replace(/\([^)]*\)/g, ' ')
+  .replace(/[^a-z0-9\s.-]/gi, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+export const resolveGeneratedMenuItemImage = (item = {}) => {
+  const name = normalizeImagePromptPart(item.name || item.title);
+  const category = normalizeImagePromptPart(item.category);
+  if (!name) return '';
+
+  const prompt = [
+    'realistic professional food photography',
+    name,
+    category,
+    'restaurant menu item',
+    'single dish on a plate',
+    'natural light',
+    'no text',
+    'no logo',
+  ].filter(Boolean).join(', ');
+
+  const seed = encodeURIComponent(`${name}-${category || 'food'}`.toLowerCase());
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=640&height=480&seed=${seed}&nologo=true&enhance=true`;
+};
+
 export const resolveMenuItemImage = (item = {}) => {
   if (item.image) return item.image;
   const text = `${item.name || ''} ${item.category || ''}`.toLowerCase();
   const match = IMAGE_BY_KEYWORD.find(([keyword]) => text.includes(keyword));
   if (match) return match[1];
-  return IMAGE_BY_CATEGORY[String(item.category || '').toLowerCase()] || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=500&auto=format&fit=crop&q=72';
+  return IMAGE_BY_CATEGORY[String(item.category || '').toLowerCase()]
+    || resolveGeneratedMenuItemImage(item)
+    || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=500&auto=format&fit=crop&q=72';
 };
 
 export const withMenuItemImage = (item = {}) => ({
@@ -93,9 +121,9 @@ export const fetchMenuItemImage = async (item = {}) => {
     });
     if (!response.ok) throw new Error(`Image lookup failed with status ${response.status}`);
     const data = await response.json();
-    return data.image || resolveMenuItemImage({ ...item, image: '' });
+    return data.image || resolveGeneratedMenuItemImage(item) || resolveMenuItemImage({ ...item, image: '' });
   } catch (error) {
     console.warn('Menu image lookup failed:', error);
-    return resolveMenuItemImage({ ...item, image: '' });
+    return resolveGeneratedMenuItemImage(item) || resolveMenuItemImage({ ...item, image: '' });
   }
 };

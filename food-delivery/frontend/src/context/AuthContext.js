@@ -1,4 +1,16 @@
-﻿import React, { createContext, useContext, useState, useEffect } from 'react';
+﻿import React, { createContext, useContext, useEffect, useState } from 'react';
+import {
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+} from 'firebase/auth';
+import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { auth, db } from '../firebase/config';
+import { getUserProfile } from '../firebase/services';
 
 const AuthContext = createContext();
 
@@ -11,7 +23,6 @@ export function AuthProvider({ children }) {
   const [initError, setInitError] = useState(null);
 
   useEffect(() => {
-    let mounted = true;
     const saved = localStorage.getItem('fd_user');
     if (saved) {
       try {
@@ -21,81 +32,232 @@ export function AuthProvider({ children }) {
       }
     }
 
-    setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+      if (!authUser) {
+        if (!saved) setUser(null);
+        setLoading(false);
+        return;
+      }
 
-    return () => {
-      mounted = false;
-    };
+      try {
+        const profile = await hydrateUserFromAuth(authUser);
+        setUser(profile);
+        localStorage.setItem('fd_user', JSON.stringify(profile));
+      } catch (error) {
+        console.error('Auth hydration error:', error);
+        const fallbackUser = buildFallbackUser(authUser);
+        setUser(fallbackUser);
+        localStorage.setItem('fd_user', JSON.stringify(fallbackUser));
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
+
+  const avatarPool = ['👩', '👨', '🧑', '👱', '🧔', '👩‍🦱', '👨‍🦱', '🧑‍🦰'];
+
+  const pickAvatar = (seed = '') => avatarPool[Math.abs(seed.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % avatarPool.length];
+
+  const buildFallbackUser = (authUser) => ({
+    id: authUser.uid,
+    authUid: authUser.uid,
+    name: authUser.displayName || authUser.email?.split('@')[0] || 'Guest',
+    email: authUser.email || '',
+    phone: authUser.phoneNumber || '',
+    role: 'customer',
+    avatar: authUser.photoURL || pickAvatar(authUser.email || authUser.uid),
+    wallet: 0,
+    feastCoins: 0,
+    favourites: [],
+    createdAt: new Date().toISOString(),
+    provider: authUser.providerData?.[0]?.providerId || 'firebase-auth',
+  });
+
+  const findProfileByEmail = async (email) => {
+    if (!email) return null;
+    const snap = await getDocs(query(collection(db, 'users'), where('email', '==', email)));
+    if (snap.empty) return null;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() };
+  };
+
+  const hydrateUserFromAuth = async (authUser) => {
+    const authEmail = authUser.email?.trim().toLowerCase() || '';
+    let profile = null;
+
+    try {
+      profile = await getUserProfile(authUser.uid);
+    } catch {
+      profile = null;
+    }
+
+    if (!profile && authEmail) {
+      profile = await findProfileByEmail(authEmail);
+    }
+
+    const merged = profile || buildFallbackUser(authUser);
+    const nextUser = {
+      ...merged,
+      id: merged.id || authUser.uid,
+      authUid: authUser.uid,
+      name: merged.name || authUser.displayName || authEmail.split('@')[0] || 'Guest',
+      email: merged.email || authUser.email || '',
+      phone: merged.phone || authUser.phoneNumber || '',
+      role: merged.role || 'customer',
+      avatar: merged.avatar || authUser.photoURL || pickAvatar(authEmail || authUser.uid),
+      wallet: merged.wallet ?? 0,
+      feastCoins: merged.feastCoins ?? 0,
+      favourites: Array.isArray(merged.favourites) ? merged.favourites : [],
+      provider: authUser.providerData?.[0]?.providerId || merged.provider || 'firebase-auth',
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await setDoc(doc(db, 'users', nextUser.id), nextUser, { merge: true });
+      await setDoc(doc(db, 'loginCredentials', nextUser.id), {
+        uid: nextUser.id,
+        authUid: authUser.uid,
+        email: nextUser.email,
+        name: nextUser.name,
+        avatar: nextUser.avatar,
+        role: nextUser.role,
+        provider: nextUser.provider,
+      }, { merge: true });
+    } catch (error) {
+      console.warn('Unable to sync auth profile to Firestore:', error);
+    }
+
+    return nextUser;
+  };
 
   // ── Login ──────────────────────────────────────────────────────────────────
   const login = async (email, password) => {
-    const [{ collection, query, where, getDocs }, { db }, { getUserProfile }] = await Promise.all([
-      import('firebase/firestore'),
-      import('../firebase/config'),
-      import('../firebase/services'),
-    ]);
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
-    // Try Firestore loginCredentials first; this app no longer depends on Firebase Auth.
     try {
-      // Query by email only to avoid needing a composite index on email+password.
-      const q = query(
-        collection(db, 'loginCredentials'),
-        where('email', '==', email)
-      );
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const creds = snap.docs[0].data();
-        if (creds.password === password) {
-          const profile = await getUserProfile(creds.uid);
-          if (profile) {
-            setUser(profile);
-            localStorage.setItem('fd_user', JSON.stringify(profile));
-            return profile;
+      const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      return await hydrateUserFromAuth(credential.user);
+    } catch (authError) {
+      try {
+        const q = query(collection(db, 'loginCredentials'), where('email', '==', normalizedEmail));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const creds = snap.docs[0].data();
+          if (creds.password === password) {
+            const profile = await getUserProfile(creds.uid) || {
+              id: creds.uid,
+              authUid: null,
+              name: creds.name || normalizedEmail.split('@')[0] || 'Guest',
+              email: normalizedEmail,
+              role: creds.role || 'customer',
+              avatar: creds.avatar || pickAvatar(normalizedEmail || creds.uid),
+              wallet: 0,
+              feastCoins: 0,
+              favourites: [],
+              createdAt: new Date().toISOString(),
+              provider: 'legacy',
+            };
+
+            const nextProfile = {
+              ...profile,
+              id: profile.id || creds.uid,
+              email: profile.email || normalizedEmail,
+              role: profile.role || 'customer',
+              authUid: profile.authUid || null,
+              updatedAt: new Date().toISOString(),
+            };
+
+            await setDoc(doc(db, 'users', nextProfile.id), nextProfile, { merge: true });
+            setUser(nextProfile);
+            localStorage.setItem('fd_user', JSON.stringify(nextProfile));
+            return nextProfile;
           }
         }
+      } catch (legacyError) {
+        console.error('Legacy login query error:', legacyError);
+        if (legacyError.code === 'permission-denied') {
+          throw new Error('Database access denied. Check Firestore rules.');
+        }
       }
-    } catch (err) {
-      console.error('Firestore login query error:', err);
-      if (err.code === 'permission-denied') {
-        throw new Error('Database access denied. Check Firestore rules.');
-      }
-    }
 
-    throw new Error('Invalid email or password');
+      throw authError;
+    }
   };
 
-  // ── Register (customers only — no Firebase Auth needed) ───────────────────
+  const continueWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    const credential = await signInWithPopup(auth, provider);
+    return hydrateUserFromAuth(credential.user);
+  };
+
+  const requestPasswordReset = async (email) => {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) throw new Error('Email is required');
+
+    try {
+      await sendPasswordResetEmail(auth, normalizedEmail);
+      return { ok: true, message: `Password reset email sent to ${normalizedEmail}. Check your inbox and spam folder.` };
+    } catch (error) {
+      try {
+        const legacy = await getDocs(query(collection(db, 'loginCredentials'), where('email', '==', normalizedEmail)));
+        if (!legacy.empty) {
+          throw new Error('This account uses the legacy password system, so email reset is not available yet. Please sign in with the current password or contact support.');
+        }
+      } catch (lookupError) {
+        if (lookupError.message) throw lookupError;
+      }
+
+      if (error.code === 'auth/user-not-found') {
+        throw new Error('No Firebase account exists for that email yet. Please sign in or create an account first.');
+      }
+      throw new Error(error.message || 'Unable to send password reset email');
+    }
+  };
+
+  // ── Register ───────────────────────────────────────────────────────────────
   const register = async ({ name, email, phone, password }) => {
-    const [{ collection, query, where, getDocs, setDoc, doc }, { db }] = await Promise.all([
-      import('firebase/firestore'),
-      import('../firebase/config'),
-    ]);
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
-    // Check if email already exists
-    const existing = await getDocs(
-      query(collection(db, 'loginCredentials'), where('email', '==', email))
-    );
-    if (!existing.empty) throw new Error('An account with this email already exists');
-
-    const uid = genId();
-    const avatars = ['👩','👨','🧑','👱','🧔','👩‍🦱','👨‍🦱','🧑‍🦰'];
-    const avatar  = avatars[Math.floor(Math.random() * avatars.length)];
+    const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+    const authUser = credential.user;
+    const existingProfile = await findProfileByEmail(normalizedEmail);
+    const profileId = existingProfile?.id || authUser.uid;
+    const avatar = existingProfile?.avatar || pickAvatar(normalizedEmail || authUser.uid);
 
     const profile = {
-      id: uid, name, email, phone,
-      role: 'customer', avatar,
-      wallet: 0, feastCoins: 0, favourites: [],
-      createdAt: new Date().toISOString()
+      ...(existingProfile || {}),
+      id: profileId,
+      authUid: authUser.uid,
+      name: existingProfile?.name || name,
+      email: existingProfile?.email || normalizedEmail,
+      phone: existingProfile?.phone || phone,
+      role: existingProfile?.role || 'customer',
+      avatar,
+      wallet: existingProfile?.wallet ?? 0,
+      feastCoins: existingProfile?.feastCoins ?? 0,
+      favourites: Array.isArray(existingProfile?.favourites) ? existingProfile.favourites : [],
+      provider: 'password',
+      createdAt: existingProfile?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
-    // Save to Firestore users collection
-    await setDoc(doc(db, 'users', uid), profile);
-
-    // Save to loginCredentials for auth lookup
-    await setDoc(doc(db, 'loginCredentials', uid), {
-      uid, email, password, role: 'customer', name, avatar
-    });
+    try {
+      await setDoc(doc(db, 'users', profile.id), profile, { merge: true });
+      await setDoc(doc(db, 'loginCredentials', profile.id), {
+        uid: profile.id,
+        authUid: authUser.uid,
+        email: profile.email,
+        name: profile.name,
+        avatar: profile.avatar,
+        role: profile.role,
+        provider: 'password',
+      }, { merge: true });
+    } catch (error) {
+      console.warn('Unable to persist newly registered profile:', error);
+    }
 
     setUser(profile);
     localStorage.setItem('fd_user', JSON.stringify(profile));
@@ -104,6 +266,7 @@ export function AuthProvider({ children }) {
 
   // ── Logout ─────────────────────────────────────────────────────────────────
   const logout = async () => {
+    await signOut(auth).catch(() => {});
     localStorage.removeItem('fd_user');
     setUser(null);
   };
@@ -123,7 +286,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, register }}>
+    <AuthContext.Provider value={{ user, login, logout, register, continueWithGoogle, requestPasswordReset }}>
       {children}
     </AuthContext.Provider>
   );

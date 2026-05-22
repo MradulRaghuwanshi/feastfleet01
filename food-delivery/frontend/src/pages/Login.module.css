@@ -3,9 +3,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(320px, 420px);
   gap: 28px;
-  align-items: center;
+  align-items: start;
   justify-content: center;
-  padding: 28px 18px;
+  padding: 96px 18px 32px;
   background:
     radial-gradient(circle at 10% 10%, rgba(255, 107, 53, 0.18), transparent 28rem),
     radial-gradient(circle at 90% 0%, rgba(16, 185, 129, 0.12), transparent 22rem),
@@ -183,6 +183,66 @@
   font-weight: 800;
 }
 
+.notice {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ecfdf3;
+  border: 1px solid #abefc6;
+  color: #027a48;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.resetPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid rgba(16, 24, 40, 0.08);
+}
+
+.resetPanel label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #344054;
+}
+
+.resetPanel input {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 15px;
+  background: #fff;
+}
+
+.resetPanel input:focus {
+  border-color: #ff6b35;
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.12);
+}
+
+.resetHint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #667085;
+}
+
+.resetBtn {
+  background: #101828;
+  color: #fff;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 900;
+}
+
 .form {
   display: flex;
   flex-direction: column;
@@ -265,6 +325,7 @@
 @media (max-width: 900px) {
   .page {
     grid-template-columns: 1fr;
+    padding-top: 88px;
   }
 
   .story {
@@ -287,7 +348,7 @@
 
 @media (max-width: 480px) {
   .page {
-    padding: 18px 12px 24px;
+    padding: 84px 12px 24px;
   }
 
   .card {

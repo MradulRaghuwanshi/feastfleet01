@@ -4,20 +4,55 @@ import { DownloadAppIcon } from '../components/Icons';
 import styles from './Login.module.css';
 
 export default function Login() {
-  const { login, register } = useAuth();
-  const [tab, setTab]         = useState('login');
-  const [error, setError]     = useState('');
+  const { login, register, continueWithGoogle, requestPasswordReset } = useAuth();
+  const [tab, setTab] = useState('login');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [showReset, setShowReset] = useState(false);
 
-  const [loginForm, setLoginForm]   = useState({ email: '', password: '' });
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [signupForm, setSignupForm] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
+  const [resetEmail, setResetEmail] = useState('');
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
+    setNotice('');
     try { await login(loginForm.email, loginForm.password); }
     catch (err) { setError(err.message); }
     finally { setLoading(false); }
+  };
+
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    setError('');
+    setNotice('');
+    try {
+      await continueWithGoogle();
+    } catch (err) {
+      setError(err.message || 'Google sign-in failed');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await requestPasswordReset(resetEmail || loginForm.email || signupForm.email);
+      setNotice(result.message);
+      setShowReset(false);
+    } catch (err) {
+      setError(err.message || 'Unable to send reset email');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignup = async (e) => {
@@ -71,12 +106,29 @@ export default function Login() {
           <button className={`${styles.tabBtn} ${tab === 'signup' ? styles.activeTab : ''}`} onClick={() => { setTab('signup'); setError(''); }}>Create Account</button>
         </div>
 
+        {notice && <p className={styles.notice}>{notice}</p>}
+
         {tab === 'login' && (
           <>
             <div className={styles.socialRow}>
-              <button type="button">Continue with Google</button>
-              <button type="button">Use OTP</button>
+              <button type="button" onClick={handleGoogle} disabled={googleLoading}>{googleLoading ? 'Connecting...' : 'Continue with Google'}</button>
+              <button type="button" onClick={() => setShowReset(v => !v)}>{showReset ? 'Hide reset' : 'Reset password'}</button>
             </div>
+            {showReset && (
+              <form onSubmit={handleResetPassword} className={styles.resetPanel}>
+                <label>Email for reset
+                  <input
+                    type="email"
+                    required
+                    placeholder="you@example.com"
+                    value={resetEmail || loginForm.email}
+                    onChange={e => setResetEmail(e.target.value)}
+                  />
+                </label>
+                <p className={styles.resetHint}>We will send a password reset email from Firebase. Check inbox and spam.</p>
+                <button type="submit" className={styles.resetBtn} disabled={loading}>{loading ? 'Sending...' : 'Send reset email'}</button>
+              </form>
+            )}
             <form onSubmit={handleLogin} className={styles.form}>
               <label>Email Address
                 <input type="email" required placeholder="you@example.com"
@@ -103,8 +155,8 @@ export default function Login() {
         {tab === 'signup' && (
           <>
             <div className={styles.socialRow}>
-              <button type="button">Continue with Google</button>
-              <button type="button">Use OTP</button>
+              <button type="button" onClick={handleGoogle} disabled={googleLoading}>{googleLoading ? 'Connecting...' : 'Continue with Google'}</button>
+              <button type="button" onClick={() => { setTab('login'); setShowReset(true); setError(''); }}>Reset password</button>
             </div>
             <form onSubmit={handleSignup} className={styles.form}>
               <label>Full Name

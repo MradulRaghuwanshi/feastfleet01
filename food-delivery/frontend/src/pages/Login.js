@@ -45,9 +45,19 @@ export default function Login() {
 
   return (
     <div className={styles.page}>
+      <section className={styles.story}>
+        <span>FeastFleet</span>
+        <h1>Food runs smoother when your account is ready.</h1>
+        <p>Save addresses, earn Feast Coins, reorder favourites, and track every bite from kitchen to doorstep.</p>
+        <div className={styles.storyStats}>
+          <strong>25 min avg</strong>
+          <strong>Secure pay</strong>
+          <strong>Fast reorder</strong>
+        </div>
+      </section>
       <div className={styles.card}>
-        <div className={styles.brand}>🍔 FoodDash</div>
-        <p className={styles.tagline}>Order food from the best restaurants near you</p>
+        <div className={styles.brand}>FeastFleet</div>
+        <p className={styles.tagline}>Premium local food delivery, tuned for speed.</p>
         <div className={styles.downloadSection}>
           <button className={styles.downloadAppBtn} onClick={handleInstall}>
             <DownloadAppIcon className={styles.downloadIcon} />
@@ -63,6 +73,10 @@ export default function Login() {
 
         {tab === 'login' && (
           <>
+            <div className={styles.socialRow}>
+              <button type="button">Continue with Google</button>
+              <button type="button">Use OTP</button>
+            </div>
             <form onSubmit={handleLogin} className={styles.form}>
               <label>Email Address
                 <input type="email" required placeholder="you@example.com"
@@ -88,6 +102,10 @@ export default function Login() {
 
         {tab === 'signup' && (
           <>
+            <div className={styles.socialRow}>
+              <button type="button">Continue with Google</button>
+              <button type="button">Use OTP</button>
+            </div>
             <form onSubmit={handleSignup} className={styles.form}>
               <label>Full Name
                 <input type="text" required placeholder="e.g. Priya Sharma"

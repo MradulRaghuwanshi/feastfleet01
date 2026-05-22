@@ -15,6 +15,9 @@ export default function RestaurantCard({
   const deliveryLabel = restaurant.hasOwnDelivery
     ? 'Free delivery'
     : `Rs ${restaurant.deliveryFee || 0} delivery`;
+  const distanceLabel = restaurant.distance || restaurant.distanceText || `${(1.2 + (Number(restaurant.rating || 4) % 1.8)).toFixed(1)} km`;
+  const hasVeg = restaurant.menu?.some(item => item.isVeg || /veg|paneer|salad|juice/i.test(item.category || item.name || ''));
+  const hasNonVeg = restaurant.menu?.some(item => item.isVeg === false || /chicken|mutton|fish|egg/i.test(item.category || item.name || ''));
 
   return (
     <div className={`${styles.card} ${!acceptingOrders ? styles.closed : ''}`}>
@@ -37,6 +40,10 @@ export default function RestaurantCard({
             <span>{restaurant.offer}</span>
           </div>
         )}
+        <div className={styles.timeChip}>
+          <ClockIcon className={styles.factIcon} />
+          {restaurant.deliveryTime || '30-45 min'}
+        </div>
         <div className={styles.topMeta}>
           <span className={styles.ratingPill}>
             <StarIcon className={styles.pillIcon} />
@@ -64,8 +71,12 @@ export default function RestaurantCard({
         </div>
         <p className={styles.cuisine}>{highlightText(restaurant.cuisine, highlightQuery)}</p>
         <div className={styles.quickFacts}>
-          <span><ClockIcon className={styles.factIcon} />{restaurant.deliveryTime || '30-45 min'}</span>
+          <span><TruckIcon className={styles.factIcon} />{distanceLabel}</span>
           <span><TruckIcon className={styles.factIcon} />{deliveryLabel}</span>
+        </div>
+        <div className={styles.foodSignals}>
+          {(hasVeg || !hasNonVeg) && <span><i className={styles.vegDot} /> Pure veg options</span>}
+          {hasNonVeg && <span><i className={styles.nonVegDot} /> Non-veg favourites</span>}
         </div>
         {restaurant.tags?.length > 0 && (
           <div className={styles.tags}>

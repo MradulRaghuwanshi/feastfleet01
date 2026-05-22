@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import LocationBar from './LocationBar';
+import { CartIcon, HeartIcon, HistoryIcon, CoinIcon } from './Icons';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
@@ -47,12 +48,12 @@ export default function Navbar() {
       <div className={styles.right}>
         {user?.role === 'customer' && (
           <>
-            <Link to="/favourites" className={styles.link} title="Favourites">❤️</Link>
+            <Link to="/favourites" className={styles.iconLink} title="Favourites"><HeartIcon /></Link>
             <Link to="/orders" className={styles.link}>My Orders</Link>
-            <Link to="/wallet" className={styles.wallet}>🪙 {Math.floor(feastCoins)} Coins</Link>
+            <Link to="/wallet" className={styles.wallet}><CoinIcon /> {Math.floor(feastCoins)} Coins</Link>
             <Link to="/about" className={styles.link}>About</Link>
             <Link to="/checkout" className={styles.cartBtn}>
-              🛒 {totalItems > 0 && <span className={styles.badge}>{totalItems}</span>}
+              <CartIcon /> {totalItems > 0 && <span className={styles.badge}>{totalItems}</span>}
             </Link>
           </>
         )}
@@ -61,10 +62,10 @@ export default function Navbar() {
           <>
             <Link to="/about" className={styles.link}>About</Link>
             <Link to="/checkout" className={styles.cartBtn}>
-              🛒 {totalItems > 0 && <span className={styles.badge}>{totalItems}</span>}
+              <CartIcon /> {totalItems > 0 && <span className={styles.badge}>{totalItems}</span>}
             </Link>
             <button className={styles.avatarBtn} onClick={() => navigate('/login')}>
-              <span className={styles.avatar}>👤</span>
+              <span className={styles.avatar}>FF</span>
               <span className={styles.userName}>Sign In</span>
             </button>
           </>
@@ -88,7 +89,7 @@ export default function Navbar() {
                   <div className={styles.walletRow}>Feast Coins: <strong>{Math.floor(feastCoins)}</strong></div>
                 )}
                 <hr className={styles.hr} />
-                <button className={styles.logoutBtn} onClick={handleLogout}>🚪 Sign Out</button>
+                <button className={styles.logoutBtn} onClick={handleLogout}><HistoryIcon /> Sign Out</button>
               </div>
             )}
           </div>

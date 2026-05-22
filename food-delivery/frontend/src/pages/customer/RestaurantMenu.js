@@ -25,27 +25,28 @@ export default function RestaurantMenu() {
   const canOrder = restaurant.isAcceptingOrdersNow ?? restaurant.isOpen;
   const categories = ['All', ...new Set(restaurant.menu.map(i => i.category))];
   const filtered = activeCategory === 'All' ? restaurant.menu : restaurant.menu.filter(i => i.category === activeCategory);
+  const recommended = restaurant.menu.filter(item => item.isPopular).slice(0, 4);
 
   return (
     <div className={styles.page}>
       <div className={styles.header} style={{ backgroundImage: `url(${restaurant.image})` }}>
         <div className={styles.overlay}>
-          <button className={styles.back} onClick={() => navigate(-1)}>← Back</button>
+          <button className={styles.back} onClick={() => navigate(-1)}>Back</button>
           <div className={styles.headerInfo}>
             <h1>{restaurant.name}</h1>
             <div className={styles.meta}>
-              <span>⭐ {restaurant.rating}</span>
-              <span>🕐 {restaurant.deliveryTime}</span>
+              <span>{restaurant.rating} rating</span>
+              <span>{restaurant.deliveryTime}</span>
             {restaurant.hasOwnDelivery ? (
-              <span className={styles.ownDelivery}>🛵 Free Delivery (Restaurant)</span>
+              <span className={styles.ownDelivery}>Free restaurant delivery</span>
             ) : (
-              <span>🚚 ₹{restaurant.deliveryFee} delivery</span>
+              <span>₹{restaurant.deliveryFee} delivery</span>
             )}
                 <span className={`${styles.statusBadge} ${canOrder ? styles.open : styles.closed}`}>
-                  {canOrder ? '● Open' : `● ${restaurant.orderStatusLabel || 'Closed'}`}
+                  {canOrder ? 'Open now' : (restaurant.orderStatusLabel || 'Closed')}
               </span>
             </div>
-            <p className={styles.address}>📍 {restaurant.address}</p>
+            <p className={styles.address}>{restaurant.address}</p>
               {restaurant.description && <p className={styles.description}>{restaurant.description}</p>}
               {!canOrder && (
                 <div className={styles.closedNotice}>
@@ -57,6 +58,31 @@ export default function RestaurantMenu() {
       </div>
 
       <div className={styles.content}>
+        {restaurant.offer && (
+          <div className={styles.offerStrip}>
+            <strong>{restaurant.offer}</strong>
+            <span>Applied automatically where eligible</span>
+          </div>
+        )}
+
+        {recommended.length > 0 && (
+          <section className={styles.recommendations}>
+            <div className={styles.sectionHeader}>
+              <h2>Chef-loved picks</h2>
+              <span>Fast add</span>
+            </div>
+            <div className={styles.recoRail}>
+              {recommended.map(item => (
+                <button key={item.id} className={styles.recoCard} onClick={() => setActiveCategory(item.category || 'All')}>
+                  {item.image && <img src={item.image} alt="" loading="lazy" decoding="async" />}
+                  <span>{item.name}</span>
+                  <strong>Rs {Number(item.price || 0).toFixed(0)}</strong>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         <div className={styles.categories}>
           {categories.map(c => (
             <button key={c} className={`${styles.catBtn} ${activeCategory === c ? styles.active : ''}`}
@@ -81,6 +107,18 @@ export default function RestaurantMenu() {
       <div style={{maxWidth:900,margin:'0 auto',padding:'0 16px'}}>
         <ReviewSection restaurantId={restaurant.id} />
       </div>
+
+      <section className={styles.similar}>
+        <div className={styles.sectionHeader}>
+          <h2>More reasons to order</h2>
+          <span>Freshly prepared, live tracked, easy reorder</span>
+        </div>
+        <div className={styles.reasonGrid}>
+          <span>Secure online payment</span>
+          <span>Clear delivery fees</span>
+          <span>Reward coins on checkout</span>
+        </div>
+      </section>
 
       {totalItems > 0 && (
         <div className={styles.cartBar}>

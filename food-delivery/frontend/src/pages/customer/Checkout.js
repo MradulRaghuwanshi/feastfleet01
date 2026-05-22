@@ -360,15 +360,31 @@ export default function Checkout() {
 
   if (!cart.items.length) return (
     <div className={styles.empty}>
-      <div className={styles.emptyIcon}>🛒</div>
-      <p>Your cart is empty</p>
-      <button onClick={() => navigate('/')}>Browse Restaurants</button>
+      <div className={styles.emptyArt}>
+        <span />
+        <strong>0</strong>
+      </div>
+      <h2>Your cart is waiting for its first craving.</h2>
+      <p>Explore nearby restaurants, unlock fresh offers, and come back to a faster checkout.</p>
+      <div className={styles.emptyActions}>
+        <button onClick={() => navigate('/')}>Browse Restaurants</button>
+        <button className={styles.secondaryBtn} onClick={() => navigate('/')}>View Offers</button>
+      </div>
+      <div className={styles.emptyHints}>
+        <span>Fast delivery lanes</span>
+        <span>Reward coins</span>
+        <span>Secure checkout</span>
+      </div>
     </div>
   );
 
   return (
     <div className={styles.page}>
-      <h2>Checkout</h2>
+      <div className={styles.checkoutHero}>
+        <span>Almost there</span>
+        <h2>Review, save, and send your order.</h2>
+        <p>Delivery estimate updates after address confirmation.</p>
+      </div>
       <div className={styles.layout}>
 
         {restaurantStatus && !(restaurantStatus.isAcceptingOrdersNow ?? restaurantStatus.isOpen) && (
@@ -401,7 +417,7 @@ export default function Checkout() {
 
           {/* Promo Code */}
           <div className={styles.promoSection}>
-            <h4>🏷️ Promo Code</h4>
+            <h4>Promo Code</h4>
             <div className={styles.promoRow}>
               <input placeholder="Enter promo code" value={promoInput}
                 onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromo(null); setPromoError(''); }} />
@@ -503,7 +519,7 @@ export default function Checkout() {
 
           {/* Payment Method Selection */}
           <div className={styles.paymentSection}>
-            <h4>💳 Payment Method</h4>
+            <h4>Payment Method</h4>
             <div className={styles.paymentOptions}>
               <label className={styles.paymentOption}>
                 <input

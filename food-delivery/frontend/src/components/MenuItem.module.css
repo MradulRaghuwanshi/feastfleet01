@@ -1,19 +1,21 @@
 .card {
-  background: #fff;
-  border: 1px solid #edf2f7;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(16, 24, 40, 0.08);
+  border-radius: 18px;
   display: grid;
   grid-template-columns: 118px minmax(0, 1fr);
   gap: 14px;
   padding: 12px;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.08);
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  content-visibility: auto;
+  contain-intrinsic-size: 150px;
 }
 
 .card:hover {
   transform: translateY(-2px);
-  border-color: #ffd2bf;
-  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.11);
+  border-color: rgba(255, 107, 53, 0.28);
+  box-shadow: 0 18px 38px rgba(16, 24, 40, 0.13);
 }
 
 .unavailable {
@@ -25,7 +27,7 @@
   aspect-ratio: 1 / 1;
   min-height: 108px;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 14px;
   background: #f8fafc;
 }
 
@@ -34,7 +36,10 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.28s ease;
 }
+
+.card:hover .img { transform: scale(1.05); }
 
 .imgFallback {
   width: 100%;
@@ -54,7 +59,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: rgba(17,24,39,0.84);
+  background: rgba(16,24,40,0.86);
   color: #fff;
   border: 1px solid rgba(255,255,255,0.18);
   border-radius: 999px;
@@ -133,14 +138,15 @@
 }
 
 .addBtn {
-  background: #111827;
+  background: #101828;
   color: #fff;
-  border-radius: 8px;
+  border-radius: 999px;
   padding: 8px 18px;
   min-width: 76px;
   font-weight: 900;
   font-size: 14px;
-  box-shadow: 0 8px 16px rgba(17,24,39,0.16);
+  box-shadow: 0 10px 20px rgba(16,24,40,0.18);
+  transition: background 0.18s ease, transform 0.18s ease;
 }
 
 .addBtn:hover { background: #ff6b35; }
@@ -154,6 +160,7 @@
   border: 1px solid #fed7aa;
   border-radius: 999px;
   padding: 4px;
+  animation: qtyPop 0.16s ease both;
 }
 
 .qty button {
@@ -183,6 +190,11 @@
 }
 
 .unavailable .price { color: #94a3b8; }
+
+@keyframes qtyPop {
+  from { transform: scale(0.96); opacity: 0.8; }
+  to { transform: scale(1); opacity: 1; }
+}
 
 @media (max-width: 520px) {
   .card {

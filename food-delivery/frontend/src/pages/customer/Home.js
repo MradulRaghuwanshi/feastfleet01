@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import RestaurantCard from '../../components/RestaurantCard';
 import { FlameIcon, SparkleIcon, TagIcon, TruckIcon } from '../../components/Icons';
 import { getRestaurants, getActivePromos, getRestaurant, getCachedRestaurantsSnapshot, searchRestaurants } from '../../firebase/services';
 import styles from './Home.module.css';
 
-const DEFAULT_CUISINES = ['All', 'Italian', 'American', 'Japanese', 'Mexican', 'Healthy'];
+const DEFAULT_CUISINES = ['All', 'Pizza', 'Biryani', 'Rolls', 'Burger', 'Chinese', 'Healthy', 'Desserts'];
 const OFFER_BG = ['#ff6b35', '#0f766e', '#7c3aed', '#dc2626', '#2563eb', '#ca8a04'];
+const TRENDING_SEARCHES = ['Paneer roll', 'Cold coffee', 'Veg thali', 'Maggi', 'Fresh juice'];
 
 export default function Home() {
   const [restaurants, setRestaurants] = useState(() => getCachedRestaurantsSnapshot('') || []);
@@ -16,6 +18,11 @@ export default function Home() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResults, setSearchResults] = useState({ restaurants: [], dishes: [] });
   const [searchError, setSearchError] = useState('');
+  const [activeCuisine, setActiveCuisine] = useState('All');
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ff_recent_searches') || '[]'); }
+    catch { return []; }
+  });
 
   useEffect(() => {
     let alive = true;
@@ -80,6 +87,19 @@ export default function Home() {
   }, [searchQuery]);
 
   useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query || searchLoading || searchError) return undefined;
+    const timer = setTimeout(() => {
+      setRecentSearches(prev => {
+        const next = [query, ...prev.filter(item => item.toLowerCase() !== query.toLowerCase())].slice(0, 5);
+        localStorage.setItem('ff_recent_searches', JSON.stringify(next));
+        return next;
+      });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [searchError, searchLoading, searchQuery]);
+
+  useEffect(() => {
     if (!restaurants.length) return undefined;
     const preload = () => {
       restaurants.slice(0, 4).forEach(restaurant => {
@@ -94,8 +114,37 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [restaurants]);
 
-  const ownDelivery = restaurants.filter(r => r.hasOwnDelivery);
-  const platformDelivery = restaurants.filter(r => !r.hasOwnDelivery);
+  const cuisineOptions = useMemo(() => {
+    const detected = restaurants
+      .flatMap(r => String(r.cuisine || '').split(','))
+      .map(c => c.trim())
+      .filter(Boolean);
+    return ['All', ...Array.from(new Set([...detected, ...DEFAULT_CUISINES.filter(c => c !== 'All')])).slice(0, 10)];
+  }, [restaurants]);
+
+  const filteredRestaurants = useMemo(() => {
+    if (activeCuisine === 'All') return restaurants;
+    return restaurants.filter(r => {
+      const haystack = `${r.cuisine || ''} ${(r.tags || []).join(' ')}`.toLowerCase();
+      return haystack.includes(activeCuisine.toLowerCase());
+    });
+  }, [activeCuisine, restaurants]);
+
+  const trendingDishes = useMemo(() => {
+    return restaurants
+      .flatMap(r => (r.menu || []).map(item => ({ ...item, restaurantId: r.id, restaurantName: r.name })))
+      .filter(item => item.isPopular || Number(item.rating || 0) >= 4)
+      .slice(0, 8);
+  }, [restaurants]);
+
+  const nearbyRestaurants = useMemo(() => {
+    return [...filteredRestaurants]
+      .sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))
+      .slice(0, 6);
+  }, [filteredRestaurants]);
+
+  const ownDelivery = filteredRestaurants.filter(r => r.hasOwnDelivery);
+  const platformDelivery = filteredRestaurants.filter(r => !r.hasOwnDelivery);
   const copyCode = (code) => {
     navigator.clipboard?.writeText(code);
     setCopied(code);
@@ -111,14 +160,15 @@ export default function Home() {
 
   const searchBox = (
     <div className={styles.searchWrap}>
-      <label className={styles.searchLabel} htmlFor="restaurant-search">Search restaurants, items or categories</label>
+      <label className={styles.searchLabel} htmlFor="restaurant-search">What are you craving right now?</label>
       <div className={styles.searchBar}>
+        <span className={styles.searchGlyph}>⌕</span>
         <input
           id="restaurant-search"
           type="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Try: roll express, maggi, shakes, fast food"
+          placeholder="Search biryani, rolls, juice, restaurant names"
           className={styles.searchInput}
         />
         {searchQuery && (
@@ -136,6 +186,13 @@ export default function Home() {
           )}
         </div>
       )}
+      {!searchQuery.trim() && (
+        <div className={styles.searchChips}>
+          {[...recentSearches, ...TRENDING_SEARCHES].slice(0, 7).map(term => (
+            <button key={term} type="button" onClick={() => setSearchQuery(term)}>{term}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 
@@ -143,14 +200,19 @@ export default function Home() {
     <div className={styles.page}>
       <section className={styles.hero}>
         <div className={styles.heroText}>
-          <span className={styles.kicker}><SparkleIcon /> FeastFleet picks</span>
-          <h1>Fresh meals, faster checkout, better cravings.</h1>
-          <p>Explore trusted restaurants, live offers, and quick delivery options near you.</p>
+          <span className={styles.kicker}><SparkleIcon /> FeastFleet premium picks</span>
+          <h1>Cravings delivered with a little theatre.</h1>
+          <p>Fast local restaurants, bright offers, and checkout that gets out of your way.</p>
           <div className={styles.heroStats}>
-            <span><FlameIcon /> Hot offers</span>
-            <span><TruckIcon /> Fast delivery</span>
-            <span><TagIcon /> Easy savings</span>
+            <span><FlameIcon /> Live offers</span>
+            <span><TruckIcon /> 25-35 min lanes</span>
+            <span><TagIcon /> Smart savings</span>
           </div>
+        </div>
+        <div className={styles.heroPanel} aria-hidden="true">
+          <span>Tonight's fastest cart</span>
+          <strong>Rolls + Shake</strong>
+          <p>Arrives in 28 min</p>
         </div>
       </section>
       {searchBox}
@@ -159,6 +221,20 @@ export default function Home() {
         <SearchResults restaurants={searchResults.restaurants} dishes={searchResults.dishes} loading={searchLoading} />
       ) : (
         <>
+          <section className={styles.categoryRail} aria-label="Food categories">
+            {cuisineOptions.map(cuisine => (
+              <button
+                key={cuisine}
+                type="button"
+                className={`${styles.categoryChip} ${activeCuisine === cuisine ? styles.categoryActive : ''}`}
+                onClick={() => setActiveCuisine(cuisine)}
+              >
+                <span>{cuisine === 'All' ? '✦' : cuisine.slice(0, 1)}</span>
+                {cuisine}
+              </button>
+            ))}
+          </section>
+
           {promos.length > 0 && (
             <section className={styles.section}>
               <div className={styles.sectionHeader}>
@@ -179,6 +255,31 @@ export default function Home() {
                       {copied === p.code ? 'Copied' : p.code}
                     </button>
                   </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {trendingDishes.length > 0 && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <h2><FlameIcon /> Trending dishes</h2>
+                <span>Popular near you</span>
+              </div>
+              <div className={styles.trendingRow}>
+                {trendingDishes.map(item => (
+                  <Link
+                    key={`${item.restaurantId}:${item.id}`}
+                    to={`/restaurant/${item.restaurantId}`}
+                    className={styles.dishCard}
+                  >
+                    {item.image && <img src={item.image} alt={item.name} loading="lazy" decoding="async" />}
+                    <div>
+                      <strong>{item.name}</strong>
+                      <span>{item.restaurantName}</span>
+                      <b>Rs {Number(item.price || 0).toFixed(0)}</b>
+                    </div>
+                  </Link>
                 ))}
               </div>
             </section>
@@ -206,6 +307,20 @@ export default function Home() {
                 </section>
               )}
 
+              {nearbyRestaurants.length > 0 && (
+                <section className={styles.section}>
+                  <div className={styles.sectionHeader}>
+                    <h2><SparkleIcon /> Nearby best rated</h2>
+                    <span>High trust picks</span>
+                  </div>
+                  <div className={styles.grid}>
+                    {nearbyRestaurants.map((r, index) => (
+                      <RestaurantCard key={`nearby-${r.id}`} restaurant={r} priority={index < 2} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {platformDelivery.length > 0 && (
                 <section className={styles.section}>
                   <div className={styles.sectionHeader}>
@@ -220,7 +335,7 @@ export default function Home() {
                 </section>
               )}
 
-              {restaurants.length === 0 && (
+              {filteredRestaurants.length === 0 && (
                 <div className={styles.noResults}>No restaurants found.</div>
               )}
             </>

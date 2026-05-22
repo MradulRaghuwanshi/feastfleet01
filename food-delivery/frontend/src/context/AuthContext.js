@@ -6,6 +6,7 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
 } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
@@ -188,9 +189,23 @@ export function AuthProvider({ children }) {
   const continueWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-
-    const credential = await signInWithPopup(auth, provider);
-    return hydrateUserFromAuth(credential.user);
+    try {
+      const credential = await signInWithPopup(auth, provider);
+      return hydrateUserFromAuth(credential.user);
+    } catch (err) {
+      // Popup blocked or environment doesn't support popups — fallback to redirect
+      const code = err?.code || '';
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/operation-not-supported-in-this-environment' ||
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request'
+      ) {
+        await signInWithRedirect(auth, provider);
+        return null;
+      }
+      throw err;
+    }
   };
 
   const requestPasswordReset = async (email) => {

@@ -133,4 +133,14 @@ async function resolveMenuItemImageOnline(item = {}, options = {}) {
   return options.preferOnline ? resolveMenuItemImage({ ...item, image: '' }) : resolveMenuItemImage(item);
 }
 
-module.exports = { resolveMenuItemImage, resolveMenuItemImageOnline };
+async function resolveMenuItemImageWithSource(item = {}, options = {}) {
+  const fallback = resolveMenuItemImage({ ...item, image: options.preferOnline ? '' : item.image });
+  const image = await resolveMenuItemImageOnline(item, options);
+  return {
+    image,
+    source: image === fallback ? 'fallback' : 'google',
+    googleConfigured: Boolean(process.env.GOOGLE_CUSTOM_SEARCH_API_KEY && process.env.GOOGLE_CUSTOM_SEARCH_CX),
+  };
+}
+
+module.exports = { resolveMenuItemImage, resolveMenuItemImageOnline, resolveMenuItemImageWithSource };

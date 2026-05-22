@@ -157,11 +157,9 @@ async function resolveMenuItemImageOnline(item = {}, options = {}) {
   return options.preferOnline ? resolveMenuItemImage({ ...item, image: '' }) : resolveMenuItemImage(item);
 }
 
-async function getGoogleImageSearchDiagnostics(item = {}) {
+async function requestGoogleSearchDiagnostics(query, searchType) {
   const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
   const cx = process.env.GOOGLE_CUSTOM_SEARCH_CX;
-  const queries = buildSearchQueries(item);
-  const query = queries[0] || normalizeQuery(item);
 
   if (!apiKey || !cx) {
     return {
@@ -176,10 +174,10 @@ async function getGoogleImageSearchDiagnostics(item = {}) {
     key: apiKey,
     cx,
     q: query,
-    searchType: 'image',
     num: '3',
     safe: 'active',
   });
+  if (searchType) params.set('searchType', searchType);
 
   const response = await fetch(`https://www.googleapis.com/customsearch/v1?${params.toString()}`);
   const data = await response.json().catch(() => ({}));
@@ -200,6 +198,23 @@ async function getGoogleImageSearchDiagnostics(item = {}) {
     itemCount: items.length,
     firstImage: items[0]?.link || items[0]?.image?.thumbnailLink || '',
     firstTitle: items[0]?.title || '',
+  };
+}
+
+async function getGoogleImageSearchDiagnostics(item = {}) {
+  const queries = buildSearchQueries(item);
+  const query = queries[0] || normalizeQuery(item);
+  const web = await requestGoogleSearchDiagnostics(query);
+  const image = await requestGoogleSearchDiagnostics(query, 'image');
+
+  return {
+    configured: Boolean(process.env.GOOGLE_CUSTOM_SEARCH_API_KEY && process.env.GOOGLE_CUSTOM_SEARCH_CX),
+    query,
+    web,
+    image,
+    likelyIssue: !web.ok
+      ? 'GOOGLE_CUSTOM_SEARCH_CX is invalid or the Programmable Search Engine is not available to this API key/project.'
+      : (!image.ok ? 'Image Search is disabled or unsupported for this Programmable Search Engine.' : null),
     queriesTriedByResolver: queries,
   };
 }

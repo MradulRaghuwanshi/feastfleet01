@@ -6,6 +6,9 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  setPersistence,
+  browserLocalPersistence,
   signOut,
 } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
@@ -193,16 +196,25 @@ export function AuthProvider({ children }) {
       return hydrateUserFromAuth(credential.user);
     } catch (err) {
       const code = err?.code || '';
+      // If popup is blocked or not supported, fallback to redirect flow but persist state in localStorage
       if (
         code === 'auth/popup-blocked' ||
         code === 'auth/operation-not-supported-in-this-environment' ||
         code === 'auth/popup-closed-by-user' ||
         code === 'auth/cancelled-popup-request'
       ) {
-        throw new Error('Google sign-in was blocked by this browser. Open FeastFleet in Chrome/Safari, or use email and password sign-in.');
+        try {
+          await setPersistence(auth, browserLocalPersistence);
+          await signInWithRedirect(auth, provider);
+          // signInWithRedirect will redirect the page; return to avoid falling through
+          return;
+        } catch (redirectErr) {
+          console.error('Google redirect fallback failed:', redirectErr);
+          throw new Error('Google sign-in blocked. Try opening FeastFleet in a standard browser (Chrome/Safari) or use email/password sign-in.');
+        }
       }
       if (code === 'auth/unauthorized-domain') {
-        throw new Error('This domain is not allowed in Firebase Authentication. Add your FeastFleet domain in Firebase Auth authorized domains.');
+        throw new Error('This domain is not allowed in Firebase Authentication. Add your FeastFleet domain in Firebase Auth authorized domains (Firebase Console).');
       }
       throw err;
     }
@@ -213,12 +225,19 @@ export function AuthProvider({ children }) {
     if (!normalizedEmail) throw new Error('Email is required');
 
     try {
-      await sendPasswordResetEmail(auth, normalizedEmail, {
-        url: `${window.location.origin}/login`,
-        handleCodeInApp: false,
-      });
+      try {
+        await sendPasswordResetEmail(auth, normalizedEmail, {
+          url: `${window.location.origin}/login`,
+          handleCodeInApp: false,
+        });
+      } catch (firstErr) {
+        console.warn('Password reset with custom URL failed, retrying without action settings:', firstErr);
+        // Retry without action settings to allow Firebase Console defaults to be used
+        await sendPasswordResetEmail(auth, normalizedEmail);
+      }
       return { ok: true, message: `Password reset email sent to ${normalizedEmail}. Check your inbox and spam folder.` };
     } catch (error) {
+      console.error('sendPasswordResetEmail error:', error);
       try {
         const legacy = await getDocs(query(collection(db, 'loginCredentials'), where('email', '==', normalizedEmail)));
         if (!legacy.empty) {
@@ -228,10 +247,19 @@ export function AuthProvider({ children }) {
         if (lookupError.message) throw lookupError;
       }
 
-      if (error.code === 'auth/user-not-found') {
+      // Map common firebase error codes to friendlier messages
+      const code = error?.code || '';
+      if (code === 'auth/user-not-found') {
         throw new Error('No Firebase account exists for that email yet. Please sign in or create an account first.');
       }
-      throw new Error(error.message || 'Unable to send password reset email');
+      if (code === 'auth/invalid-email') {
+        throw new Error('The email address is invalid. Please check and try again.');
+      }
+      if (code === 'auth/invalid-action-code' || code === 'auth/unauthorized-domain') {
+        throw new Error('Password reset blocked by project settings. Ensure your app origin is added to Firebase Auth authorized domains and email action URLs are configured.');
+      }
+      // If sending failed for other reasons, give guidance to check Firebase Console
+      throw new Error(error.message || 'Unable to send password reset email. Check Firebase Authentication email templates and project settings (authorized domains, email action templates).');
     }
   };
 

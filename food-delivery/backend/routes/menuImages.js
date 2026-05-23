@@ -114,4 +114,92 @@ router.get('/diagnostics', async (req, res) => {
   }
 });
 
+// POST /api/menu-images/update-item
+// Update a specific menu item's image
+router.post('/update-item', async (req, res) => {
+  try {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const { restaurantId, itemId, imageUrl } = req.body;
+
+    if (!restaurantId || !itemId || !imageUrl) {
+      return res.status(400).json({ error: 'restaurantId, itemId, and imageUrl are required' });
+    }
+
+    const itemRef = db.collection('restaurants').doc(restaurantId).collection('menu').doc(itemId);
+    const itemDoc = await itemRef.get();
+
+    if (!itemDoc.exists) {
+      return res.status(404).json({ error: 'Menu item not found' });
+    }
+
+    await itemRef.set({
+      image: imageUrl,
+      imageUrl: imageUrl,
+      imageSource: 'admin-manual',
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+
+    res.json({
+      ok: true,
+      message: 'Menu item image updated successfully',
+      itemId,
+      imageUrl,
+    });
+  } catch (error) {
+    console.error('Update menu item image error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/menu-images/batch-update
+// Batch update images for multiple items
+router.post('/batch-update', async (req, res) => {
+  try {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const { restaurantId, items } = req.body;
+
+    if (!restaurantId || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'restaurantId and items array are required' });
+    }
+
+    const results = { updated: 0, failed: 0, errors: [] };
+
+    for (const { itemId, imageUrl } of items) {
+      try {
+        if (!itemId || !imageUrl) {
+          results.failed++;
+          results.errors.push(`Skipped: itemId and imageUrl are required`);
+          continue;
+        }
+
+        const itemRef = db.collection('restaurants').doc(restaurantId).collection('menu').doc(itemId);
+        await itemRef.set({
+          image: imageUrl,
+          imageUrl: imageUrl,
+          imageSource: 'admin-manual',
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+
+        results.updated++;
+      } catch (itemError) {
+        results.failed++;
+        results.errors.push(`Failed to update ${itemId}: ${itemError.message}`);
+      }
+    }
+
+    res.json({
+      ok: true,
+      message: 'Batch update completed',
+      ...results,
+    });
+  } catch (error) {
+    console.error('Batch update menu images error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

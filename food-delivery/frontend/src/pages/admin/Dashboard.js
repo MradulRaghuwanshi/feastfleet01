@@ -883,8 +883,8 @@ function Settlements({ orders }) {
 
 function Settings({ config, onSave }) {
   const [form, setForm] = useState({
-    platformFee: 8,
-    packagingFee: 10,
+    platformFee: 4,
+    packagingFee: 5,
     defaultDeliveryFee: 30,
     defaultMinOrder: 149,
   });
@@ -895,8 +895,8 @@ function Settings({ config, onSave }) {
   useEffect(() => {
     if (config) {
       setForm({
-        platformFee: config.platformFee ?? 8,
-        packagingFee: config.packagingFee ?? 10,
+        platformFee: config.platformFee ?? 4,
+        packagingFee: config.packagingFee ?? 5,
         defaultDeliveryFee: config.defaultDeliveryFee ?? 30,
         defaultMinOrder: config.defaultMinOrder ?? 149,
         cuisines: Array.isArray(config.cuisines)

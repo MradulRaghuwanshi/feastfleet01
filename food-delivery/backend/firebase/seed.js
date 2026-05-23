@@ -246,9 +246,9 @@ async function seed() {
     seededAt:        new Date().toISOString(),
     
     // Fee Configuration (Admin editable)
-    platformFee:       8,     // ₹8 flat platform fee per order
+    platformFee:       4,     // ₹4 flat platform fee per order
     gstPercent:        0,
-    packagingFee:      10,    // ₹10 packaging charge
+    packagingFee:      5,     // ₹5 packaging charge
     defaultDeliveryFee:30,    // Maximum tier delivery fee
     defaultMinOrder:   149,   // Default minimum order value
   });

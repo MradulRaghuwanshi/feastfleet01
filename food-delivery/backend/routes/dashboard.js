@@ -4,8 +4,8 @@ const router = express.Router();
 
 const defaultConfig = {
   appName: 'FeastFleet',
-  platformFee: 8,
-  packagingFee: 10,
+  platformFee: 4,
+  packagingFee: 5,
   defaultDeliveryFee: 30,
   defaultMinOrder: 149,
   gstPercent: 0,
@@ -117,8 +117,8 @@ router.patch('/config', async (req, res) => {
     }
 
     const updates = {
-      platformFee: Number(req.body.platformFee ?? 8),
-      packagingFee: Number(req.body.packagingFee ?? 10),
+      platformFee: Number(req.body.platformFee ?? 4),
+      packagingFee: Number(req.body.packagingFee ?? 5),
       defaultDeliveryFee: Number(req.body.defaultDeliveryFee ?? 30),
       defaultMinOrder: Number(req.body.defaultMinOrder ?? 149),
       gstPercent: Number(req.body.gstPercent ?? 0),

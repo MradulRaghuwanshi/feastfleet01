@@ -1,7 +1,9 @@
 import React from 'react';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { FlameIcon, SparkleIcon } from './Icons';
 import { resolveMenuItemImage } from '../utils/menuImages';
+import PriceDisplay from './PriceDisplay';
 import styles from './MenuItem.module.css';
 
 export default function MenuItem({
@@ -13,10 +15,12 @@ export default function MenuItem({
   priority = false,
 }) {
   const { cart, addItem, removeItem } = useCart();
+  const { user } = useAuth();
   const cartItem = cart.items.find(i => i.id === item.id);
   const qty = cartItem ? cartItem.quantity : 0;
   const isAvailableToOrder = canOrder && item.available;
   const image = resolveMenuItemImage(item);
+  const isNewUser = Boolean(user?.isNewUser);
 
   return (
     <div className={`${styles.card} ${!isAvailableToOrder ? styles.unavailable : ''}`}>
@@ -49,7 +53,9 @@ export default function MenuItem({
         {item.category && <span className={styles.category}>{item.category}</span>}
         <p>{item.description}</p>
         <div className={styles.bottom}>
-          <span className={styles.price}>Rs {Number(item.price || 0).toFixed(0)}</span>
+          <span className={styles.price}>
+            <PriceDisplay originalPrice={item.price} isNewUser={isNewUser} />
+          </span>
           {isAvailableToOrder ? (
             qty === 0 ? (
               <button className={styles.addBtn} onClick={() => addItem(item, restaurantId, restaurantName, hasOwnDelivery)}>Add</button>

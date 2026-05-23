@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import MenuItem from '../../components/MenuItem';
 import ReviewSection from '../../components/ReviewSection';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext';
 import { getRestaurant } from '../../firebase/services';
+import { getInflatedPrice } from '../../utils/offerPricing';
 import styles from './RestaurantMenu.module.css';
 
 // Lazy load the map to prevent leaflet from crashing the whole app
@@ -14,7 +16,8 @@ export default function RestaurantMenu() {
   const navigate = useNavigate();
   const [restaurant, setRestaurant] = useState(null);
   const [activeCategory, setActiveCategory] = useState('All');
-  const { totalItems, subtotal } = useCart();
+  const { cart, totalItems } = useCart();
+  const { user } = useAuth();
 
   useEffect(() => {
     getRestaurant(id).then(setRestaurant);
@@ -23,9 +26,16 @@ export default function RestaurantMenu() {
   if (!restaurant) return <MenuSkeleton />;
 
   const canOrder = restaurant.isAcceptingOrdersNow ?? restaurant.isOpen;
+  const isNewUser = Boolean(user?.isNewUser);
   const categories = ['All', ...new Set(restaurant.menu.map(i => i.category))];
   const filtered = activeCategory === 'All' ? restaurant.menu : restaurant.menu.filter(i => i.category === activeCategory);
   const recommended = restaurant.menu.filter(item => item.isPopular).slice(0, 4);
+  const displayedSubtotal = Math.round(
+    cart.items.reduce((sum, item) => {
+      const unitInflated = getInflatedPrice(item.price, undefined, isNewUser);
+      return sum + unitInflated * Number(item.quantity || 0);
+    }, 0)
+  );
 
   return (
     <div className={styles.page}>
@@ -76,7 +86,7 @@ export default function RestaurantMenu() {
                 <button key={item.id} className={styles.recoCard} onClick={() => setActiveCategory(item.category || 'All')}>
                   {item.image && <img src={item.image} alt="" loading="lazy" decoding="async" />}
                   <span>{item.name}</span>
-                  <strong>Rs {Number(item.price || 0).toFixed(0)}</strong>
+                  <strong>Rs {getInflatedPrice(item.price, undefined, isNewUser)}</strong>
                 </button>
               ))}
             </div>
@@ -122,7 +132,7 @@ export default function RestaurantMenu() {
 
       {totalItems > 0 && (
         <div className={styles.cartBar}>
-          <span>{totalItems} item{totalItems > 1 ? 's' : ''} · ₹{subtotal.toFixed(0)}</span>
+          <span>{totalItems} item{totalItems > 1 ? 's' : ''} · ₹{displayedSubtotal}</span>
           <button onClick={() => navigate('/checkout')} disabled={!canOrder}>
             {canOrder ? 'View Cart →' : 'Closed'}
           </button>

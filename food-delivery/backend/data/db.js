@@ -194,9 +194,9 @@ const appConfig = {
   currencySymbol: '₹',
   supportEmail: 'support@feastfleet.in',
   version: '1.0.0',
-  platformFee: 8,
+  platformFee: 4,
   gstPercent: 0,
-  packagingFee: 10,
+  packagingFee: 5,
   defaultDeliveryFee: 30,
   defaultMinOrder: 149,
 };

@@ -33,6 +33,7 @@
 
 .closedBanner,
 .cartSection,
+.offerSection,
 .promoSection,
 .walletSection,
 .billSection,
@@ -53,6 +54,7 @@
 }
 
 .cartSection,
+.offerSection,
 .promoSection,
 .walletSection,
 .billSection { padding: 16px; }
@@ -80,9 +82,14 @@
 .itemInfo { flex: 1; min-width: 0; }
 .itemName { font-size: 14px; font-weight: 800; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #101828; }
 .itemPrice { font-size: 13px; font-weight: 900; color: #ff6b35; }
+.qtyMeta { display: inline-block; margin-top: 3px; color: #667085; font-size: 11px; font-weight: 700; }
 .qtyControls { display: flex; align-items: center; gap: 7px; flex-shrink: 0; background: #fff4ed; border: 1px solid #ffd3bd; border-radius: 999px; padding: 4px; }
 .qtyControls button { background: #ff6b35; color: #fff; width: 28px; height: 28px; border-radius: 50%; font-size: 16px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
 .qtyControls span { font-weight: 900; min-width: 18px; text-align: center; font-size: 14px; }
+
+.offerSection h4 { font-size: 14px; font-weight: 900; margin-bottom: 11px; color: #101828; }
+.offerApplied { margin-top: 10px; font-size: 12px; font-weight: 800; color: #047857; }
+.offerHint { margin-top: 10px; font-size: 12px; font-weight: 800; color: #0c4a6e; }
 
 .promoSection h4,
 .billSection h4,

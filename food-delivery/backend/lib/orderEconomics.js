@@ -26,8 +26,8 @@ function calculateFeastCoinsEarned(subtotal) {
 
 function calculateBill({ subtotal, discount = 0, feastCoinRedemption = 0, gstPercent = 0 } = {}) {
   const foodSubtotal = round2(Number(subtotal || 0));
-  const platformFee = 8;
-  const packagingFee = 10;
+  const platformFee = 4;
+  const packagingFee = 5;
   const gstAmount = 0;
   const deliveryFee = getDeliveryFeeForTier(foodSubtotal);
   const safeDiscount = Math.min(round2(discount), foodSubtotal);

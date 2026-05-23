@@ -6,6 +6,9 @@ import { useDeliveryLocation } from '../../context/LocationContext';
 const LocationPicker = React.lazy(() => import('../../components/LocationPicker'));
 import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES, getRestaurant, updateOrderFields } from '../../firebase/services';
 import { apiUrl } from '../../utils/apiConfig';
+import OfferBanner from '../../components/OfferBanner';
+import PriceDisplay from '../../components/PriceDisplay';
+import { OFFERS, applyOffer, getBestOffer, getEligibleOffers, getInflatedPrice } from '../../utils/offerPricing';
 import styles from './Checkout.module.css';
 
 const RAZORPAY_KEY_ID = process.env.REACT_APP_RAZORPAY_KEY_ID;
@@ -75,6 +78,26 @@ export default function Checkout() {
   }, [cart.restaurantId]);
 
   const walletBalance = wallet?.isVirtual ? (user?.feastCoins ?? user?.wallet ?? 0) : (wallet?.currentBalance ?? user?.feastCoins ?? user?.wallet ?? 0);
+  const isNewUser = Boolean(isGuest || user?.isNewUser);
+
+  const eligibleOffers = getEligibleOffers(OFFERS, isNewUser);
+  const inflatedSubtotal = Math.round(
+    cart.items.reduce((sum, item) => {
+      const inflatedUnitPrice = getInflatedPrice(item.price, OFFERS, isNewUser);
+      return sum + inflatedUnitPrice * Number(item.quantity || 0);
+    }, 0)
+  );
+
+  const bestOffer = getBestOffer(inflatedSubtotal, OFFERS, isNewUser);
+  const offerDiscount = Math.round(applyOffer(bestOffer, inflatedSubtotal));
+
+  const bestLockedOffer = eligibleOffers
+    .filter((offer) => inflatedSubtotal < Number(offer.min || 0))
+    .sort((a, b) => Number(b.disc || 0) - Number(a.disc || 0))[0] || null;
+  const amountToUnlock = bestLockedOffer
+    ? Math.max(0, Math.round(Number(bestLockedOffer.min || 0) - inflatedSubtotal))
+    : 0;
+
   const bill = calculateBill({
     items: cart.items,
     subtotal,
@@ -83,6 +106,16 @@ export default function Checkout() {
     redeemFeastCoins: useFeastCoins,
   });
   const canRedeemCoins = walletBalance >= PLATFORM_FEES.minimumCoinRedemption;
+  const promoDiscount = Math.round(bill.discount || 0);
+  const feastCoinDiscount = Math.round(bill.feastCoinRedemption || 0);
+  const chargesTotal = Math.round((bill.platformFee || 0) + (bill.packagingFee || 0) + (bill.deliveryFee || 0));
+  const finalPayable = Math.max(0, inflatedSubtotal + chargesTotal - offerDiscount - promoDiscount - feastCoinDiscount);
+  const subtotalForOrder = inflatedSubtotal;
+  const platformCommissionPercent = Math.round(bill.commissionPercent || 15);
+  const platformCommission = Math.round((subtotalForOrder * platformCommissionPercent) / 100);
+  const netSettlementAmount = Math.max(0, subtotalForOrder - platformCommission);
+  const feastCoinsEarned = Math.floor(subtotalForOrder / 100) * 5;
+
   const expiryDays = wallet?.expiresAt
     ? Math.max(0, Math.ceil((new Date(wallet.expiresAt) - new Date()) / (24 * 60 * 60 * 1000)))
     : null;
@@ -103,7 +136,7 @@ export default function Checkout() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Math.round(bill.finalPayable * 100), // Convert to paise
+          amount: Math.round(finalPayable * 100), // Convert to paise
           currency: 'INR',
           receipt: `order_${Date.now()}`,
           customerName: customer.name,
@@ -301,17 +334,18 @@ export default function Checkout() {
         deliveryAgentId: cart.restaurantHasOwnDelivery ? null : 'u5',
         deliveryAgentName: cart.restaurantHasOwnDelivery ? 'Restaurant Delivery' : 'Arjun Patel',
         items: cart.items.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity, image: i.image || '' })),
-        subtotal: +bill.subtotal.toFixed(2),
-        platformCommission: bill.platformCommission,
-        platformCommissionPercent: bill.commissionPercent,
+        subtotal: subtotalForOrder,
+        platformCommission,
+        platformCommissionPercent,
+        netSettlementAmount,
         packagingFee: bill.packagingFee,
         platformFee: bill.platformFee,
         deliveryFee: bill.deliveryFee,
-        discount: +bill.discount.toFixed(2),
+        discount: offerDiscount + promoDiscount,
         walletUsed: 0,
-        feastCoinRedemption: bill.feastCoinRedemption,
-        feastCoinsEarned: bill.coinsEarned,
-        total: +bill.finalPayable.toFixed(2),
+        feastCoinRedemption: feastCoinDiscount,
+        feastCoinsEarned,
+        total: finalPayable,
         promoCode: promo?.code || null,
         redeemFeastCoins: !isGuest && useFeastCoins,
         deliveryAddress,
@@ -404,7 +438,10 @@ export default function Checkout() {
                 )}
                 <div className={styles.itemInfo}>
                   <span className={styles.itemName}>{item.name}</span>
-                  <span className={styles.itemPrice}>₹{(item.price * item.quantity).toFixed(0)}</span>
+                  <span className={styles.itemPrice}>
+                    <PriceDisplay originalPrice={item.price} isNewUser={isNewUser} />
+                    <small className={styles.qtyMeta}>x {item.quantity}</small>
+                  </span>
                 </div>
                 <div className={styles.qtyControls}>
                   <button onClick={() => removeItem(item.id)}>−</button>
@@ -413,6 +450,16 @@ export default function Checkout() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className={styles.offerSection}>
+            <h4>Offers & savings</h4>
+            <OfferBanner offers={eligibleOffers} />
+            {bestOffer ? (
+              <p className={styles.offerApplied}>{bestOffer.label} applied. You save ₹{offerDiscount}.</p>
+            ) : bestLockedOffer ? (
+              <p className={styles.offerHint}>Add ₹{amountToUnlock} more to unlock ₹{bestLockedOffer.disc} off.</p>
+            ) : null}
           </div>
 
           {/* Promo Code */}
@@ -458,14 +505,15 @@ export default function Checkout() {
           {/* Bill Summary */}
           <div className={styles.billSection}>
             <h4>Bill Summary</h4>
-            <div className={styles.billRow}><span>Item subtotal</span><span>₹{bill.subtotal.toFixed(0)}</span></div>
+            <div className={styles.billRow}><span>Subtotal</span><span>₹{inflatedSubtotal}</span></div>
+            {offerDiscount > 0 && <div className={`${styles.billRow} ${styles.discount}`}><span>Offer discount</span><span>-₹{offerDiscount}</span></div>}
             <div className={styles.billRow}><span>Platform Fee</span><span>₹{bill.platformFee}</span></div>
             <div className={styles.billRow}><span>Packaging Fee</span><span>₹{bill.packagingFee}</span></div>
             <div className={styles.billRow}><span>Delivery Fee</span><span>{bill.deliveryFee === 0 ? <span className={styles.free}>Free</span> : `₹${bill.deliveryFee}`}</span></div>
-            {bill.discount > 0 && <div className={`${styles.billRow} ${styles.discount}`}><span>Discount ({promo?.code})</span><span>-₹{bill.discount.toFixed(0)}</span></div>}
-            {bill.feastCoinRedemption > 0 && <div className={`${styles.billRow} ${styles.discount}`}><span>Feast Coins</span><span>-₹{bill.feastCoinRedemption.toFixed(0)}</span></div>}
-            <div className={styles.billRow}><span>Coins earned</span><span>{bill.coinsEarned} coins</span></div>
-            <div className={`${styles.billRow} ${styles.totalRow}`}><span>Final payable</span><span>₹{bill.finalPayable.toFixed(0)}</span></div>
+            {promoDiscount > 0 && <div className={`${styles.billRow} ${styles.discount}`}><span>Discount ({promo?.code})</span><span>-₹{promoDiscount}</span></div>}
+            {feastCoinDiscount > 0 && <div className={`${styles.billRow} ${styles.discount}`}><span>Feast Coins</span><span>-₹{feastCoinDiscount}</span></div>}
+            <div className={styles.billRow}><span>Coins earned</span><span>{feastCoinsEarned} coins</span></div>
+            <div className={`${styles.billRow} ${styles.totalRow}`}><span>Grand total</span><span>₹{finalPayable}</span></div>
           </div>
         </div>
 
@@ -556,7 +604,7 @@ export default function Checkout() {
             className={styles.placeBtn} 
             disabled={loading || paymentLoading}
           >
-            {loading || paymentLoading ? 'Processing...' : `Place Order · ₹${bill.finalPayable.toFixed(0)}`}
+            {loading || paymentLoading ? 'Processing...' : `Place Order · ₹${finalPayable}`}
           </button>
         </form>
       </div>

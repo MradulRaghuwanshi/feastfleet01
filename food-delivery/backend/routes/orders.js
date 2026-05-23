@@ -81,8 +81,8 @@ router.post('/', async (req, res) => {
         }
       }
 
-      const pf = platformFee ?? 8;
-      const pkf = packagingFee ?? 10;
+      const pf = platformFee ?? 4;
+      const pkf = packagingFee ?? 5;
       const ga = 0;
       const total = +(subtotal + pf + pkf - discount + deliveryFee - walletUsed).toFixed(2);
       const agent = users.find(u => u.role === 'delivery');
@@ -172,8 +172,8 @@ router.post('/', async (req, res) => {
       }
     }
 
-    const pf = platformFee ?? 8;
-    const pkf = packagingFee ?? 10;
+    const pf = platformFee ?? 4;
+    const pkf = packagingFee ?? 5;
     const ga = 0;
     const total = +(subtotal + pf + pkf - discount + deliveryFee - walletUsed).toFixed(2);
 

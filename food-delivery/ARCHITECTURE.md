@@ -31,8 +31,8 @@ Order status is linear, but restaurant acceptance and driver assignment are also
 
 ## Pricing Rules
 
-- Platform fee: INR 8 fixed.
-- Packaging fee: INR 10 fixed.
+- Platform fee: INR 4 fixed.
+- Packaging fee: INR 5 fixed.
 - Delivery fee:
   - subtotal below INR 100: INR 30
   - subtotal below INR 150: INR 20

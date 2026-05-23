@@ -27,8 +27,8 @@ export const LEGACY_STATUS_MAP = {
 };
 
 export const PLATFORM_FEES = {
-  platformFee: 8,
-  packagingFee: 10,
+  platformFee: 4,
+  packagingFee: 5,
   deliveryEarning: 40,
   restaurantCommissionPercent: 15,
   gstPercent: 0,

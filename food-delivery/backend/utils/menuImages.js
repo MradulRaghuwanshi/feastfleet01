@@ -254,9 +254,10 @@ async function getGoogleImageSearchDiagnostics(item = {}) {
 async function resolveMenuItemImageWithSource(item = {}, options = {}) {
   const fallback = resolveMenuItemImage({ ...item, image: options.preferOnline ? '' : item.image });
   const image = await resolveMenuItemImageOnline(item, options);
+  const generated = image.includes('image.pollinations.ai/prompt/');
   return {
     image,
-    source: image === fallback ? 'fallback' : 'google',
+    source: generated ? 'generated' : (image === fallback ? 'fallback' : 'google'),
     googleConfigured: Boolean(process.env.GOOGLE_CUSTOM_SEARCH_API_KEY && process.env.GOOGLE_CUSTOM_SEARCH_CX),
   };
 }

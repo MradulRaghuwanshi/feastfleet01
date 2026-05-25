@@ -16,7 +16,7 @@ import {
 import { collection, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { fileToDataUrl } from '../../utils/imageFile';
-import { fetchMenuItemImage } from '../../utils/menuImages';
+import { fetchMenuItemGoogleImage, fetchMenuItemImage } from '../../utils/menuImages';
 import styles from './Dashboard.module.css';
 
 const ReviewSection = React.lazy(() => import('../../components/ReviewSection'));
@@ -108,6 +108,7 @@ export default function RestaurantDashboard() {
   const [newItem, setNewItem]       = useState({ name: '', description: '', price: '', category: '', image: '' });
   const [showAddItem, setShowAddItem] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
+  const [refreshingImages, setRefreshingImages] = useState(false);
 
   const fetchRestaurant = useCallback(async () => {
     const r = await getRestaurant(user.restaurantId);
@@ -321,6 +322,31 @@ export default function RestaurantDashboard() {
     fetchRestaurant();
   };
 
+  const refreshGoogleImages = async () => {
+    const items = restaurant?.menu || [];
+    if (!items.length) return;
+
+    setRefreshingImages(true);
+    let updated = 0;
+    try {
+      for (const item of items) {
+        const result = await fetchMenuItemGoogleImage(item);
+        if (!result?.image || result.image === item.image) continue;
+        await updateDoc(doc(db, 'restaurants', user.restaurantId, 'menu', item.id), {
+          image: result.image,
+          imageUrl: result.image,
+          imageSource: 'google-auto',
+          updatedAt: new Date().toISOString(),
+        });
+        updated++;
+      }
+      await fetchRestaurant();
+      alert(updated ? `Updated ${updated} menu image${updated === 1 ? '' : 's'} from Google.` : 'No new Google images were found.');
+    } finally {
+      setRefreshingImages(false);
+    }
+  };
+
   return (
     <div className={styles.page}>
       {/* Header */}
@@ -426,6 +452,8 @@ export default function RestaurantDashboard() {
           saveMenuItem={saveMenuItem}
           deleteMenuItem={deleteMenuItem}
           savingItem={savingItem}
+          refreshingImages={refreshingImages}
+          refreshGoogleImages={refreshGoogleImages}
           showAddItem={showAddItem}
           setShowAddItem={setShowAddItem}
           newItem={newItem}
@@ -884,6 +912,7 @@ function BillTab({ billOrder, orders, setBillOrder }) {
 function MenuTab({
   restaurant, toggleMenuItem, editItem, setEditItem,
   saveMenuItem, deleteMenuItem, savingItem,
+  refreshingImages, refreshGoogleImages,
   showAddItem, setShowAddItem, newItem, setNewItem,
 }) {
   const [menuSearch, setMenuSearch] = useState('');
@@ -907,9 +936,18 @@ function MenuTab({
     <div className={styles.menuSection}>
       <div className={styles.menuTopBar}>
         <h3>Menu Items ({restaurant?.menu?.length || 0})</h3>
-        <button className={styles.addItemBtn} onClick={() => setShowAddItem(true)}>
-          + Add Item
-        </button>
+        <div className={styles.menuTopActions}>
+          <button
+            className={styles.googleImagesBtn}
+            onClick={refreshGoogleImages}
+            disabled={refreshingImages || !restaurant?.menu?.length}
+          >
+            {refreshingImages ? 'Updating...' : 'Update Google Images'}
+          </button>
+          <button className={styles.addItemBtn} onClick={() => setShowAddItem(true)}>
+            + Add Item
+          </button>
+        </div>
       </div>
 
       {/* Search bar */}

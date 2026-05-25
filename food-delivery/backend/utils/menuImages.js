@@ -262,12 +262,9 @@ async function requestGoogleImageSearch(query) {
   }
 
   const data = await response.json();
-  const url = (data.items || [])
+  return (data.items || [])
     .map(result => result.link || result.image?.thumbnailLink)
     .find(isUsableImage) || '';
-
-  if (url) imageCache.set(cacheKey, { url, timestamp: Date.now() });
-  return url;
 }
 
 async function fetchGoogleMenuItemImage(item = {}) {

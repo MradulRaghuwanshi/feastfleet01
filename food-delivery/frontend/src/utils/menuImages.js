@@ -240,3 +240,29 @@ export const fetchMenuItemImage = async (item = {}) => {
     return resolveGeneratedMenuItemImage(item) || resolveMenuItemImage({ ...item, image: '' });
   }
 };
+
+export const fetchMenuItemGoogleImage = async (item = {}) => {
+  const name = String(item.name || '').trim();
+  if (!name) return null;
+
+  const params = new URLSearchParams({
+    name,
+    category: item.category || '',
+  });
+
+  try {
+    const response = await fetch(apiUrl(`/menu-images/resolve?${params.toString()}`), {
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Image lookup failed with status ${response.status}`);
+    const data = await response.json();
+    if (data.source !== 'google' || !data.image) return null;
+    return {
+      image: data.image,
+      googleConfigured: Boolean(data.googleConfigured),
+    };
+  } catch (error) {
+    console.warn('Google menu image lookup failed:', error);
+    return null;
+  }
+};

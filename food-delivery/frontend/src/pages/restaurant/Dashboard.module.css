@@ -523,14 +523,36 @@
   font-size: 20px;
 }
 
-.addItemBtn {
+.menuTopActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.addItemBtn,
+.googleImagesBtn {
   padding: 12px 18px;
   border-radius: 14px;
   font-weight: 700;
-  background: #2563eb;
-  color: white;
   border: none;
   cursor: pointer;
+}
+
+.addItemBtn {
+  background: #2563eb;
+  color: white;
+}
+
+.googleImagesBtn {
+  background: #ecfeff;
+  color: #0e7490;
+  border: 1px solid #a5f3fc;
+}
+
+.googleImagesBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .menuItemImg {

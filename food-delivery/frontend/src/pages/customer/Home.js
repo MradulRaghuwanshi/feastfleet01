@@ -4,10 +4,11 @@ import RestaurantCard from '../../components/RestaurantCard';
 import { FlameIcon, SparkleIcon, TagIcon, TruckIcon } from '../../components/Icons';
 import { useCart } from '../../context/CartContext';
 import { getRestaurants, getActivePromos, getRestaurant, getCachedRestaurantsSnapshot, searchRestaurants } from '../../firebase/services';
+import { hasVegItems, isVegItem } from '../../utils/diet';
 import { withMenuItemImage } from '../../utils/menuImages';
 import styles from './Home.module.css';
 
-const DEFAULT_CUISINES = ['All', 'Pizza', 'Biryani', 'Rolls', 'Burger', 'Chinese', 'Healthy', 'Desserts'];
+const DEFAULT_CUISINES = ['All', 'Pure Veg', 'Pizza', 'Biryani', 'Rolls', 'Burger', 'Chinese', 'Healthy', 'Desserts'];
 const OFFER_BG = ['#ff6b35', '#0f766e', '#7c3aed', '#dc2626', '#2563eb', '#ca8a04'];
 const TRENDING_SEARCHES = ['Paneer roll', 'Cold coffee', 'Veg thali', 'Maggi', 'Fresh juice'];
 
@@ -191,15 +192,20 @@ export default function Home() {
 
   const filteredRestaurants = useMemo(() => {
     if (activeCuisine === 'All') return restaurants;
+    if (activeCuisine === 'Pure Veg') {
+      const vegRestaurantIds = new Set(menuIndex.filter(isVegItem).map(item => item.restaurantId));
+      return restaurants.filter(r => hasVegItems(r.menu || []) || vegRestaurantIds.has(r.id));
+    }
     return restaurants.filter(r => {
       const haystack = `${r.cuisine || ''} ${(r.tags || []).join(' ')}`.toLowerCase();
       return haystack.includes(activeCuisine.toLowerCase());
     });
-  }, [activeCuisine, restaurants]);
+  }, [activeCuisine, menuIndex, restaurants]);
 
   const trendingDishes = useMemo(() => {
     return restaurants
       .flatMap(r => (r.menu || []).map(item => ({ ...withMenuItemImage(item), restaurantId: r.id, restaurantName: r.name })))
+      .filter(item => activeCuisine !== 'Pure Veg' || isVegItem(item))
       .filter(item => item.isPopular || Number(item.rating || 0) >= 4)
       .slice(0, 8);
   }, [restaurants]);

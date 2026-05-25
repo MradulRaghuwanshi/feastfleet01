@@ -4,7 +4,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useDeliveryLocation } from '../../context/LocationContext';
 const LocationPicker = React.lazy(() => import('../../components/LocationPicker'));
-import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES, getRestaurant, updateOrderFields } from '../../firebase/services';
+import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES, getRestaurant } from '../../firebase/services';
 import { apiUrl } from '../../utils/apiConfig';
 import OfferBanner from '../../components/OfferBanner';
 import PriceDisplay from '../../components/PriceDisplay';
@@ -130,15 +130,15 @@ export default function Checkout() {
   };
 
   // Create order with Razorpay
-  const createRazorpayOrder = async (orderData, customer) => {
+  const createRazorpayOrder = async (pendingOrder, customer) => {
     try {
       const response = await fetch(apiUrl('payments/create-order'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Math.round(finalPayable * 100), // Convert to paise
           currency: 'INR',
-          receipt: `order_${Date.now()}`,
+          receipt: `order_${pendingOrder.id}`,
+          orderId: pendingOrder.id,
           customerName: customer.name,
           customerEmail: customer.email || 'guest@feastfleet.local',
         }),
@@ -159,7 +159,7 @@ export default function Checkout() {
   };
 
   // Verify Razorpay payment
-  const verifyRazorpayPayment = async (razorpayOrderId, razorpayPaymentId, razorpaySignature) => {
+  const verifyRazorpayPayment = async (razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId) => {
     try {
       const response = await fetch(apiUrl('payments/verify-payment'), {
         method: 'POST',
@@ -168,6 +168,7 @@ export default function Checkout() {
           razorpay_order_id: razorpayOrderId,
           razorpay_payment_id: razorpayPaymentId,
           razorpay_signature: razorpaySignature,
+          orderId,
         }),
       });
 
@@ -211,15 +212,9 @@ export default function Checkout() {
             await verifyRazorpayPayment(
               response.razorpay_order_id,
               response.razorpay_payment_id,
-              response.razorpay_signature
+              response.razorpay_signature,
+              pendingOrder.id
             );
-
-            await updateOrderFields(pendingOrder.id, {
-              paymentMethod: 'razorpay',
-              paymentStatus: 'completed',
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-            });
 
             clearCart();
             resolve({
@@ -373,7 +368,7 @@ export default function Checkout() {
         });
 
         // Razorpay checkout
-        const razorpayOrder = await createRazorpayOrder(orderData, customer);
+        const razorpayOrder = await createRazorpayOrder(pendingOrder, customer);
         if (!razorpayOrder?.order_id) {
           throw new Error('Failed to create payment order. Please try again.');
         }

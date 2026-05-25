@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ClockIcon, HeartIcon, StarIcon, TagIcon, TruckIcon } from './Icons';
+import { hasVegItems, isVegItem } from '../utils/diet';
 import styles from './RestaurantCard.module.css';
 
 export default function RestaurantCard({
@@ -16,8 +17,8 @@ export default function RestaurantCard({
     ? 'Free delivery'
     : `Rs ${restaurant.deliveryFee || 0} delivery`;
   const distanceLabel = restaurant.distance || restaurant.distanceText || `${(1.2 + (Number(restaurant.rating || 4) % 1.8)).toFixed(1)} km`;
-  const hasVeg = restaurant.menu?.some(item => item.isVeg || /veg|paneer|salad|juice/i.test(item.category || item.name || ''));
-  const hasNonVeg = restaurant.menu?.some(item => item.isVeg === false || /chicken|mutton|fish|egg/i.test(item.category || item.name || ''));
+  const hasVeg = hasVegItems(restaurant.menu || []);
+  const hasNonVeg = restaurant.menu?.some(item => !isVegItem(item));
 
   return (
     <div className={`${styles.card} ${!acceptingOrders ? styles.closed : ''}`}>

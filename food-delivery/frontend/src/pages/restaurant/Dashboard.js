@@ -12,6 +12,7 @@ import {
   toggleRestaurantStatus,
   toggleMenuItemAvailability,
   updateRestaurant,
+  cancelOrderApi,
 } from '../../firebase/services';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -31,6 +32,8 @@ const STATUS_COLOR = {
   [ORDER_STATUS.DELIVERY_ASSIGNED]:   '#ede9fe',
   [ORDER_STATUS.ON_THE_WAY]:          '#ffedd5',
   [ORDER_STATUS.DELIVERED]:           '#d1fae5',
+  [ORDER_STATUS.CANCELLED]:           '#fee2e2',
+  [ORDER_STATUS.RETURNED]:            '#e5e7eb',
 };
 
 const DAY_OPTIONS = [
@@ -105,7 +108,7 @@ export default function RestaurantDashboard() {
 
   // Menu management state
   const [editItem, setEditItem]     = useState(null);
-  const [newItem, setNewItem]       = useState({ name: '', description: '', price: '', category: '', image: '' });
+  const [newItem, setNewItem]       = useState({ name: '', description: '', price: '', category: '', image: '', veg: true });
   const [showAddItem, setShowAddItem] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
   const [refreshingImages, setRefreshingImages] = useState(false);
@@ -163,7 +166,10 @@ export default function RestaurantDashboard() {
   }, [fetchRestaurant, user.restaurantId]);
 
   // Keep hooks above early returns so the hook order never changes between renders.
-  const activeOrders = useMemo(() => orders, [orders]);
+  const activeOrders = useMemo(
+    () => orders.filter(o => ![ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED, ORDER_STATUS.RETURNED].includes(normalizeOrderStatus(o.status))),
+    [orders]
+  );
   const completedOrders = useMemo(
     () => orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED),
     [orders]
@@ -182,6 +188,13 @@ export default function RestaurantDashboard() {
     if (nextStatus === ORDER_STATUS.RESTAURANT_ACCEPTED) {
       await acceptRestaurantOrder(orderId, user.id);
     }
+  };
+
+  const cancelRestaurantOrder = async (orderId) => {
+    if (!window.confirm('Cancel this order?')) return;
+    await cancelOrderApi(orderId, user.id, 'restaurant', 'Restaurant cancelled order');
+    await fetchRestaurant();
+    setOrders(await getOrdersByRestaurantApi(user.restaurantId));
   };
 
   const toggleRestStatus = async () => {
@@ -297,6 +310,7 @@ export default function RestaurantDashboard() {
         await updateDoc(doc(db, 'restaurants', user.restaurantId, 'menu', item.id), {
           name: item.name, description: item.description,
           price: +item.price, category: item.category, image: autoImage,
+          veg: item.veg !== false,
           imageSource: 'google-auto',
         });
       } else {
@@ -304,13 +318,14 @@ export default function RestaurantDashboard() {
         await setDoc(doc(db, 'restaurants', user.restaurantId, 'menu', id), {
           id, name: item.name, description: item.description,
           price: +item.price, category: item.category,
+          veg: item.veg !== false,
           image: autoImage, imageSource: 'google-auto', available: true, isPopular: false,
         });
       }
       await fetchRestaurant();
       setEditItem(null);
       setShowAddItem(false);
-      setNewItem({ name: '', description: '', price: '', category: '', image: '' });
+      setNewItem({ name: '', description: '', price: '', category: '', image: '', veg: true });
     } finally {
       setSavingItem(false);
     }
@@ -403,6 +418,7 @@ export default function RestaurantDashboard() {
           orders={orders}
           advanceStatus={advanceStatus}
           setTrackingOrderId={setTrackingOrderId}
+          cancelOrder={cancelRestaurantOrder}
           STATUS_COLOR={STATUS_COLOR}
           NEXT_ACTION={NEXT_ACTION}
           user={user}
@@ -502,9 +518,10 @@ export default function RestaurantDashboard() {
 }
 
 // ── Live Orders Tab ──────────────────────────────────────────────────────────
-function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, STATUS_COLOR, NEXT_ACTION, user }) {
+function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, cancelOrder, STATUS_COLOR, NEXT_ACTION, user }) {
   const [filter, setFilter] = useState('active');
-  const active    = orders;
+  const finalStatuses = [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED, ORDER_STATUS.RETURNED];
+  const active    = orders.filter(o => !finalStatuses.includes(normalizeOrderStatus(o.status)));
   const completed = orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED);
   const display   = filter === 'active' ? active : completed;
 
@@ -582,6 +599,12 @@ function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, STATUS_COLOR
                     <button className={styles.trackBtn}
                       onClick={() => setTrackingOrderId(order.id)}>
                       Track Live
+                    </button>
+                  )}
+                  {!finalStatuses.includes(status) && (
+                    <button className={styles.cancelOrderBtn}
+                      onClick={() => cancelOrder(order.id)}>
+                      Cancel Order
                     </button>
                   )}
                 </div>
@@ -972,7 +995,7 @@ function MenuTab({
           onSave={() => saveMenuItem(newItem, false)}
           onCancel={() => {
             setShowAddItem(false);
-            setNewItem({ name: '', description: '', price: '', category: '', image: '' });
+            setNewItem({ name: '', description: '', price: '', category: '', image: '', veg: true });
           }}
           saving={savingItem}
           title="Add New Item"
@@ -1176,6 +1199,14 @@ function ItemForm({ item, setItem, categories, onSave, onCancel, saving, title }
             onChange={e => setItem({ ...item, price: e.target.value })}
             placeholder="0"
           />
+        </label>
+        <label className={styles.checkLabel}>
+          <input
+            type="checkbox"
+            checked={item.veg !== false}
+            onChange={e => setItem({ ...item, veg: e.target.checked })}
+          />
+          Pure veg item
         </label>
         <label>
           Item Image

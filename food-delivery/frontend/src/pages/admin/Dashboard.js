@@ -8,6 +8,7 @@ import {
   addUser,
   updateUserCredentials,
   updateAdminOrderStatus,
+  cancelOrderApi,
   normalizeOrderStatus,
   ORDER_STATUS,
   reassignDeliveryPartner
@@ -314,6 +315,11 @@ function Overview({ orders, totalRevenue, activeOrders, totalCustomers, delivere
                 <td>{o.restaurantName}</td>
                 <td>₹{o.total}</td>
                 <td><span className={styles.statusPill} style={{ background: STATUS_COLOR[normalizeOrderStatus(o.status)] || '#f0f0f0' }}>{normalizeOrderStatus(o.status)}</span></td>
+                <td>
+                  {[ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED, ORDER_STATUS.RETURNED].includes(status) ? '-' : (
+                    <button className={styles.deleteBtn} disabled={updating === o.id} onClick={() => handleCancel(o)}>Cancel</button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -348,8 +354,10 @@ function Orders({ orders, users, adminId }) {
     [ORDER_STATUS.DELIVERY_ASSIGNED]:'#ede9fe',
     [ORDER_STATUS.ON_THE_WAY]:'#ffedd5',
     [ORDER_STATUS.DELIVERED]:'#d1fae5',
+    [ORDER_STATUS.CANCELLED]:'#fee2e2',
+    [ORDER_STATUS.RETURNED]:'#e5e7eb',
   };
-  const STATUSES = ['All', ORDER_STATUS.PLACED, ORDER_STATUS.RESTAURANT_ACCEPTED, ORDER_STATUS.DELIVERY_ASSIGNED, ORDER_STATUS.ON_THE_WAY, ORDER_STATUS.DELIVERED];
+  const STATUSES = ['All', ORDER_STATUS.PLACED, ORDER_STATUS.RESTAURANT_ACCEPTED, ORDER_STATUS.DELIVERY_ASSIGNED, ORDER_STATUS.ON_THE_WAY, ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED, ORDER_STATUS.RETURNED];
 
   const filtered = orders.filter(o => {
     const matchSearch = !search || o.customerName?.toLowerCase().includes(search.toLowerCase()) || o.restaurantName?.toLowerCase().includes(search.toLowerCase()) || o.id?.includes(search);
@@ -380,6 +388,18 @@ function Orders({ orders, users, adminId }) {
     }
   };
 
+  const handleCancel = async (order) => {
+    if (!window.confirm('Cancel this order?')) return;
+    setUpdating(order.id);
+    try {
+      await cancelOrderApi(order.id, adminId, 'admin', 'Admin cancelled order');
+    } catch (error) {
+      alert(error.message || 'Unable to cancel order');
+    } finally {
+      setUpdating('');
+    }
+  };
+
   return (
     <div>
       <div className={styles.filterBar}>
@@ -389,7 +409,7 @@ function Orders({ orders, users, adminId }) {
         </div>
       </div>
       <table className={styles.table}>
-        <thead><tr><th>Order ID</th><th>Customer</th><th>Restaurant</th><th>Items</th><th>Total</th><th>Promo</th><th>Status</th><th>Delivery Partner</th><th>Date</th></tr></thead>
+        <thead><tr><th>Order ID</th><th>Customer</th><th>Restaurant</th><th>Items</th><th>Total</th><th>Promo</th><th>Status</th><th>Delivery Partner</th><th>Date</th><th>Action</th></tr></thead>
         <tbody>
           {filtered.map(o => {
             const status = normalizeOrderStatus(o.status);
@@ -416,7 +436,7 @@ function Orders({ orders, users, adminId }) {
                   <select
                     className={styles.assignSelect}
                     value={o.deliveryAgentId || ''}
-                    disabled={updating === o.id || status === ORDER_STATUS.DELIVERED}
+                    disabled={updating === o.id || [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED, ORDER_STATUS.RETURNED].includes(status)}
                     onChange={e => handleReassign(o, e.target.value)}
                   >
                     <option value="">Broadcast / Unassigned</option>

@@ -284,7 +284,8 @@
 }
 
 .actionBtn,
-.trackBtn {
+.trackBtn,
+.cancelOrderBtn {
   width: 100%;
   border: none;
   border-radius: 14px;
@@ -304,6 +305,11 @@
 .trackBtn {
   background: #2563eb;
   color: white;
+}
+
+.cancelOrderBtn {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .empty {
@@ -622,6 +628,14 @@
   border-radius: 14px;
   border: 1px solid #d1d5db;
   outline: none;
+}
+
+.checkLabel {
+  justify-content: center;
+}
+
+.checkLabel input {
+  width: auto;
 }
 
 .itemFormGrid input:focus {

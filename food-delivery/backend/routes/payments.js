@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const Razorpay = require('razorpay');
+const { db } = require('../firebase/admin');
 
 const router = express.Router();
 
@@ -19,9 +20,13 @@ function getRazorpay() {
 
 router.post('/create-order', async (req, res) => {
   try {
-    const { amount, currency, receipt } = req.body || {};
+    const { amount, currency, receipt, orderId } = req.body || {};
 
-    const parsedAmount = Number(amount);
+    if (!orderId) return res.status(400).json({ error: 'orderId is required.' });
+    if (!db) return res.status(503).json({ error: 'Order database is not configured.' });
+    const orderDoc = await db.collection('orders').doc(orderId).get();
+    if (!orderDoc.exists) return res.status(404).json({ error: 'Order not found.' });
+    const parsedAmount = Math.round(Number(orderDoc.data().total || 0) * 100);
     if (!Number.isFinite(parsedAmount) || parsedAmount < 100) {
       return res.status(400).json({ error: 'Invalid amount. Minimum is 100 paise.' });
     }
@@ -63,16 +68,26 @@ router.post('/create-order', async (req, res) => {
 
 router.post('/verify-payment', async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body || {};
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+    if (!orderId) return res.status(400).json({ error: 'orderId is required.' });
 
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
     // Demo fallback: accept any signature when no secret configured
     if (!keySecret) {
+      if (orderId && db) {
+        await db.collection('orders').doc(orderId).set({
+          paymentMethod: 'razorpay',
+          paymentStatus: 'completed',
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
       // In demo mode treat verification as successful
       return res.status(200).json({ ok: true, demo: true });
     }
@@ -83,6 +98,16 @@ router.post('/verify-payment', async (req, res) => {
 
     if (generatedSignature !== razorpay_signature) {
       return res.status(400).json({ error: 'Signature mismatch' });
+    }
+
+    if (orderId && db) {
+      await db.collection('orders').doc(orderId).set({
+        paymentMethod: 'razorpay',
+        paymentStatus: 'completed',
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
     }
 
     return res.status(200).json({ ok: true });

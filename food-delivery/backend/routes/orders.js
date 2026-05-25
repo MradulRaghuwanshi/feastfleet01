@@ -3,6 +3,8 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { db, admin } = require('../firebase/admin');
 const { sendOrderPlacedNotifications } = require('../lib/orderNotifications');
+const { calculateBill } = require('../lib/orderEconomics');
+const { applyOffer, getBestOffer, getInflatedPrice } = require('../lib/offerPricing');
 
 const canUseDemoFallback = () => !db && (
   process.env.NODE_ENV !== 'production' ||
@@ -16,15 +18,78 @@ const STATUS_FLOW = [
   'Pickup OTP Verified',
   'Order Picked Up',
   'On The Way',
-  'Delivered'
+  'Delivered',
+  'Cancelled',
+  'Returned'
 ];
 
 const COINS_PER_100_RS = 5;
+const FINAL_STATUSES = ['Cancelled', 'Returned', 'Delivered'];
+const isFinalStatus = (status) => FINAL_STATUSES.includes(status);
+
+function buildOrderItems(menu, requestedItems, isNewUser) {
+  return requestedItems.map((item) => {
+    const menuItem = menu.find(candidate => candidate.id === item.id);
+    if (!menuItem || menuItem.available === false) return null;
+    const quantity = Math.max(1, Math.floor(Number(item.quantity || 1)));
+    return {
+      id: menuItem.id,
+      name: menuItem.name,
+      description: menuItem.description || '',
+      category: menuItem.category || '',
+      image: menuItem.image || menuItem.imageUrl || '',
+      veg: menuItem.veg !== undefined ? menuItem.veg : menuItem.isVeg,
+      price: getInflatedPrice(menuItem.price, isNewUser),
+      quantity,
+    };
+  }).filter(Boolean);
+}
+
+function calculateServerBill({ items, promo, redeemFeastCoins, feastCoinBalance, hasOwnDelivery, isNewUser }) {
+  const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+  const bestOffer = getBestOffer(subtotal, isNewUser);
+  const offerDiscount = applyOffer(bestOffer, subtotal);
+  const baseBill = calculateBill({ subtotal, discount: offerDiscount });
+
+  let promoDiscount = 0;
+  let deliveryFee = hasOwnDelivery ? 0 : baseBill.deliveryFee;
+  let appliedPromo = null;
+  if (promo && subtotal >= Number(promo.minOrder || 0)) {
+    appliedPromo = promo.code;
+    if (promo.type === 'percent') promoDiscount = Math.min(Number((subtotal * Number(promo.value || 0) / 100).toFixed(2)), 100);
+    if (promo.type === 'flat') promoDiscount = Number(promo.value || 0);
+    if (promo.type === 'delivery') deliveryFee = 0;
+  }
+
+  const discount = Math.min(subtotal, Number((offerDiscount + promoDiscount).toFixed(2)));
+  const payableBeforeCoins = Math.max(0, Number((subtotal + baseBill.platformFee + baseBill.packagingFee + deliveryFee - discount).toFixed(2)));
+  const availableCoins = redeemFeastCoins ? Math.floor(Number(feastCoinBalance || 0)) : 0;
+  const feastCoinRedemption = Math.min(availableCoins, Math.floor(payableBeforeCoins));
+  const total = Math.max(0, Number((payableBeforeCoins - feastCoinRedemption).toFixed(2)));
+  const platformCommission = Number((subtotal * 15 / 100).toFixed(2));
+
+  return {
+    subtotal: Number(subtotal.toFixed(2)),
+    platformFee: baseBill.platformFee,
+    packagingFee: baseBill.packagingFee,
+    deliveryFee,
+    discount,
+    offerDiscount,
+    promoDiscount,
+    feastCoinRedemption,
+    total,
+    appliedPromo,
+    feastCoinsEarned: Math.floor(subtotal / 100) * 5,
+    platformCommission,
+    platformCommissionPercent: 15,
+    netSettlementAmount: Number((subtotal - platformCommission).toFixed(2)),
+  };
+}
 const FEASTCOINS_REDEEM_RATE = 1; // 1 feastcoin == ₹1 (so 100 coins == ₹100 discount)
 
 router.post('/', async (req, res) => {
   try {
-    const { restaurantId, items, deliveryAddress, customerName, customerId, promoCode, useWallet, deliveryLat, deliveryLng, platformFee, packagingFee, gstPercent, gstAmount, paymentMethod, paymentStatus, razorpayOrderId, razorpayPaymentId } = req.body;
+    const { restaurantId, items, deliveryAddress, customerName, customerId, promoCode, useWallet, redeemFeastCoins, deliveryLat, deliveryLng, paymentMethod, paymentStatus, razorpayOrderId, razorpayPaymentId, isGuest, customerPhone, customerEmail } = req.body;
     if (!restaurantId || !items?.length || !deliveryAddress || !customerName)
       return res.status(400).json({ error: 'Missing required fields' });
 
@@ -48,71 +113,62 @@ router.post('/', async (req, res) => {
       const restaurant = restaurants.find(r => r.id === restaurantId);
       if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
-      const enrichedItems = items.map(item => {
-        const m = restaurant.menu.find(m => m.id === item.id);
-        return { ...m, quantity: item.quantity };
-      });
+      const isNewUser = Boolean(isGuest || String(customerId || '').startsWith('guest_'));
+      const enrichedItems = buildOrderItems(restaurant.menu || [], items, isNewUser);
+      if (!enrichedItems.length) return res.status(400).json({ error: 'No valid available menu items were found' });
 
-    const subtotal = enrichedItems.reduce((s, i) => s + i.price * i.quantity, 0);
-
-    const { getDeliveryFeeForTier } = require('../lib/orderEconomics');
-    let discount = 0;
-    let deliveryFee = getDeliveryFeeForTier(subtotal);
-    let appliedPromo = null;
+      let promo = null;
+      let appliedPromo = null;
 
 
       if (promoCode) {
-        const promo = promoCodes.find(p => p.code === promoCode.toUpperCase() && p.active);
-        if (promo && subtotal >= promo.minOrder) {
-          appliedPromo = promo.code;
-          if (promo.type === 'percent') discount = +(subtotal * promo.value / 100).toFixed(2);
-          if (promo.type === 'flat') discount = promo.value;
-          if (promo.type === 'delivery') deliveryFee = 0;
-        }
+        promo = promoCodes.find(p => p.code === promoCode.toUpperCase() && p.active) || null;
+        if (promo) appliedPromo = promo.code;
       }
 
-      let walletUsed = 0;
+      let feastCoinBalance = 0;
       if (useWallet && customerId) {
         const user = users.find(u => u.id === customerId);
         if (user && user.wallet > 0) {
-          const afterDiscount = subtotal - discount + deliveryFee;
-          walletUsed = Math.min(user.wallet, afterDiscount);
-          user.wallet = +(user.wallet - walletUsed).toFixed(2);
+          feastCoinBalance = Number(user.wallet || user.feastCoins || 0);
         }
       }
 
-      const pf = platformFee ?? 4;
-      const pkf = packagingFee ?? 5;
-      const ga = 0;
-      const total = +(subtotal + pf + pkf - discount + deliveryFee - walletUsed).toFixed(2);
-      const agent = users.find(u => u.role === 'delivery');
-
-      const platformCommissionPercent = 15;
-      const platformCommission = +(subtotal * platformCommissionPercent / 100).toFixed(2);
-
+      const bill = calculateServerBill({
+        items: enrichedItems,
+        promo,
+        redeemFeastCoins: Boolean(useWallet || redeemFeastCoins),
+        feastCoinBalance,
+        hasOwnDelivery: Boolean(restaurant.hasOwnDelivery),
+        isNewUser,
+      });
+      if (bill.feastCoinRedemption > 0 && customerId) {
+        const user = users.find(u => u.id === customerId);
+        if (user) user.wallet = +(Number(user.wallet || 0) - bill.feastCoinRedemption).toFixed(2);
+      }
       // Platform delivery restaurants: start UNASSIGNED
       const deliveryOtp = String(Math.floor(1000 + Math.random() * 9000));
       const deliveryOtpVerified = false;
 
       const order = {
         id: `ord-${uuidv4().slice(0,6).toUpperCase()}`,
-        customerId: customerId || 'guest', customerName,
+        customerId: customerId || 'guest', customerName, customerPhone: customerPhone || null, customerEmail: customerEmail || null,
         restaurantId, restaurantName: restaurant.name,
         deliveryAgentId: null,
         deliveryAgentName: 'Unassigned',
         items: enrichedItems,
-        subtotal: +subtotal.toFixed(2), platformFee: pf, packagingFee: pkf, gstPercent: 0, gstAmount: ga,
-        deliveryFee, discount, walletUsed,
-        platformCommission,
-        platformCommissionPercent,
-        feastCoinsEarned: Math.floor(subtotal / 100) * 5,
-        netSettlementAmount: +(subtotal - platformCommission).toFixed(2),
-        total: Math.max(0, total),
-        promoCode: appliedPromo, deliveryAddress, status: 'Order Placed', reviewed: false,
+        subtotal: bill.subtotal, platformFee: bill.platformFee, packagingFee: bill.packagingFee, gstPercent: 0, gstAmount: 0,
+        deliveryFee: bill.deliveryFee, discount: bill.discount, walletUsed: 0, feastCoinRedemption: bill.feastCoinRedemption,
+        platformCommission: bill.platformCommission,
+        platformCommissionPercent: bill.platformCommissionPercent,
+        feastCoinsEarned: bill.feastCoinsEarned,
+        netSettlementAmount: bill.netSettlementAmount,
+        total: bill.total,
+        promoCode: bill.appliedPromo, deliveryAddress, status: 'Order Placed', reviewed: false,
         paymentMethod: paymentMethod || 'cod',
-        paymentStatus: paymentStatus || 'pending',
-        razorpayOrderId: razorpayOrderId || null,
-        razorpayPaymentId: razorpayPaymentId || null,
+        paymentStatus: 'pending',
+        razorpayOrderId: null,
+        razorpayPaymentId: null,
         deliveryOtp,
         deliveryOtpVerified,
         deliveryLat: deliveryLat || null, deliveryLng: deliveryLng || null,
@@ -133,49 +189,43 @@ router.post('/', async (req, res) => {
     const menuSnap = await db.collection('restaurants').doc(restaurantId).collection('menu').get();
     const menu = menuSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    const enrichedItems = items.map(item => {
-      const m = menu.find(m => m.id === item.id);
-      return { ...m, quantity: item.quantity };
-    });
+    let user = null;
+    if (customerId) {
+      const userDoc = await db.collection('users').doc(customerId).get();
+      if (userDoc.exists) user = userDoc.data();
+    }
 
-    const subtotal = enrichedItems.reduce((s, i) => s + i.price * i.quantity, 0);
+    const isNewUser = Boolean(isGuest || user?.isNewUser || String(customerId || '').startsWith('guest_'));
+    const enrichedItems = buildOrderItems(menu, items, isNewUser);
+    if (!enrichedItems.length) return res.status(400).json({ error: 'No valid available menu items were found' });
 
-    const { getDeliveryFeeForTier } = require('../lib/orderEconomics');
-    let discount = 0;
-    let deliveryFee = getDeliveryFeeForTier(subtotal);
+    let promo = null;
     let appliedPromo = null;
 
 
     if (promoCode) {
       const promoDoc = await db.collection('promoCodes').doc(promoCode.toUpperCase()).get();
       if (promoDoc.exists) {
-        const promo = promoDoc.data();
-        if (promo.active && subtotal >= promo.minOrder) {
-          appliedPromo = promo.code;
-          if (promo.type === 'percent') discount = +(subtotal * promo.value / 100).toFixed(2);
-          if (promo.type === 'flat') discount = promo.value;
-          if (promo.type === 'delivery') deliveryFee = 0;
-        }
+        promo = promoDoc.data();
+        if (promo.active) appliedPromo = promo.code || promoDoc.id;
+        else promo = null;
       }
     }
 
-    let walletUsed = 0;
-    if (useWallet && customerId) {
-      const userDoc = await db.collection('users').doc(customerId).get();
-      if (userDoc.exists) {
-        const user = userDoc.data();
-        if (user.wallet > 0) {
-          const afterDiscount = subtotal - discount + deliveryFee;
-          walletUsed = Math.min(user.wallet, afterDiscount);
-          await db.collection('users').doc(customerId).update({ wallet: user.wallet - walletUsed });
-        }
-      }
-    }
+    const feastCoinBalance = Number(user?.wallet ?? user?.feastCoins ?? 0);
+    const bill = calculateServerBill({
+      items: enrichedItems,
+      promo,
+      redeemFeastCoins: Boolean(useWallet || redeemFeastCoins),
+      feastCoinBalance,
+      hasOwnDelivery: Boolean(restaurant.hasOwnDelivery),
+      isNewUser,
+    });
 
-    const pf = platformFee ?? 4;
-    const pkf = packagingFee ?? 5;
-    const ga = 0;
-    const total = +(subtotal + pf + pkf - discount + deliveryFee - walletUsed).toFixed(2);
+    if (bill.feastCoinRedemption > 0 && customerId) {
+      const nextBalance = Math.max(0, feastCoinBalance - bill.feastCoinRedemption);
+      await db.collection('users').doc(customerId).set({ wallet: nextBalance, feastCoins: nextBalance }, { merge: true });
+    }
 
     // Platform delivery restaurants: start UNASSIGNED (OTP + pickup/drop will be shown only after acceptance)
     let deliveryAgentId = null;
@@ -190,6 +240,9 @@ router.post('/', async (req, res) => {
     const orderData = {
       customerId: customerId || 'guest',
       customerName,
+      customerPhone: customerPhone || null,
+      customerEmail: customerEmail || null,
+      isGuest: Boolean(isGuest),
       restaurantId,
       restaurantName: restaurant.name,
       deliveryAgentId,
@@ -199,27 +252,28 @@ router.post('/', async (req, res) => {
       deliveryOtpExpiresAt: null,
 
       items: enrichedItems,
-      subtotal: +subtotal.toFixed(2),
-      platformFee: pf,
-      packagingFee: pkf,
+      subtotal: bill.subtotal,
+      platformFee: bill.platformFee,
+      packagingFee: bill.packagingFee,
       gstPercent: 0,
-      gstAmount: ga,
-      deliveryFee,
-      discount,
-      walletUsed,
-      platformCommission: +(subtotal * 15 / 100).toFixed(2),
-      platformCommissionPercent: 15,
-      feastCoinsEarned: Math.floor(subtotal / 100) * 5,
-      netSettlementAmount: +(subtotal - (subtotal * 15 / 100)).toFixed(2),
-      total: Math.max(0, total),
-      promoCode: appliedPromo,
+      gstAmount: 0,
+      deliveryFee: bill.deliveryFee,
+      discount: bill.discount,
+      walletUsed: 0,
+      feastCoinRedemption: bill.feastCoinRedemption,
+      platformCommission: bill.platformCommission,
+      platformCommissionPercent: bill.platformCommissionPercent,
+      feastCoinsEarned: bill.feastCoinsEarned,
+      netSettlementAmount: bill.netSettlementAmount,
+      total: bill.total,
+      promoCode: bill.appliedPromo,
       deliveryAddress,
       status: 'Order Placed',
       reviewed: false,
       paymentMethod: paymentMethod || 'cod',
-      paymentStatus: paymentStatus || 'pending',
-      razorpayOrderId: razorpayOrderId || null,
-      razorpayPaymentId: razorpayPaymentId || null,
+      paymentStatus: 'pending',
+      razorpayOrderId: null,
+      razorpayPaymentId: null,
       deliveryLat: deliveryLat || null,
       deliveryLng: deliveryLng || null,
       placedAt: new Date().toISOString(),
@@ -541,6 +595,92 @@ router.patch('/:id/admin-status', async (req, res) => {
     return res.json({ id: updatedSnap.id, ...updatedSnap.data() });
   } catch (error) {
     console.error('Admin update order status error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch('/:id/cancel', async (req, res) => {
+  try {
+    const { actorId, role, reason } = req.body || {};
+    const now = new Date().toISOString();
+
+    if (!db && !canUseDemoFallback()) {
+      return res.status(503).json({ error: 'Database is not connected. Demo fallback is disabled.' });
+    }
+
+    if (!db) {
+      const { orders } = require('../data/db');
+      const order = orders.find(o => o.id === req.params.id);
+      if (!order) return res.status(404).json({ error: 'Order not found' });
+      if (isFinalStatus(order.status)) return res.status(409).json({ error: `Order is already ${order.status}` });
+      order.status = 'Cancelled';
+      order.cancelledAt = now;
+      order.cancelledBy = actorId || role || 'system';
+      order.statusHistory = (order.statusHistory || []).concat([{ status: 'Cancelled', actorId, note: reason || 'Order cancelled', time: now }]);
+      return res.json(order);
+    }
+
+    const orderRef = db.collection('orders').doc(req.params.id);
+    const orderDoc = await orderRef.get();
+    if (!orderDoc.exists) return res.status(404).json({ error: 'Order not found' });
+    const order = orderDoc.data();
+    if (isFinalStatus(order.status)) return res.status(409).json({ error: `Order is already ${order.status}` });
+
+    await orderRef.update({
+      status: 'Cancelled',
+      cancelledAt: now,
+      cancelledBy: actorId || role || 'system',
+      updatedAt: now,
+      statusHistory: (order.statusHistory || []).concat([{ status: 'Cancelled', actorId, note: reason || 'Order cancelled', time: now }]),
+    });
+
+    const updated = await orderRef.get();
+    return res.json({ id: updated.id, ...updated.data() });
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch('/:id/return', async (req, res) => {
+  try {
+    const { agentId, reason } = req.body || {};
+    const now = new Date().toISOString();
+
+    if (!db && !canUseDemoFallback()) {
+      return res.status(503).json({ error: 'Database is not connected. Demo fallback is disabled.' });
+    }
+
+    if (!db) {
+      const { orders } = require('../data/db');
+      const order = orders.find(o => o.id === req.params.id);
+      if (!order) return res.status(404).json({ error: 'Order not found' });
+      if (agentId && order.deliveryAgentId !== agentId) return res.status(403).json({ error: 'Only the assigned delivery partner can return this order' });
+      if (isFinalStatus(order.status)) return res.status(409).json({ error: `Order is already ${order.status}` });
+      order.status = 'Returned';
+      order.returnedAt = now;
+      order.statusHistory = (order.statusHistory || []).concat([{ status: 'Returned', actorId: agentId, note: reason || 'Returned by delivery partner', time: now }]);
+      return res.json(order);
+    }
+
+    const orderRef = db.collection('orders').doc(req.params.id);
+    const orderDoc = await orderRef.get();
+    if (!orderDoc.exists) return res.status(404).json({ error: 'Order not found' });
+    const order = orderDoc.data();
+    if (agentId && order.deliveryAgentId !== agentId) return res.status(403).json({ error: 'Only the assigned delivery partner can return this order' });
+    if (isFinalStatus(order.status)) return res.status(409).json({ error: `Order is already ${order.status}` });
+
+    await orderRef.update({
+      status: 'Returned',
+      returnedAt: now,
+      updatedAt: now,
+      statusHistory: (order.statusHistory || []).concat([{ status: 'Returned', actorId: agentId, note: reason || 'Returned by delivery partner', time: now }]),
+    });
+
+    const updated = await orderRef.get();
+    return res.json({ id: updated.id, ...updated.data() });
+  } catch (error) {
+    console.error('Return order error:', error);
     res.status(500).json({ error: error.message });
   }
 });

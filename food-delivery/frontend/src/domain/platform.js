@@ -6,6 +6,8 @@ export const ORDER_STATUS = {
   ORDER_PICKED: 'Order Picked Up',
   ON_THE_WAY: 'On The Way',
   DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  RETURNED: 'Returned',
 };
 
 export const ORDER_FLOW = [
@@ -16,6 +18,8 @@ export const ORDER_FLOW = [
   ORDER_STATUS.ORDER_PICKED,
   ORDER_STATUS.ON_THE_WAY,
   ORDER_STATUS.DELIVERED,
+  ORDER_STATUS.CANCELLED,
+  ORDER_STATUS.RETURNED,
 ];
 
 export const LEGACY_STATUS_MAP = {

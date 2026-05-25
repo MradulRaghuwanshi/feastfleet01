@@ -9,6 +9,7 @@ import {
   normalizeOrderStatus,
   ORDER_STATUS,
   PLATFORM_FEES,
+  returnOrderApi,
   updateOrderStatus,
   updateOrderStatusApi,
   verifyPickupOtp,
@@ -25,6 +26,8 @@ const STATUS_COLOR = {
   [ORDER_STATUS.DELIVERY_ASSIGNED]:   { bg: '#ede9fe', color: '#5b21b6' },
   [ORDER_STATUS.ON_THE_WAY]:          { bg: '#ffedd5', color: '#c2410c' },
   [ORDER_STATUS.DELIVERED]:           { bg: '#d1fae5', color: '#065f46' },
+  [ORDER_STATUS.CANCELLED]:            { bg: '#fee2e2', color: '#991b1b' },
+  [ORDER_STATUS.RETURNED]:             { bg: '#e5e7eb', color: '#374151' },
 };
 
 const dateOf = (value) => value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
@@ -133,6 +136,19 @@ export default function DeliveryDashboard() {
     }
   };
 
+  const returnOrder = async (orderId) => {
+    if (!window.confirm('Return this order?')) return;
+    setUpdating(orderId);
+    try {
+      await returnOrderApi(orderId, user.id, 'Delivery partner returned order');
+      setOrders(await getDeliveryWorkQueueApi(user.id));
+    } catch (error) {
+      alert(error.message || 'Could not return order');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   const verifyOtp = async (orderId, otp) => {
     setUpdating(orderId);
     try {
@@ -149,15 +165,17 @@ export default function DeliveryDashboard() {
     }
   };
 
-  const requestOrders = orders.filter(o => !o.deliveryAgentId && normalizeOrderStatus(o.status) !== ORDER_STATUS.DELIVERED);
-  const activeOrders = orders.filter(o => o.deliveryAgentId === user.id && normalizeOrderStatus(o.status) !== ORDER_STATUS.DELIVERED);
-  const deliveredOrders = orders.filter(o => o.deliveryAgentId === user.id && normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED);
+  const finalStatuses = [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED, ORDER_STATUS.RETURNED];
+  const requestOrders = orders.filter(o => !o.deliveryAgentId && !finalStatuses.includes(normalizeOrderStatus(o.status)));
+  const activeOrders = orders.filter(o => o.deliveryAgentId === user.id && !finalStatuses.includes(normalizeOrderStatus(o.status)));
+  const deliveredOrders = orders.filter(o => o.deliveryAgentId === user.id && [ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURNED].includes(normalizeOrderStatus(o.status)));
   const displayOrders = tab === 'requests' ? requestOrders : tab === 'active' ? activeOrders : deliveredOrders;
-  const earnings = deliveredOrders.length * PLATFORM_FEES.deliveryEarning;
+  const earningOrders = deliveredOrders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED);
+  const earnings = earningOrders.length * PLATFORM_FEES.deliveryEarning;
   const today = new Date();
-  const dailyEarnings = deliveredOrders.filter(o => isSameDay(dateOf(o.deliveredAt || o.placedAt), today)).length * PLATFORM_FEES.deliveryEarning;
-  const weeklyEarnings = deliveredOrders.filter(o => isThisWeek(dateOf(o.deliveredAt || o.placedAt))).length * PLATFORM_FEES.deliveryEarning;
-  const monthlyEarnings = deliveredOrders.filter(o => isThisMonth(dateOf(o.deliveredAt || o.placedAt))).length * PLATFORM_FEES.deliveryEarning;
+  const dailyEarnings = earningOrders.filter(o => isSameDay(dateOf(o.deliveredAt || o.placedAt), today)).length * PLATFORM_FEES.deliveryEarning;
+  const weeklyEarnings = earningOrders.filter(o => isThisWeek(dateOf(o.deliveredAt || o.placedAt))).length * PLATFORM_FEES.deliveryEarning;
+  const monthlyEarnings = earningOrders.filter(o => isThisMonth(dateOf(o.deliveredAt || o.placedAt))).length * PLATFORM_FEES.deliveryEarning;
 
   if (loading) return <p className={styles.loading}>Loading your deliveries...</p>;
 
@@ -332,13 +350,22 @@ export default function DeliveryDashboard() {
                   </div>
                 )}
                 {canDeliver && (
-                  <button
-                    className={styles.deliverBtn}
-                    onClick={() => markDelivered(order.id)}
-                    disabled={updating === order.id}
-                  >
-                    {updating === order.id ? 'Updating...' : `Mark Delivered · Earn ₹${PLATFORM_FEES.deliveryEarning}`}
-                  </button>
+                  <>
+                    <button
+                      className={styles.deliverBtn}
+                      onClick={() => markDelivered(order.id)}
+                      disabled={updating === order.id}
+                    >
+                      {updating === order.id ? 'Updating...' : `Mark Delivered · Earn ₹${PLATFORM_FEES.deliveryEarning}`}
+                    </button>
+                    <button
+                      className={styles.returnBtn}
+                      onClick={() => returnOrder(order.id)}
+                      disabled={updating === order.id}
+                    >
+                      Return Order
+                    </button>
+                  </>
                 )}
                 {!isRequest && status === ORDER_STATUS.DELIVERY_ASSIGNED && !canVerifyPickup && (
                   <div className={styles.waitingChip}>Waiting for pickup handoff.</div>

@@ -5,6 +5,7 @@ import ReviewSection from '../../components/ReviewSection';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { getRestaurant } from '../../firebase/services';
+import { isVegItem } from '../../utils/diet';
 import { getInflatedPrice } from '../../utils/offerPricing';
 import styles from './RestaurantMenu.module.css';
 
@@ -16,6 +17,7 @@ export default function RestaurantMenu() {
   const navigate = useNavigate();
   const [restaurant, setRestaurant] = useState(null);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [vegOnly, setVegOnly] = useState(false);
   const { cart, totalItems } = useCart();
   const { user } = useAuth();
 
@@ -27,9 +29,10 @@ export default function RestaurantMenu() {
 
   const canOrder = restaurant.isAcceptingOrdersNow ?? restaurant.isOpen;
   const isNewUser = Boolean(user?.isNewUser);
-  const categories = ['All', ...new Set(restaurant.menu.map(i => i.category))];
-  const filtered = activeCategory === 'All' ? restaurant.menu : restaurant.menu.filter(i => i.category === activeCategory);
-  const recommended = restaurant.menu.filter(item => item.isPopular).slice(0, 4);
+  const visibleMenu = vegOnly ? restaurant.menu.filter(isVegItem) : restaurant.menu;
+  const categories = ['All', ...new Set(visibleMenu.map(i => i.category).filter(Boolean))];
+  const filtered = activeCategory === 'All' ? visibleMenu : visibleMenu.filter(i => i.category === activeCategory);
+  const recommended = visibleMenu.filter(item => item.isPopular).slice(0, 4);
   const displayedSubtotal = Math.round(
     cart.items.reduce((sum, item) => {
       const unitInflated = getInflatedPrice(item.price, undefined, isNewUser);
@@ -94,6 +97,16 @@ export default function RestaurantMenu() {
         )}
 
         <div className={styles.categories}>
+          <button
+            type="button"
+            className={`${styles.catBtn} ${vegOnly ? styles.active : ''}`}
+            onClick={() => {
+              setVegOnly(value => !value);
+              setActiveCategory('All');
+            }}
+          >
+            Pure Veg
+          </button>
           {categories.map(c => (
             <button key={c} className={`${styles.catBtn} ${activeCategory === c ? styles.active : ''}`}
               onClick={() => setActiveCategory(c)}>{c}</button>

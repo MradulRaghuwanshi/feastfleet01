@@ -367,7 +367,8 @@ export const getDeliveryWorkQueueApi = async (agentId) => {
   return list.filter(order => {
     const status = normalizeOrderStatus(order.status);
     if (order.assignmentStatus === 'restaurant_delivery' || order.deliveryType === 'restaurant') return false;
-    if (status === ORDER_STATUS.DELIVERED) return order.deliveryAgentId === agentId;
+    if ([ORDER_STATUS.CANCELLED].includes(status)) return false;
+    if ([ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURNED].includes(status)) return order.deliveryAgentId === agentId;
     return !order.deliveryAgentId || order.deliveryAgentId === agentId;
   });
 };
@@ -395,6 +396,16 @@ export const updateOrderStatusApi = async (orderId, status) => {
     body: JSON.stringify({ status: normalizeOrderStatus(status) }),
   });
 };
+
+export const cancelOrderApi = async (orderId, actorId, role, reason) => apiJson(`/orders/${orderId}/cancel`, {
+  method: 'PATCH',
+  body: JSON.stringify({ actorId, role, reason }),
+});
+
+export const returnOrderApi = async (orderId, agentId, reason) => apiJson(`/orders/${orderId}/return`, {
+  method: 'PATCH',
+  body: JSON.stringify({ agentId, reason }),
+});
 
 // ─── FEAST COINS WALLET ──────────────────────────────────────────────────────
 export const getWalletRef = (userId) => doc(db, 'wallets', userId);
@@ -608,8 +619,10 @@ export const placeOrder = async (orderData) => {
     throw new Error('Restaurant, customer details and cart items are required');
   }
 
-  const order = await placeOrderDocumentOnly(orderData, 'Customer placed order');
-  await notifyOrderPlaced(order.id);
+  const order = await apiJson('/orders', {
+    method: 'POST',
+    body: JSON.stringify(orderData),
+  });
   return order;
 
   try {
@@ -864,7 +877,8 @@ export const listenToDeliveryWorkQueue = (agentId, cb) => {
     cb(orders.filter(order => {
       const status = normalizeOrderStatus(order.status);
       if (order.assignmentStatus === 'restaurant_delivery' || order.deliveryType === 'restaurant') return false;
-      if (status === ORDER_STATUS.DELIVERED) return order.deliveryAgentId === agentId;
+      if (status === ORDER_STATUS.CANCELLED) return false;
+      if ([ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURNED].includes(status)) return order.deliveryAgentId === agentId;
       return !order.deliveryAgentId || order.deliveryAgentId === agentId;
     }));
   });

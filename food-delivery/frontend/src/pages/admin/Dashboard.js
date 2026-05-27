@@ -39,6 +39,7 @@ function tabIcon(t) {
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const [tab, setTab]           = useState('Overview');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [orders, setOrders]     = useState([]);
   const [users, setUsers]       = useState([]);
   const [restaurants, setRestaurants] = useState([]);
@@ -79,6 +80,12 @@ export default function AdminDashboard() {
   const activeOrders   = orders.filter(o => normalizeOrderStatus(o.status) !== ORDER_STATUS.DELIVERED).length;
   const totalCustomers = users.filter(u => u.role === 'customer').length;
   const deliveredCount = orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED).length;
+  const openSidebar = () => setSidebarOpen(true);
+  const closeSidebar = () => setSidebarOpen(false);
+  const handleTabChange = (nextTab) => {
+    setTab(nextTab);
+    closeSidebar();
+  };
 
   if (loading) return (
     <div className={styles.loadingPage}>
@@ -89,7 +96,12 @@ export default function AdminDashboard() {
 
   return (
     <div className={styles.layout}>
-      <aside className={styles.sidebar}>
+      <button className={styles.mobileMenuBtn} onClick={openSidebar} aria-label="Open admin menu" aria-expanded={sidebarOpen}>
+        ☰
+      </button>
+      {sidebarOpen && <button className={styles.sidebarBackdrop} aria-label="Close admin menu" onClick={closeSidebar} />}
+
+      <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.brand}>
           <img src="/logo.png" alt="FeastFleet" className={styles.brandLogo} />
           <div>FeastFleet<span>Admin</span></div>
@@ -97,7 +109,7 @@ export default function AdminDashboard() {
         <nav className={styles.nav}>
           {TABS.map(t => (
             <button key={t} className={`${styles.navBtn} ${tab === t ? styles.active : ''}`}
-              onClick={() => setTab(t)}>
+              onClick={() => handleTabChange(t)}>
               {tabIcon(t)} {t}
             </button>
           ))}
@@ -114,6 +126,7 @@ export default function AdminDashboard() {
 
       <main className={styles.main}>
         <div className={styles.topBar}>
+          <button className={styles.pageMenuBtn} onClick={openSidebar} aria-label="Show admin menu">☰ Menu</button>
           <h1>{tab}</h1>
           <div className={styles.topActions}>
             {tab === 'Restaurants' && (
@@ -707,33 +720,77 @@ function Promos({ promos, onToggle, onDelete }) {
 function Users({ users, adminId, onCredentialsSaved }) {
   const ROLE_COLOR = { customer:'#dbeafe', restaurant:'#fef3c7', delivery:'#d1fae5', admin:'#fce7f3' };
   const [credentialUser, setCredentialUser] = useState(null);
+  const renderAvatar = (avatar, className) => {
+    const value = String(avatar || '').trim();
+    if (/^https?:\/\//i.test(value)) {
+      return <img src={value} alt="User avatar" className={className} />;
+    }
+    return <span className={className}>{value || '👤'}</span>;
+  };
   return (
     <>
-      <table className={styles.table}>
-        <thead><tr><th>Avatar</th><th>Name</th><th>Username / Email</th><th>Role</th><th>Phone</th><th>Wallet</th><th>Actions</th></tr></thead>
-        <tbody>
-          {users.map(u => {
-            const canEditCredentials = ['restaurant', 'delivery'].includes(u.role);
-            return (
-              <tr key={u.id}>
-                <td style={{fontSize:24}}>{u.avatar}</td>
-                <td>{u.name}</td>
-                <td className={styles.mono}>{u.email}</td>
-                <td><span className={styles.statusPill} style={{ background: ROLE_COLOR[u.role] || '#f0f0f0' }}>{u.role}</span></td>
-                <td>{u.phone || '—'}</td>
-                <td>{u.wallet > 0 ? `₹${u.wallet}` : '—'}</td>
-                <td>
-                  {canEditCredentials ? (
-                    <button className={styles.editBtn} onClick={() => setCredentialUser(u)}>Set Login</button>
-                  ) : (
-                    <span className={styles.dateCell}>Managed by user</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className={styles.usersDesktop}>
+        <table className={styles.table}>
+          <thead><tr><th>Avatar</th><th>Name</th><th>Username / Email</th><th>Role</th><th>Phone</th><th>Wallet</th><th>Actions</th></tr></thead>
+          <tbody>
+            {users.map(u => {
+              const canEditCredentials = ['restaurant', 'delivery'].includes(u.role);
+              return (
+                <tr key={u.id}>
+                  <td>{renderAvatar(u.avatar, styles.userAvatar)}</td>
+                  <td>{u.name}</td>
+                  <td className={styles.mono}>{u.email}</td>
+                  <td><span className={styles.statusPill} style={{ background: ROLE_COLOR[u.role] || '#f0f0f0' }}>{u.role}</span></td>
+                  <td>{u.phone || '—'}</td>
+                  <td>{u.wallet > 0 ? `₹${u.wallet}` : '—'}</td>
+                  <td>
+                    {canEditCredentials ? (
+                      <button className={styles.editBtn} onClick={() => setCredentialUser(u)}>Set Login</button>
+                    ) : (
+                      <span className={styles.dateCell}>Managed by user</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className={styles.usersMobile}>
+        {users.map(u => {
+          const canEditCredentials = ['restaurant', 'delivery'].includes(u.role);
+          return (
+            <article key={u.id} className={styles.userCard}>
+              <div className={styles.userCardTop}>
+                {renderAvatar(u.avatar, styles.userCardAvatar)}
+                <div className={styles.userCardMeta}>
+                  <h4>{u.name}</h4>
+                  <p>{u.email}</p>
+                </div>
+                <span className={styles.statusPill} style={{ background: ROLE_COLOR[u.role] || '#f0f0f0' }}>{u.role}</span>
+              </div>
+              <div className={styles.userCardGrid}>
+                <div>
+                  <span>Phone</span>
+                  <strong>{u.phone || '—'}</strong>
+                </div>
+                <div>
+                  <span>Wallet</span>
+                  <strong>{u.wallet > 0 ? `₹${u.wallet}` : '—'}</strong>
+                </div>
+              </div>
+              <div className={styles.userCardActions}>
+                {canEditCredentials ? (
+                  <button className={styles.editBtn} onClick={() => setCredentialUser(u)}>Set Login</button>
+                ) : (
+                  <span className={styles.dateCell}>Managed by user</span>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
       {credentialUser && (
         <CredentialsModal
           user={credentialUser}

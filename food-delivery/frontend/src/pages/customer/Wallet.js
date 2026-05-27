@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { listenToWallet, listenToWalletTransactions, PLATFORM_FEES } from '../../firebase/services';
 import styles from './Wallet.module.css';
@@ -43,6 +44,15 @@ export default function Wallet() {
         <div className={`${styles.redeemBadge} ${canRedeem ? styles.ready : ''}`}>
           {canRedeem ? `₹${Math.floor(balance)} redeemable` : `${PLATFORM_FEES.minimumCoinRedemption - Math.floor(balance)} coins to redeem`}
         </div>
+      </section>
+
+      <section className={styles.policyCard}>
+        <div>
+          <p className={styles.policyKicker}>Policy</p>
+          <h2>FeastCoins terms and usage guide</h2>
+          <p>See how FeastCoins are earned, when they expire, and how you can redeem them at checkout.</p>
+        </div>
+        <Link to="/wallet/terms" className={styles.policyButton}>Open Terms & Conditions</Link>
       </section>
 
       <div className={styles.stats}>

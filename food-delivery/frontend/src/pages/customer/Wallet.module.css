@@ -23,9 +23,56 @@
 .debit { color: #dc2626; }
 .empty { color: #888; text-align: center; padding: 28px; background: #f9fafb; border-radius: 8px; }
 
+.policyCard {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 18px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.policyCard h2 {
+  font-size: 16px;
+  margin-bottom: 6px;
+  color: #111827;
+}
+
+.policyCard p {
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.policyKicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ff6b1a;
+  margin-bottom: 6px;
+}
+
+.policyButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: #ff6b1a;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 @media (max-width: 560px) {
   .hero { align-items: flex-start; flex-direction: column; }
   .hero h1 { font-size: 30px; }
   .stats { grid-template-columns: 1fr; }
   .redeemBadge { white-space: normal; }
+  .policyCard { flex-direction: column; align-items: flex-start; }
 }

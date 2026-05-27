@@ -19,6 +19,7 @@ const OrderConfirmation = React.lazy(() => import('./pages/customer/OrderConfirm
 const MyOrders = React.lazy(() => import('./pages/customer/MyOrders'));
 const Favourites = React.lazy(() => import('./pages/customer/Favourites'));
 const Wallet = React.lazy(() => import('./pages/customer/Wallet'));
+const FeastCoinsTerms = React.lazy(() => import('./pages/customer/FeastCoinsTerms'));
 const RestaurantDashboard = React.lazy(() => import('./pages/restaurant/Dashboard'));
 const DeliveryDashboard = React.lazy(() => import('./pages/delivery/Dashboard'));
 const AdminDashboard = React.lazy(() => import('./pages/admin/Dashboard'));
@@ -95,6 +96,7 @@ function AppRoutes() {
           <Route path="/orders"                 element={<Navigate to="/login" />} />
           <Route path="/favourites"             element={<Navigate to="/login" />} />
           <Route path="/wallet"                 element={<Navigate to="/login" />} />
+          <Route path="/wallet/terms"           element={<Navigate to="/login" />} />
           <Route path="/admin"                  element={<Navigate to="/login" />} />
           <Route path="*"                       element={<Navigate to="/" />} />
         </Routes>
@@ -162,6 +164,7 @@ function AppRoutes() {
           <Route path="/orders"                 element={<MyOrders />} />
           <Route path="/favourites"             element={<Favourites />} />
           <Route path="/wallet"                 element={<Wallet />} />
+          <Route path="/wallet/terms"           element={<FeastCoinsTerms />} />
           <Route path="/admin"                  element={<Navigate to="/" />} />
           <Route path="*"                       element={<Navigate to="/" />} />
         </Routes>

@@ -111,9 +111,11 @@ export default function Home() {
   }, [searchError, searchLoading, searchQuery]);
 
   useEffect(() => {
-    if (!restaurants.length) return undefined;
+    const query = searchQuery.trim();
+    if (!query || menuIndex.length || indexLoading || !restaurants.length) return undefined;
+
     let alive = true;
-    const preload = () => {
+    const timer = setTimeout(() => {
       setIndexLoading(true);
       Promise.allSettled(restaurants.map(restaurant => getRestaurant(restaurant.id)))
         .then(results => {
@@ -135,20 +137,13 @@ export default function Home() {
         .finally(() => {
           if (alive) setIndexLoading(false);
         });
-    };
-    if ('requestIdleCallback' in window) {
-      const id = window.requestIdleCallback(preload, { timeout: 1500 });
-      return () => {
-        alive = false;
-        window.cancelIdleCallback?.(id);
-      };
-    }
-    const timer = setTimeout(preload, 600);
+    }, 150);
+
     return () => {
       alive = false;
       clearTimeout(timer);
     };
-  }, [restaurants]);
+  }, [indexLoading, menuIndex.length, restaurants, searchQuery]);
 
   const localSearchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

@@ -283,6 +283,7 @@ export default function Home() {
         </div>
       </section>
       {searchBox}
+      <BeatFleetContest />
 
       {searchQuery.trim() ? (
         <SearchResults restaurants={searchResults.restaurants} dishes={searchResults.dishes} loading={searchLoading} />
@@ -406,6 +407,122 @@ export default function Home() {
         </div>
       )}
     </div>
+  );
+}
+
+function BeatFleetContest() {
+  const claimUrl = 'https://forms.gle/QrPFo1WhiDB91ak89';
+  const steps = [
+    ['01', 'Spot the Price', 'Find the same order cheaper on another food app.'],
+    ['02', 'Screenshot It', 'Capture the restaurant, items, total, and timestamp.'],
+    ['03', 'Order on FeastFleet', 'Place the matching order from the same outlet here.'],
+    ['04', 'Get It Delivered', 'Complete the delivery and keep your order proof ready.'],
+    ['05', 'Claim & Coin Up', 'Submit proof and get rewarded in FeastCoins after review.'],
+  ];
+  const rules = [
+    {
+      icon: 'SS',
+      title: 'Screenshot Rules',
+      points: [
+        'Screenshot must show outlet name and all cart items.',
+        'Final payable amount must be visible.',
+        'Timestamp should be from the same day.',
+        'Edited or cropped screenshots may be rejected.',
+      ],
+    },
+    {
+      icon: 'OR',
+      title: 'Order Rules',
+      points: [
+        'FeastFleet order must match the screenshot items.',
+        'Restaurant and quantities must be the same.',
+        'Claim applies only after successful delivery.',
+        'Cancelled or returned orders are not eligible.',
+      ],
+    },
+    {
+      icon: 'FC',
+      title: 'FeastCoin Rules',
+      points: [
+        'Reward value is issued as FeastCoins.',
+        'Maximum reward is 100% of order value.',
+        'Coins are added after manual verification.',
+        'FeastCoins follow standard wallet rules.',
+      ],
+    },
+    {
+      icon: 'GR',
+      title: 'General Rules',
+      points: [
+        'Offer applies only in listed eligible zones.',
+        'One verified claim per customer per day.',
+        'FeastFleet decision is final for disputes.',
+        'Fraudulent claims may block future rewards.',
+      ],
+    },
+  ];
+  const zones = ['Green Valley', 'Lawgate', 'Student Area (Near LPU)'];
+
+  return (
+    <section className={styles.beatFleet} aria-labelledby="beat-fleet-title">
+      <div className={styles.beatHero}>
+        <div className={styles.beatHeroText}>
+          <span className={styles.liveBadge}>Live Contest · Beat the Fleet</span>
+          <h2 id="beat-fleet-title">Find it cheaper? Eat for free.</h2>
+          <p>
+            Beat the Fleet turns your sharpest food app price checks into FeastCoins. If the same delivered order is cheaper elsewhere, submit the proof after ordering on FeastFleet.
+          </p>
+          <div className={styles.beatActions}>
+            <a href={claimUrl} target="_blank" rel="noreferrer" className={styles.beatPrimary}>Join the Hunt</a>
+            <a href="#beat-fleet-rules" className={styles.beatGhost}>Full Rules</a>
+          </div>
+        </div>
+        <div className={styles.coinBadge}>
+          <span>100%</span>
+          <strong>Order Value</strong>
+          <small>in FeastCoins</small>
+        </div>
+      </div>
+
+      <div className={styles.beatSteps}>
+        {steps.map(([number, title, description]) => (
+          <article key={number} className={styles.stepCard}>
+            <span>{number}</span>
+            <h3>{title}</h3>
+            <p>{description}</p>
+          </article>
+        ))}
+      </div>
+
+      <div id="beat-fleet-rules" className={styles.rulesGrid}>
+        {rules.map(rule => (
+          <article key={rule.title} className={styles.ruleCard}>
+            <div className={styles.ruleIcon}>{rule.icon}</div>
+            <h3>{rule.title}</h3>
+            <ul>
+              {rule.points.map(point => <li key={point}>{point}</li>)}
+            </ul>
+          </article>
+        ))}
+      </div>
+
+      <div className={styles.zoneStrip}>
+        <div>
+          <h3>Available in your area?</h3>
+          <p>Areas inside LPU campus are not eligible for Beat the Fleet claims.</p>
+        </div>
+        <div className={styles.zonePills}>
+          {zones.map(zone => (
+            <span key={zone}><i />{zone}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.submitBar}>
+        <p>Submit claims via in-app chat, WhatsApp, email, or the official claim form.</p>
+        <a href={claimUrl} target="_blank" rel="noreferrer">Submit a Claim →</a>
+      </div>
+    </section>
   );
 }
 

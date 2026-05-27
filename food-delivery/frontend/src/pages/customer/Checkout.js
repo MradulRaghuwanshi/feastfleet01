@@ -4,7 +4,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useDeliveryLocation } from '../../context/LocationContext';
 const LocationPicker = React.lazy(() => import('../../components/LocationPicker'));
-import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES, getRestaurant } from '../../firebase/services';
+import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES, getRestaurant, getAppConfig } from '../../firebase/services';
 import { apiUrl } from '../../utils/apiConfig';
 import OfferBanner from '../../components/OfferBanner';
 import PriceDisplay from '../../components/PriceDisplay';
@@ -43,6 +43,7 @@ export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState('razorpay'); // 'razorpay' or 'cod'
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [restaurantStatus, setRestaurantStatus] = useState(null);
+  const [paymentOnlineEnabled, setPaymentOnlineEnabled] = useState(true);
   const [guestInfo, setGuestInfo] = useState({
     name: user?.name || '',
     phone: user?.phone || '',
@@ -76,6 +77,21 @@ export default function Checkout() {
       .then(setRestaurantStatus)
       .catch(() => setRestaurantStatus(null));
   }, [cart.restaurantId]);
+
+  useEffect(() => {
+    let alive = true;
+    getAppConfig()
+      .then(config => {
+        if (!alive) return;
+        const enabled = config?.paymentOnlineEnabled !== false;
+        setPaymentOnlineEnabled(enabled);
+        if (!enabled) setPaymentMethod('cod');
+      })
+      .catch(() => {
+        if (alive) setPaymentOnlineEnabled(true);
+      });
+    return () => { alive = false; };
+  }, []);
 
   const walletBalance = wallet?.isVirtual ? (user?.feastCoins ?? user?.wallet ?? 0) : (wallet?.currentBalance ?? user?.feastCoins ?? user?.wallet ?? 0);
   const isNewUser = Boolean(isGuest || user?.isNewUser);
@@ -348,7 +364,9 @@ export default function Checkout() {
         deliveryLng: location?.lng || null,
       };
 
-      if (paymentMethod === 'cod') {
+      const selectedPaymentMethod = paymentOnlineEnabled ? paymentMethod : 'cod';
+
+      if (selectedPaymentMethod === 'cod') {
         // Cash on Delivery - place order directly
         const finalOrderData = {
           ...orderData,
@@ -564,19 +582,21 @@ export default function Checkout() {
           <div className={styles.paymentSection}>
             <h4>Payment Method</h4>
             <div className={styles.paymentOptions}>
-              <label className={styles.paymentOption}>
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="razorpay"
-                  checked={paymentMethod === 'razorpay'}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                />
-                <span className={styles.paymentLabel}>
-                  <strong>Online Payment</strong>
-                  <small>Secure payment via Razorpay</small>
-                </span>
-              </label>
+              {paymentOnlineEnabled && (
+                <label className={styles.paymentOption}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="razorpay"
+                    checked={paymentMethod === 'razorpay'}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  />
+                  <span className={styles.paymentLabel}>
+                    <strong>Online Payment</strong>
+                    <small>Secure payment via Razorpay</small>
+                  </span>
+                </label>
+              )}
               <label className={styles.paymentOption}>
                 <input
                   type="radio"
@@ -591,6 +611,9 @@ export default function Checkout() {
                 </span>
               </label>
             </div>
+            {!paymentOnlineEnabled && (
+              <p className={styles.walletMuted}>Online payment is currently off. Please use Cash on Delivery.</p>
+            )}
           </div>
 
           {error && <p className={styles.error}>{error}</p>}

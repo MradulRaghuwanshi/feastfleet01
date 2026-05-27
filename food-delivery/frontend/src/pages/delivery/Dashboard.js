@@ -137,10 +137,10 @@ export default function DeliveryDashboard() {
   };
 
   const returnOrder = async (orderId) => {
-    if (!window.confirm('Return this order?')) return;
+    if (!window.confirm('Mark this order as not received by customer?')) return;
     setUpdating(orderId);
     try {
-      await returnOrderApi(orderId, user.id, 'Delivery partner returned order');
+      await returnOrderApi(orderId, user.id, 'Customer did not receive order');
       setOrders(await getDeliveryWorkQueueApi(user.id));
     } catch (error) {
       alert(error.message || 'Could not return order');
@@ -363,7 +363,7 @@ export default function DeliveryDashboard() {
                       onClick={() => returnOrder(order.id)}
                       disabled={updating === order.id}
                     >
-                      Return Order
+                      Customer Not Received
                     </button>
                   </>
                 )}

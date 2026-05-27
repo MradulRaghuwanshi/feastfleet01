@@ -319,12 +319,13 @@ export const getUserProfile = async (uid) => {
 };
 
 // ─── RESTAURANTS ──────────────────────────────────────────────────────────────
-export const getRestaurants = async (cuisine) => {
-  const queryParam = cuisine && cuisine !== 'All'
-    ? `?cuisine=${encodeURIComponent(cuisine)}`
-    : '';
-  const restaurants = await cachedApiJson(`restaurants:${cuisine || 'all'}`, `/restaurants${queryParam}`);
-  cacheRestaurantsSnapshot(cuisine, restaurants);
+export const getRestaurants = async (cuisine, options = {}) => {
+  const params = new URLSearchParams();
+  if (cuisine && cuisine !== 'All') params.set('cuisine', cuisine);
+  if (options.includeHidden) params.set('includeHidden', 'true');
+  const queryParam = params.toString() ? `?${params.toString()}` : '';
+  const restaurants = await cachedApiJson(`restaurants:${cuisine || 'all'}:${options.includeHidden ? 'with-hidden' : 'visible'}`, `/restaurants${queryParam}`);
+  if (!options.includeHidden) cacheRestaurantsSnapshot(cuisine, restaurants);
   return restaurants.map(enhanceRestaurant);
 };
 

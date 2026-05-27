@@ -1,6 +1,6 @@
 (async ()=>{
   try{
-    const site = 'https://frontend-delta-mauve-32.vercel.app';
+    const site = 'https://feastfleet.tech';
     const res = await fetch(site);
     if(!res.ok) throw new Error('Failed fetching site: '+res.status);
     const html = await res.text();

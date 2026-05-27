@@ -18,9 +18,26 @@ function getRazorpay() {
   };
 }
 
+async function isOnlinePaymentEnabled() {
+  if (String(process.env.PAYMENT_ONLINE_ENABLED || '').toLowerCase() === 'false') return false;
+
+  if (!db) {
+    const { appConfig } = require('../data/db');
+    return appConfig?.paymentOnlineEnabled !== false;
+  }
+
+  const doc = await db.collection('appConfig').doc('general').get();
+  if (!doc.exists) return true;
+  return doc.data().paymentOnlineEnabled !== false;
+}
+
 router.post('/create-order', async (req, res) => {
   try {
     const { amount, currency, receipt, orderId } = req.body || {};
+
+    if (!(await isOnlinePaymentEnabled())) {
+      return res.status(403).json({ error: 'Online payment is currently disabled. Please use Cash on Delivery.' });
+    }
 
     if (!orderId) return res.status(400).json({ error: 'orderId is required.' });
     if (!db) return res.status(503).json({ error: 'Order database is not configured.' });

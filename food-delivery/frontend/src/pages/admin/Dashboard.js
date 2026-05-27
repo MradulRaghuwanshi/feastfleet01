@@ -53,7 +53,7 @@ export default function AdminDashboard() {
 
   const loadData = useCallback(async () => {
     try {
-      const [u, r, p, cfg] = await Promise.allSettled([getAllUsers(), getRestaurants(), getAllPromos(), getAppConfig()]);
+      const [u, r, p, cfg] = await Promise.allSettled([getAllUsers(), getRestaurants('', { includeHidden: true }), getAllPromos(), getAppConfig()]);
 
       if (u.status === 'fulfilled') setUsers(u.value);
       if (r.status === 'fulfilled') setRestaurants(r.value);
@@ -127,7 +127,10 @@ export default function AdminDashboard() {
 
         {tab === 'Overview'     && <Overview orders={orders} totalRevenue={totalRevenue} activeOrders={activeOrders} totalCustomers={totalCustomers} deliveredCount={deliveredCount} restaurants={restaurants} users={users} />}
         {tab === 'Orders'       && <Orders orders={orders} users={users} adminId={user.id} />}
-        {tab === 'Restaurants'  && <Restaurants restaurants={restaurants} onEdit={setEditRestaurant} onDelete={async (id) => { await deleteRestaurant(id); loadData(); }} />}
+        {tab === 'Restaurants'  && <Restaurants restaurants={restaurants} onEdit={setEditRestaurant} onDelete={async (id) => { await deleteRestaurant(id); loadData(); }} onToggleVisibility={async (restaurant) => {
+          await updateRestaurant(restaurant.id, { isHiddenFromCustomers: restaurant.isHiddenFromCustomers !== true });
+          await loadData();
+        }} />}
         {tab === 'Promos' && <Promos promos={promos}
           onToggle={async (code, active) => {
             await updatePromo(code, { active });
@@ -456,7 +459,7 @@ function Orders({ orders, users, adminId }) {
 
 /* ── Restaurants ─────────────────────────────────────────────────────────── */
 
-function Restaurants({ restaurants, onEdit, onDelete }) {
+function Restaurants({ restaurants, onEdit, onDelete, onToggleVisibility }) {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [csvUploading, setCsvUploading] = useState(false);
   const [csvResult, setCsvResult] = useState(null);
@@ -650,6 +653,8 @@ function Restaurants({ restaurants, onEdit, onDelete }) {
               <div className={styles.restHeader}>
                 <h3>{r.name}</h3>
                 <span className={`${styles.openBadge} ${r.isOpen ? styles.open : styles.closed}`}>{r.isOpen ? 'Open' : 'Closed'}</span>
+                {r.isSampleOutlet && <span className={styles.sampleBadge}>Sample</span>}
+                {r.isHiddenFromCustomers && <span className={styles.hiddenBadge}>Hidden</span>}
               </div>
               <p className={styles.restCuisine}>{r.cuisine} · ⭐ {r.rating}</p>
               <p className={styles.restAddr}>📍 {r.address}</p>
@@ -657,6 +662,9 @@ function Restaurants({ restaurants, onEdit, onDelete }) {
               {r.offer && <p className={styles.restOffer}>🏷️ {r.offer}</p>}
             </div>
             <div className={styles.restActions}>
+              <button className={r.isHiddenFromCustomers ? styles.activateBtn : styles.deactivateBtn} onClick={() => onToggleVisibility(r)}>
+                {r.isHiddenFromCustomers ? 'Show to Customers' : 'Hide from Customers'}
+              </button>
               <button className={styles.editBtn} onClick={() => onEdit(r)}>✏️ Edit</button>
               <button className={styles.editBtn} onClick={() => setSelectedRestaurant(r)}>📊 Excel Menu</button>
               <button className={styles.deleteBtn} onClick={() => { if (window.confirm(`Delete ${r.name}?`)) onDelete(r.id); }}>🗑️ Delete</button>
@@ -907,6 +915,7 @@ function Settings({ config, onSave }) {
     packagingFee: 5,
     defaultDeliveryFee: 30,
     defaultMinOrder: 149,
+    paymentOnlineEnabled: true,
   });
   const [categoryInput, setCategoryInput] = useState('');
   const [saving, setSaving] = useState(false);
@@ -919,6 +928,7 @@ function Settings({ config, onSave }) {
         packagingFee: config.packagingFee ?? 5,
         defaultDeliveryFee: config.defaultDeliveryFee ?? 30,
         defaultMinOrder: config.defaultMinOrder ?? 149,
+        paymentOnlineEnabled: config.paymentOnlineEnabled !== false,
         cuisines: Array.isArray(config.cuisines)
           ? config.cuisines
           : ['Italian', 'American', 'Japanese', 'Mexican', 'Healthy'],
@@ -977,6 +987,15 @@ function Settings({ config, onSave }) {
           <input type="number" min="0" value={form.defaultMinOrder} onChange={e => setForm({...form, defaultMinOrder:+e.target.value})} />
           <small>Default minimum order value for new restaurants</small>
         </label>
+        <label className={`${styles.checkLabel} ${styles.fullWidth}`}>
+          <input
+            type="checkbox"
+            checked={form.paymentOnlineEnabled !== false}
+            onChange={e => setForm({ ...form, paymentOnlineEnabled: e.target.checked })}
+          />
+          Online payment with Razorpay enabled
+          <small>Switch off to show only Cash on Delivery at checkout.</small>
+        </label>
         <div className={styles.fullWidth}>
           <label>Cuisine Categories</label>
           <div className={styles.categoryEditor}>
@@ -1015,7 +1034,7 @@ function Settings({ config, onSave }) {
 function AddRestaurantModal({ onClose, onSave, onGenerated, initial }) {
   const [form, setForm] = useState(initial || {
     name:'', cuisine:'', address:'', deliveryFee:29, minOrder:149,
-    deliveryTime:'30-45 min', rating:4.0, image:'', offer:'', isOpen:true, isFeatured:false, tags:[], loginEmail:'', loginPassword:'', confirmLoginPassword:''
+    deliveryTime:'30-45 min', rating:4.0, image:'', offer:'', isOpen:true, isFeatured:false, isSampleOutlet:false, isHiddenFromCustomers:false, tags:[], loginEmail:'', loginPassword:'', confirmLoginPassword:''
   });
   const [saving, setSaving] = useState(false);
 
@@ -1100,6 +1119,14 @@ function AddRestaurantModal({ onClose, onSave, onGenerated, initial }) {
             <label className={styles.checkLabel}>
               <input type="checkbox" checked={form.isFeatured} onChange={e => setForm({...form, isFeatured:e.target.checked})} />
               Featured Restaurant
+            </label>
+            <label className={styles.checkLabel}>
+              <input type="checkbox" checked={form.isSampleOutlet === true} onChange={e => setForm({...form, isSampleOutlet:e.target.checked})} />
+              Sample / Test Outlet
+            </label>
+            <label className={styles.checkLabel}>
+              <input type="checkbox" checked={form.isHiddenFromCustomers === true} onChange={e => setForm({...form, isHiddenFromCustomers:e.target.checked})} />
+              Hide from customers
             </label>
           </div>
         </div>

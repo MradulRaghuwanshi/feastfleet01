@@ -9,6 +9,7 @@ const defaultConfig = {
   defaultDeliveryFee: 30,
   defaultMinOrder: 149,
   gstPercent: 0,
+  paymentOnlineEnabled: true,
   cuisines: ['Italian', 'American', 'Japanese', 'Mexican', 'Healthy'],
 };
 
@@ -122,6 +123,7 @@ router.patch('/config', async (req, res) => {
       defaultDeliveryFee: Number(req.body.defaultDeliveryFee ?? 30),
       defaultMinOrder: Number(req.body.defaultMinOrder ?? 149),
       gstPercent: Number(req.body.gstPercent ?? 0),
+      paymentOnlineEnabled: req.body.paymentOnlineEnabled !== false,
       cuisines: Array.isArray(req.body.cuisines)
         ? req.body.cuisines.map(item => String(item || '').trim()).filter(Boolean)
         : undefined,
@@ -135,6 +137,7 @@ router.patch('/config', async (req, res) => {
       state.appConfig.defaultDeliveryFee = updates.defaultDeliveryFee;
       state.appConfig.defaultMinOrder = updates.defaultMinOrder;
       state.appConfig.gstPercent = updates.gstPercent;
+      state.appConfig.paymentOnlineEnabled = updates.paymentOnlineEnabled;
       if (updates.cuisines) state.appConfig.cuisines = updates.cuisines;
       state.appConfig.updatedAt = updates.updatedAt;
       return res.json({ ...state.appConfig });

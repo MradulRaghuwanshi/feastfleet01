@@ -3,6 +3,11 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { db, admin } = require('../firebase/admin');
 const { sendOrderPlacedNotifications } = require('../lib/orderNotifications');
+const {
+  sendAdminOrderEvent,
+  sendCustomerOrderCancelledEmail,
+  sendOrderNotifications,
+} = require('../lib/emailService');
 const { calculateBill } = require('../lib/orderEconomics');
 const { applyOffer, getBestOffer, getInflatedPrice } = require('../lib/offerPricing');
 
@@ -85,6 +90,105 @@ function calculateServerBill({ items, promo, redeemFeastCoins, feastCoinBalance,
     netSettlementAmount: Number((subtotal - platformCommission).toFixed(2)),
   };
 }
+async function getRestaurantOwnerEmail(restaurantId) {
+  if (!restaurantId) return '';
+
+  if (!db) {
+    const { users } = require('../data/db');
+    return users.find(user => user.role === 'restaurant' && user.restaurantId === restaurantId)?.email || '';
+  }
+
+  const snap = await db.collection('users')
+    .where('role', '==', 'restaurant')
+    .where('restaurantId', '==', restaurantId)
+    .limit(1)
+    .get();
+
+  return snap.docs[0]?.data()?.email || '';
+}
+
+async function getDeliveryPartnerContact(agentId) {
+  if (!agentId) return null;
+
+  if (!db) {
+    const { users } = require('../data/db');
+    return users.find(user => user.id === agentId) || null;
+  }
+
+  const doc = await db.collection('users').doc(agentId).get();
+  return doc.exists ? { id: doc.id, ...doc.data() } : null;
+}
+
+function buildEmailOrderPayload(order, restaurant, orderId) {
+  return {
+    ...order,
+    id: orderId || order.id,
+    createdAt: order.placedAt || order.createdAt,
+    customer: {
+      name: order.customerName,
+      phone: order.customerPhone,
+      email: order.customerEmail,
+      address: order.deliveryAddress,
+    },
+    restaurant: {
+      name: restaurant?.name || order.restaurantName,
+      email: restaurant?.email || order.restaurantEmail || '',
+      address: restaurant?.address || order.restaurantAddress || '',
+      phone: restaurant?.phone || '',
+      website: restaurant?.website || '',
+      logoUrl: restaurant?.logoUrl || restaurant?.logo || restaurant?.image || '',
+      lat: restaurant?.lat || '',
+      lng: restaurant?.lng || '',
+    },
+    deliveryPartner: {
+      name: order.deliveryAgentName,
+      email: order.deliveryPartnerEmail || order.deliveryAgentEmail || '',
+      phone: order.deliveryPartnerPhone || order.deliveryAgentPhone || '',
+    },
+    estimatedTime: restaurant?.deliveryTime || order.estimatedTime,
+    estimatedDistance: order.estimatedDistance,
+    deliveryEarnings: order.deliveryFee,
+  };
+}
+
+async function hydrateEmailOrderPayload(order, orderId) {
+  const restaurantId = order.restaurantId;
+  let restaurant = null;
+
+  if (!db) {
+    const { restaurants } = require('../data/db');
+    restaurant = restaurants.find(item => item.id === restaurantId) || null;
+  } else if (restaurantId) {
+    const doc = await db.collection('restaurants').doc(restaurantId).get();
+    restaurant = doc.exists ? doc.data() : null;
+  }
+
+  const restaurantEmail = restaurant?.email || order.restaurantEmail || await getRestaurantOwnerEmail(restaurantId);
+  let deliveryContact = null;
+  if (order.deliveryAgentId) deliveryContact = await getDeliveryPartnerContact(order.deliveryAgentId);
+
+  return buildEmailOrderPayload({
+    ...order,
+    restaurantEmail,
+    deliveryAgentEmail: deliveryContact?.email || order.deliveryAgentEmail,
+    deliveryAgentPhone: deliveryContact?.phone || order.deliveryAgentPhone,
+    deliveryAgentName: deliveryContact?.name || order.deliveryAgentName,
+  }, restaurant, orderId || order.id);
+}
+
+async function isOnlinePaymentEnabled() {
+  if (String(process.env.PAYMENT_ONLINE_ENABLED || '').toLowerCase() === 'false') return false;
+
+  if (!db) {
+    const { appConfig } = require('../data/db');
+    return appConfig?.paymentOnlineEnabled !== false;
+  }
+
+  const doc = await db.collection('appConfig').doc('general').get();
+  if (!doc.exists) return true;
+  return doc.data().paymentOnlineEnabled !== false;
+}
+
 const FEASTCOINS_REDEEM_RATE = 1; // 1 feastcoin == ₹1 (so 100 coins == ₹100 discount)
 
 router.post('/', async (req, res) => {
@@ -92,6 +196,9 @@ router.post('/', async (req, res) => {
     const { restaurantId, items, deliveryAddress, customerName, customerId, promoCode, useWallet, redeemFeastCoins, deliveryLat, deliveryLng, paymentMethod, paymentStatus, razorpayOrderId, razorpayPaymentId, isGuest, customerPhone, customerEmail } = req.body;
     if (!restaurantId || !items?.length || !deliveryAddress || !customerName)
       return res.status(400).json({ error: 'Missing required fields' });
+    if (String(paymentMethod || '').toLowerCase() === 'razorpay' && !(await isOnlinePaymentEnabled())) {
+      return res.status(403).json({ error: 'Online payment is currently disabled. Please use Cash on Delivery.' });
+    }
 
     console.log('[orders.create] request received', {
       restaurantId,
@@ -178,6 +285,14 @@ router.post('/', async (req, res) => {
 
       orders.push(order);
       console.log('[orders.create] in-memory order stored', { orderId: order.id });
+
+      try {
+        const restaurantEmail = restaurant.email || await getRestaurantOwnerEmail(restaurantId);
+        await sendOrderNotifications(buildEmailOrderPayload({ ...order, restaurantEmail }, restaurant, order.id));
+      } catch (emailError) {
+        console.warn('Could not send order emails:', emailError.message);
+      }
+
       return res.status(201).json(order);
     }
 
@@ -295,6 +410,14 @@ router.post('/', async (req, res) => {
     } catch (notificationError) {
       console.warn('Could not send order notification:', notificationError.message);
     }
+
+    // Email notifications for restaurant, delivery partner (if assigned), and customer.
+    try {
+      const restaurantEmail = restaurant.email || await getRestaurantOwnerEmail(restaurantId);
+      await sendOrderNotifications(buildEmailOrderPayload({ ...orderData, restaurantEmail }, restaurant, orderRef.id));
+    } catch (emailError) {
+      console.warn('Could not send order emails:', emailError.message);
+    }
     
     res.status(201).json({ id: orderRef.id, ...orderData });
   } catch (error) {
@@ -380,10 +503,24 @@ router.post('/:id/accept', async (req, res) => {
       order.deliveryAgentId = agentId;
       const agent = users.find(u => u.id === agentId);
       order.deliveryAgentName = agent?.name || agentName || 'Delivery Partner';
+      order.deliveryAgentEmail = agent?.email || null;
+      order.deliveryAgentPhone = agent?.phone || null;
 
       if (['Placed', 'Order Placed', 'Restaurant Accepted'].includes(order.status)) order.status = 'Delivery Partner Assigned';
       order.assignmentStatus = 'assigned';
       order.assignedAt = new Date().toISOString();
+
+      try {
+        await sendAdminOrderEvent(
+          await hydrateEmailOrderPayload(order, req.params.id),
+          'Order received by delivery partner',
+          'DELIVERY PARTNER RECEIVED ORDER',
+          `${order.deliveryAgentName} accepted this delivery.`
+        );
+      } catch (emailError) {
+        console.warn('Could not send admin delivery acceptance email:', emailError.message);
+      }
+
       return res.json(order);
     }
 
@@ -396,9 +533,12 @@ router.post('/:id/accept', async (req, res) => {
       return res.status(409).json({ error: 'Order already accepted by another agent' });
     }
 
+    const agentContact = await getDeliveryPartnerContact(agentId);
     const updates = {
       deliveryAgentId: agentId,
-      deliveryAgentName: agentName || 'Delivery Partner',
+      deliveryAgentName: agentContact?.name || agentName || 'Delivery Partner',
+      deliveryAgentEmail: agentContact?.email || null,
+      deliveryAgentPhone: agentContact?.phone || null,
       status: ['Placed', 'Order Placed', 'Restaurant Accepted'].includes(order.status) ? 'Delivery Partner Assigned' : order.status,
       statusHistory: (order.statusHistory || []).concat([{ status: 'Delivery Partner Assigned', time: new Date().toISOString() }]),
       acceptedAt: new Date().toISOString(),
@@ -408,6 +548,18 @@ router.post('/:id/accept', async (req, res) => {
     await db.collection('orders').doc(req.params.id).update(updates);
 
     const updatedSnap = await db.collection('orders').doc(req.params.id).get();
+
+    try {
+      await sendAdminOrderEvent(
+        await hydrateEmailOrderPayload({ ...order, ...updates }, req.params.id),
+        'Order received by delivery partner',
+        'DELIVERY PARTNER RECEIVED ORDER',
+        `${updates.deliveryAgentName} accepted this delivery.`
+      );
+    } catch (emailError) {
+      console.warn('Could not send admin delivery acceptance email:', emailError.message);
+    }
+
     return res.json({ id: updatedSnap.id, ...updatedSnap.data() });
   } catch (error) {
     console.error('Accept order error:', error);
@@ -519,6 +671,19 @@ router.patch('/:id/status', async (req, res) => {
       if (!order) return res.status(404).json({ error: 'Not found' });
       order.status = status;
       order.statusHistory.push({ status, time: new Date().toISOString() });
+      if (status === 'Delivered') {
+        order.deliveredAt = order.deliveredAt || new Date().toISOString();
+        try {
+          await sendAdminOrderEvent(
+            await hydrateEmailOrderPayload(order, req.params.id),
+            'Order delivered',
+            'ORDER DELIVERED',
+            'Delivery partner marked this order as delivered.'
+          );
+        } catch (emailError) {
+          console.warn('Could not send admin delivered email:', emailError.message);
+        }
+      }
       return res.json(order);
     }
 
@@ -528,12 +693,28 @@ router.patch('/:id/status', async (req, res) => {
     const history = doc.data().statusHistory || [];
     history.push({ status, time: new Date().toISOString() });
 
-    await db.collection('orders').doc(req.params.id).update({
+    const updates = {
       status,
-      statusHistory: history
-    });
+      statusHistory: history,
+    };
+    if (status === 'Delivered') updates.deliveredAt = doc.data().deliveredAt || new Date().toISOString();
 
-    res.json({ id: doc.id, ...doc.data(), status, statusHistory: history });
+    await db.collection('orders').doc(req.params.id).update(updates);
+
+    if (status === 'Delivered') {
+      try {
+        await sendAdminOrderEvent(
+          await hydrateEmailOrderPayload({ ...doc.data(), ...updates }, req.params.id),
+          'Order delivered',
+          'ORDER DELIVERED',
+          'Delivery partner marked this order as delivered.'
+        );
+      } catch (emailError) {
+        console.warn('Could not send admin delivered email:', emailError.message);
+      }
+    }
+
+    res.json({ id: doc.id, ...doc.data(), ...updates });
   } catch (error) {
     console.error('Update order status error:', error);
     res.status(500).json({ error: error.message });
@@ -560,6 +741,18 @@ router.patch('/:id/admin-status', async (req, res) => {
       order.updatedAt = now;
       order.statusHistory = (order.statusHistory || []).concat([{ status, actorId: actingAdminId, note: 'Admin updated order status', time: now }]);
       if (status === 'Delivered') order.deliveredAt = order.deliveredAt || now;
+      if (status === 'Delivered') {
+        try {
+          await sendAdminOrderEvent(
+            await hydrateEmailOrderPayload(order, req.params.id),
+            'Order delivered',
+            'ORDER DELIVERED',
+            'Admin marked this order as delivered.'
+          );
+        } catch (emailError) {
+          console.warn('Could not send admin delivered email:', emailError.message);
+        }
+      }
       return res.json(order);
     }
 
@@ -592,6 +785,20 @@ router.patch('/:id/admin-status', async (req, res) => {
 
     await orderRef.update(updates);
     const updatedSnap = await orderRef.get();
+
+    if (status === 'Delivered') {
+      try {
+        await sendAdminOrderEvent(
+          await hydrateEmailOrderPayload({ ...order, ...updates }, req.params.id),
+          'Order delivered',
+          'ORDER DELIVERED',
+          'Admin marked this order as delivered.'
+        );
+      } catch (emailError) {
+        console.warn('Could not send admin delivered email:', emailError.message);
+      }
+    }
+
     return res.json({ id: updatedSnap.id, ...updatedSnap.data() });
   } catch (error) {
     console.error('Admin update order status error:', error);
@@ -613,10 +820,24 @@ router.patch('/:id/cancel', async (req, res) => {
       const order = orders.find(o => o.id === req.params.id);
       if (!order) return res.status(404).json({ error: 'Order not found' });
       if (isFinalStatus(order.status)) return res.status(409).json({ error: `Order is already ${order.status}` });
+      if (role === 'restaurant' && ['On The Way', 'Order Picked Up', 'Pickup OTP Verified'].includes(order.status)) {
+        return res.status(409).json({ error: 'Restaurant can cancel only before the order is picked up.' });
+      }
       order.status = 'Cancelled';
       order.cancelledAt = now;
       order.cancelledBy = actorId || role || 'system';
       order.statusHistory = (order.statusHistory || []).concat([{ status: 'Cancelled', actorId, note: reason || 'Order cancelled', time: now }]);
+      try {
+        const payload = await hydrateEmailOrderPayload(order, req.params.id);
+        await Promise.all([
+          role === 'restaurant'
+            ? sendCustomerOrderCancelledEmail(payload, reason || 'The restaurant could not prepare this order.')
+            : Promise.resolve(),
+          sendAdminOrderEvent(payload, 'Order cancelled', 'ORDER CANCELLED', reason || 'Order cancelled'),
+        ]);
+      } catch (emailError) {
+        console.warn('Could not send cancellation emails:', emailError.message);
+      }
       return res.json(order);
     }
 
@@ -625,6 +846,9 @@ router.patch('/:id/cancel', async (req, res) => {
     if (!orderDoc.exists) return res.status(404).json({ error: 'Order not found' });
     const order = orderDoc.data();
     if (isFinalStatus(order.status)) return res.status(409).json({ error: `Order is already ${order.status}` });
+    if (role === 'restaurant' && ['On The Way', 'Order Picked Up', 'Pickup OTP Verified'].includes(order.status)) {
+      return res.status(409).json({ error: 'Restaurant can cancel only before the order is picked up.' });
+    }
 
     await orderRef.update({
       status: 'Cancelled',
@@ -635,6 +859,17 @@ router.patch('/:id/cancel', async (req, res) => {
     });
 
     const updated = await orderRef.get();
+    try {
+      const payload = await hydrateEmailOrderPayload(updated.data(), req.params.id);
+      await Promise.all([
+        role === 'restaurant'
+          ? sendCustomerOrderCancelledEmail(payload, reason || 'The restaurant could not prepare this order.')
+          : Promise.resolve(),
+        sendAdminOrderEvent(payload, 'Order cancelled', 'ORDER CANCELLED', reason || 'Order cancelled'),
+      ]);
+    } catch (emailError) {
+      console.warn('Could not send cancellation emails:', emailError.message);
+    }
     return res.json({ id: updated.id, ...updated.data() });
   } catch (error) {
     console.error('Cancel order error:', error);
@@ -659,7 +894,18 @@ router.patch('/:id/return', async (req, res) => {
       if (isFinalStatus(order.status)) return res.status(409).json({ error: `Order is already ${order.status}` });
       order.status = 'Returned';
       order.returnedAt = now;
-      order.statusHistory = (order.statusHistory || []).concat([{ status: 'Returned', actorId: agentId, note: reason || 'Returned by delivery partner', time: now }]);
+      order.returnReason = reason || 'Customer did not receive order';
+      order.statusHistory = (order.statusHistory || []).concat([{ status: 'Returned', actorId: agentId, note: order.returnReason, time: now }]);
+      try {
+        await sendAdminOrderEvent(
+          await hydrateEmailOrderPayload(order, req.params.id),
+          'Order not received by customer',
+          'ORDER NOT RECEIVED BY CUSTOMER',
+          order.returnReason
+        );
+      } catch (emailError) {
+        console.warn('Could not send admin return email:', emailError.message);
+      }
       return res.json(order);
     }
 
@@ -673,11 +919,22 @@ router.patch('/:id/return', async (req, res) => {
     await orderRef.update({
       status: 'Returned',
       returnedAt: now,
+      returnReason: reason || 'Customer did not receive order',
       updatedAt: now,
-      statusHistory: (order.statusHistory || []).concat([{ status: 'Returned', actorId: agentId, note: reason || 'Returned by delivery partner', time: now }]),
+      statusHistory: (order.statusHistory || []).concat([{ status: 'Returned', actorId: agentId, note: reason || 'Customer did not receive order', time: now }]),
     });
 
     const updated = await orderRef.get();
+    try {
+      await sendAdminOrderEvent(
+        await hydrateEmailOrderPayload(updated.data(), req.params.id),
+        'Order not received by customer',
+        'ORDER NOT RECEIVED BY CUSTOMER',
+        updated.data().returnReason || 'Customer did not receive order'
+      );
+    } catch (emailError) {
+      console.warn('Could not send admin return email:', emailError.message);
+    }
     return res.json({ id: updated.id, ...updated.data() });
   } catch (error) {
     console.error('Return order error:', error);

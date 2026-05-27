@@ -8,11 +8,12 @@ const generateId = (prefix) => `${prefix}${Date.now().toString(36)}${Math.random
 router.get('/', async (req, res) => {
   try {
     const { cuisine } = req.query;
+    const includeHidden = String(req.query.includeHidden || '').toLowerCase() === 'true';
 
     // Use pre-seeded data when Firebase is not configured
     if (!db) {
       const { restaurants } = require('../data/db');
-      let result = restaurants;
+      let result = includeHidden ? restaurants : restaurants.filter(r => r.isHiddenFromCustomers !== true);
       if (cuisine && cuisine !== 'All') {
         result = result.filter(r => r.cuisine === cuisine);
       }
@@ -29,14 +30,16 @@ router.get('/', async (req, res) => {
     }
 
     const snap = await query.get();
-    const restaurants = snap.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        itemCount: Number(data.itemCount || data.menuItemCount || 0),
-      };
-    });
+    const restaurants = snap.docs
+      .map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          itemCount: Number(data.itemCount || data.menuItemCount || 0),
+        };
+      })
+      .filter(restaurant => includeHidden || restaurant.isHiddenFromCustomers !== true);
 
     res.json(restaurants);
   } catch (error) {
@@ -105,6 +108,8 @@ router.post('/', async (req, res) => {
       offer: payload.offer || null,
       isOpen: payload.isOpen !== false,
       isFeatured: Boolean(payload.isFeatured),
+      isSampleOutlet: Boolean(payload.isSampleOutlet),
+      isHiddenFromCustomers: Boolean(payload.isHiddenFromCustomers),
       tags: Array.isArray(payload.tags) ? payload.tags : [],
       hasOwnDelivery: Boolean(payload.hasOwnDelivery),
       menu: Array.isArray(payload.menu) ? payload.menu : [],
@@ -245,6 +250,8 @@ router.patch('/:id/profile', async (req, res) => {
       closingTime: req.body.closingTime,
       closedMessage: req.body.closedMessage,
       isOpen: typeof req.body.isOpen === 'boolean' ? req.body.isOpen : undefined,
+      isSampleOutlet: typeof req.body.isSampleOutlet === 'boolean' ? req.body.isSampleOutlet : undefined,
+      isHiddenFromCustomers: typeof req.body.isHiddenFromCustomers === 'boolean' ? req.body.isHiddenFromCustomers : undefined,
       cuisine: req.body.cuisine,
       deliveryTime: req.body.deliveryTime,
       deliveryFee: req.body.deliveryFee,

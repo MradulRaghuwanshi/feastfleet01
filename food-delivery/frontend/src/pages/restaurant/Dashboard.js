@@ -521,6 +521,7 @@ export default function RestaurantDashboard() {
 function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, cancelOrder, STATUS_COLOR, NEXT_ACTION, user }) {
   const [filter, setFilter] = useState('active');
   const finalStatuses = [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED, ORDER_STATUS.RETURNED];
+  const restaurantCancelableStatuses = [ORDER_STATUS.PLACED, ORDER_STATUS.RESTAURANT_ACCEPTED, ORDER_STATUS.DELIVERY_ASSIGNED];
   const active    = orders.filter(o => !finalStatuses.includes(normalizeOrderStatus(o.status)));
   const completed = orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED);
   const display   = filter === 'active' ? active : completed;
@@ -601,7 +602,7 @@ function LiveOrdersTab({ orders, advanceStatus, setTrackingOrderId, cancelOrder,
                       Track Live
                     </button>
                   )}
-                  {!finalStatuses.includes(status) && (
+                  {restaurantCancelableStatuses.includes(status) && (
                     <button className={styles.cancelOrderBtn}
                       onClick={() => cancelOrder(order.id)}>
                       Cancel Order

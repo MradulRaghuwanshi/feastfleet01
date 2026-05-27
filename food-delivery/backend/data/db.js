@@ -34,7 +34,7 @@ const restaurants = [
     address: 'Shop 12, Linking Road, Bandra West, Mumbai - 400050',
     lat: 19.0596, lng: 72.8295,
     image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600',
-    isOpen: true, isFeatured: true,
+    isOpen: true, isFeatured: true, isSampleOutlet: false, isHiddenFromCustomers: false,
     tags: ['Best Seller', 'Top Rated'],
     offer: '50% off up to ₹100 on first order',
     menu: [
@@ -199,6 +199,7 @@ const appConfig = {
   packagingFee: 5,
   defaultDeliveryFee: 30,
   defaultMinOrder: 149,
+  paymentOnlineEnabled: true,
 };
 
 module.exports = { users, restaurants, orders, reviews, promoCodes, appConfig };

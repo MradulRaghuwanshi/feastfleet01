@@ -18,7 +18,9 @@ router.get('/', async (req, res) => {
 
     const seenRestaurantIds = new Set();
 
-    const restaurantMenus = await Promise.all(restSnap.docs.map(async (restDoc) => {
+    const visibleRestaurantDocs = restSnap.docs.filter(restDoc => restDoc.data().isHiddenFromCustomers !== true);
+
+    const restaurantMenus = await Promise.all(visibleRestaurantDocs.map(async (restDoc) => {
       const rest = restDoc.data();
       const menuSnap = await db.collection('restaurants').doc(restDoc.id).collection('menu').get();
       return { restDoc, rest, menuSnap };

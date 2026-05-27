@@ -6,7 +6,7 @@
   padding: 0 18px 48px;
 }
 
-.hero {
+.heroContest {
   position: relative;
   min-height: 420px;
   margin: 0 -18px;
@@ -19,13 +19,13 @@
   align-items: center;
   gap: 28px;
   background:
-    linear-gradient(120deg, rgba(16, 24, 40, 0.96), rgba(72, 38, 20, 0.72) 52%, rgba(255, 107, 53, 0.68)),
-    image-set(url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=900&auto=format&fit=crop&q=72') 1x, url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1500&auto=format&fit=crop&q=72') 2x);
+    linear-gradient(120deg, rgba(12, 14, 24, 0.95), rgba(52, 18, 14, 0.68) 52%, rgba(255, 107, 53, 0.72)),
+    image-set(url('https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=900&auto=format&fit=crop&q=72') 1x, url('https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=1500&auto=format&fit=crop&q=72') 2x);
   background-size: cover;
   background-position: center;
 }
 
-.hero::after {
+.heroContest::after {
   content: '';
   position: absolute;
   inset: auto 0 0;
@@ -34,13 +34,13 @@
   z-index: -1;
 }
 
-.heroText {
+.heroContestText {
   max-width: 720px;
   animation: riseIn 0.55s ease both;
 }
 
-.kicker,
-.heroStats span,
+.heroContestBadge,
+.heroContestStats span,
 .sectionHeader h2,
 .sectionHeader span {
   display: inline-flex;
@@ -48,7 +48,7 @@
   gap: 8px;
 }
 
-.kicker {
+.heroContestBadge {
   background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 999px;
@@ -59,14 +59,14 @@
   backdrop-filter: blur(16px);
 }
 
-.kicker svg,
-.heroStats svg,
+.heroContestBadge svg,
+.heroContestStats svg,
 .sectionHeader svg {
   width: 16px;
   height: 16px;
 }
 
-.hero h1 {
+.heroContest h1 {
   font-family: 'Poppins', 'Inter', sans-serif;
   font-size: clamp(34px, 6vw, 70px);
   line-height: 0.98;
@@ -75,7 +75,7 @@
   text-wrap: balance;
 }
 
-.hero p {
+.heroContest p {
   font-size: clamp(15px, 2vw, 18px);
   line-height: 1.58;
   max-width: 560px;
@@ -83,14 +83,14 @@
   color: rgba(255, 255, 255, 0.88);
 }
 
-.heroStats {
+.heroContestStats {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 22px;
 }
 
-.heroStats span {
+.heroContestStats span {
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
@@ -100,20 +100,60 @@
   backdrop-filter: blur(14px);
 }
 
-.heroPanel {
+.heroContestActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.heroContestPrimary,
+.heroContestSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 900;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.heroContestPrimary {
+  background: #ff6b35;
+  color: #fff;
+  box-shadow: 0 18px 32px rgba(255, 107, 53, 0.28);
+}
+
+.heroContestSecondary {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(10px);
+}
+
+.heroContestPrimary:hover,
+.heroContestSecondary:hover {
+  transform: translateY(-1px);
+}
+
+.heroContestPanel {
   justify-self: end;
   width: min(100%, 330px);
-  border: 1px solid rgba(255, 255, 255, 0.26);
-  border-radius: 18px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 24px;
+  padding: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 172, 98, 0.38), transparent 36%),
+    rgba(255, 255, 255, 0.12);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
   backdrop-filter: blur(20px);
   animation: floatCard 4.8s ease-in-out infinite;
 }
 
-.heroPanel span,
-.heroPanel p {
+.heroContestPanel span,
+.heroContestPanel p {
   display: block;
   margin: 0;
   color: rgba(255, 255, 255, 0.78);
@@ -121,12 +161,23 @@
   font-weight: 800;
 }
 
-.heroPanel strong {
+.heroContestPanel strong {
   display: block;
   margin: 10px 0 5px;
   font-size: 30px;
   line-height: 1.05;
   font-weight: 900;
+}
+
+.heroContestNote {
+  margin-top: 16px;
+  padding: 14px 15px;
+  border-radius: 16px;
+  background: rgba(16, 24, 40, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .searchWrap {
@@ -759,13 +810,13 @@
 }
 
 @media (max-width: 760px) {
-  .hero {
+  .heroContest {
     grid-template-columns: 1fr;
     min-height: 430px;
     padding: 32px 18px 108px;
   }
 
-  .heroPanel {
+  .heroContestPanel {
     display: none;
   }
 
@@ -790,16 +841,16 @@
     padding-inline: 14px;
   }
 
-  .hero {
+  .heroContest {
     margin-inline: -14px;
     min-height: 430px;
   }
 
-  .hero h1 {
+  .heroContest h1 {
     font-size: 38px;
   }
 
-  .hero p {
+  .heroContest p {
     font-size: 14px;
   }
 

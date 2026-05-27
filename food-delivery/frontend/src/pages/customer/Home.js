@@ -265,35 +265,30 @@ export default function Home() {
 
   return (
     <div className={styles.page}>
-      <section className={styles.hero}>
-        <div className={styles.heroText}>
-          <span className={styles.kicker}><SparkleIcon /> FeastFleet premium picks</span>
-          <h1>Cravings delivered with a little theatre.</h1>
-          <p>Fast local restaurants, bright offers, and checkout that gets out of your way.</p>
-          <div className={styles.heroStats}>
-            <span><FlameIcon /> Live offers</span>
-            <span><TruckIcon /> 25-35 min lanes</span>
-            <span><TagIcon /> Smart savings</span>
+      <section className={styles.heroContest} aria-labelledby="contest-hero-title">
+        <div className={styles.heroContestGlow} aria-hidden="true" />
+        <div className={styles.heroContestText}>
+          <span className={styles.heroContestBadge}><SparkleIcon /> Live contest</span>
+          <h1 id="contest-hero-title">Beat the Fleet and claim FeastCoins.</h1>
+          <p>Compare the same delivered order across apps. If FeastFleet is not the cheapest option, submit your proof and earn rewards after review.</p>
+          <div className={styles.heroContestStats}>
+            <span><FlameIcon /> Up to 100% order value</span>
+            <span><TruckIcon /> Manual verification</span>
+            <span><TagIcon /> Official claim form</span>
+          </div>
+          <div className={styles.heroContestActions}>
+            <Link to="/contest" className={styles.heroContestPrimary}>View Contest Details</Link>
+            <a href="https://forms.gle/QrPFo1WhiDB91ak89" target="_blank" rel="noreferrer" className={styles.heroContestSecondary}>Register / Claim</a>
           </div>
         </div>
-        <div className={styles.heroPanel} aria-hidden="true">
-          <span>Tonight's fastest cart</span>
-          <strong>Rolls + Shake</strong>
-          <p>Arrives in 28 min</p>
+        <div className={styles.heroContestPanel} aria-hidden="true">
+          <span>Tonight's reward</span>
+          <strong>100% FeastCoins</strong>
+          <p>For the same delivered cart, if another app is cheaper.</p>
+          <div className={styles.heroContestNote}>Submit screenshots, order proof, and your claim form together.</div>
         </div>
       </section>
       {searchBox}
-      <section className={styles.contestTeaser} aria-labelledby="contest-teaser-title">
-        <div>
-          <span className={styles.contestKicker}>Live Contest</span>
-          <h2 id="contest-teaser-title">Beat the Fleet</h2>
-          <p>Compare the same delivered order across apps. If FeastFleet is not the cheapest option, submit a claim and earn FeastCoins after review.</p>
-        </div>
-        <div className={styles.contestActions}>
-          <Link to="/contest" className={styles.contestPrimary}>View Contest Details</Link>
-          <a href="https://forms.gle/QrPFo1WhiDB91ak89" target="_blank" rel="noreferrer" className={styles.contestSecondary}>Register / Claim</a>
-        </div>
-      </section>
 
       {searchQuery.trim() ? (
         <SearchResults restaurants={searchResults.restaurants} dishes={searchResults.dishes} loading={searchLoading} />

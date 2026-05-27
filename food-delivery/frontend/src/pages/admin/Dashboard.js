@@ -1093,7 +1093,26 @@ function Settings({ config, onSave }) {
   };
 
   return (
-    <div className={styles.settingsCard}>
+    <div>
+      <div className={styles.paymentModeCard}>
+        <div>
+          <h3>Payment Mode</h3>
+          <p className={styles.settingsSub}>Disable Razorpay to hide online payment everywhere and show only Cash on Delivery at checkout.</p>
+        </div>
+        <label className={styles.paymentModeToggle}>
+          <input
+            type="checkbox"
+            checked={form.paymentOnlineEnabled !== false}
+            onChange={e => setForm({ ...form, paymentOnlineEnabled: e.target.checked })}
+          />
+          <span>
+            <strong>{form.paymentOnlineEnabled !== false ? 'Razorpay ON' : 'COD only'}</strong>
+            <small>{form.paymentOnlineEnabled !== false ? 'Online payment is visible to customers.' : 'Online payment is hidden across the site.'}</small>
+          </span>
+        </label>
+      </div>
+
+      <div className={styles.settingsCard}>
       <h3>Fee & Platform Configuration</h3>
       <p className={styles.settingsSub}>These values are applied to all orders across the platform.</p>
       <div className={styles.formGrid}>
@@ -1112,15 +1131,6 @@ function Settings({ config, onSave }) {
         <label className={styles.fullWidth}>Default Min Order (₹)
           <input type="number" min="0" value={form.defaultMinOrder} onChange={e => setForm({...form, defaultMinOrder:+e.target.value})} />
           <small>Default minimum order value for new restaurants</small>
-        </label>
-        <label className={`${styles.checkLabel} ${styles.fullWidth}`}>
-          <input
-            type="checkbox"
-            checked={form.paymentOnlineEnabled !== false}
-            onChange={e => setForm({ ...form, paymentOnlineEnabled: e.target.checked })}
-          />
-          Online payment with Razorpay enabled
-          <small>Switch off to show only Cash on Delivery at checkout.</small>
         </label>
         <div className={styles.fullWidth}>
           <label>Cuisine Categories</label>
@@ -1150,6 +1160,7 @@ function Settings({ config, onSave }) {
         <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
+      </div>
       </div>
     </div>
   );

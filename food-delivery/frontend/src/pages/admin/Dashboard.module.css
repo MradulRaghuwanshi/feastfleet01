@@ -146,6 +146,13 @@
 .copyBtn { background: #eff6ff; color: #2563eb; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
 
 /* Settings */
+.paymentModeCard { background: linear-gradient(135deg, #fff7f2 0%, #fff 100%); border: 1px solid rgba(255, 107, 53, 0.16); border-radius: 14px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); max-width: 640px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.paymentModeCard h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; color: #1a1a2e; }
+.paymentModeToggle { display: inline-flex; align-items: center; gap: 12px; cursor: pointer; }
+.paymentModeToggle input { width: 18px; height: 18px; accent-color: #ff6b35; }
+.paymentModeToggle span { display: flex; flex-direction: column; gap: 3px; }
+.paymentModeToggle strong { font-size: 13px; color: #1a1a2e; }
+.paymentModeToggle small { font-size: 11px; color: #777; font-weight: 400; }
 .settingsCard { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); max-width: 640px; }
 .settingsCard h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; color: #1a1a2e; }
 .settingsSub { font-size: 12px; color: #888; margin-bottom: 18px; }
@@ -215,6 +222,7 @@
   .topBar { padding-left: 54px; }
   .statsGrid { grid-template-columns: repeat(2, 1fr); }
   .formGrid { grid-template-columns: 1fr; }
+  .paymentModeCard { flex-direction: column; align-items: flex-start; }
   .restCard { flex-direction: column; }
   .restImg { width: 100%; height: 120px; }
   .restActions { flex-direction: row; }

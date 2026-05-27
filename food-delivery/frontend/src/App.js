@@ -24,6 +24,7 @@ const DeliveryDashboard = React.lazy(() => import('./pages/delivery/Dashboard'))
 const AdminDashboard = React.lazy(() => import('./pages/admin/Dashboard'));
 const POS = React.lazy(() => import('./pages/restaurant/POS'));
 const RestaurantHistory = React.lazy(() => import('./pages/restaurant/History'));
+const Contest = React.lazy(() => import('./pages/customer/Contest'));
 const PWAInstall = React.lazy(() => import('./components/PWAInstall'));
 
 function PageLoader() {
@@ -85,6 +86,7 @@ function AppRoutes() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/"                       element={<Home />} />
+          <Route path="/contest"               element={<Contest />} />
           <Route path="/login"                  element={<Login />} />
           <Route path="/about"                  element={<About />} />
           <Route path="/restaurant/:id"         element={<RestaurantMenu />} />
@@ -152,6 +154,7 @@ function AppRoutes() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/"                       element={<Home />} />
+          <Route path="/contest"               element={<Contest />} />
           <Route path="/about"                  element={<About />} />
           <Route path="/restaurant/:id"         element={<RestaurantMenu />} />
           <Route path="/checkout"               element={<Checkout />} />

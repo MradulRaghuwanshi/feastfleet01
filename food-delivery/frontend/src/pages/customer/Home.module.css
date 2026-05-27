@@ -19,8 +19,8 @@
   align-items: center;
   gap: 28px;
   background:
-    linear-gradient(120deg, rgba(12, 14, 24, 0.95), rgba(52, 18, 14, 0.68) 52%, rgba(255, 107, 53, 0.72)),
-    image-set(url('https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=900&auto=format&fit=crop&q=72') 1x, url('https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=1500&auto=format&fit=crop&q=72') 2x);
+    linear-gradient(120deg, rgba(12, 14, 24, 0.92), rgba(52, 18, 14, 0.66) 48%, rgba(255, 107, 53, 0.72)),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 800' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' x2='1'><stop offset='0' stop-color='%23ff8a50'/><stop offset='1' stop-color='%23ff3b30'/></linearGradient></defs><rect width='1200' height='800' fill='url(%23g)'/><g transform='translate(100,380)'><rect x='0' y='0' width='360' height='180' rx='20' fill='%23000000' opacity='0.06'/></g><g transform='translate(600,240)'><path d='M20 66c0 10 8 18 18 18s18-8 18-18-8-18-18-18-18 8-18 18z' fill='%23fff' opacity='0.9'/><rect x='80' y='40' width='220' height='120' rx='16' fill='%23fff' opacity='0.9'/><path d='M48 60 L100 40 L160 80 L128 120 Z' fill='%23fff' opacity='0.95'/></g><text x='80' y='160' fill='%23fff' font-size='40' font-family='DM Sans, sans-serif' font-weight='800'>Faster Food, Happier Customers</text></svg>");
   background-size: cover;
   background-position: center;
 }

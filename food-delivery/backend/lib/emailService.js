@@ -297,6 +297,37 @@ function buildCustomerCancelledEmail(order, reason) {
   };
 }
 
+function buildCustomerDeliveredEmail(order) {
+  const o = normalizeOrder(order);
+  const content = `
+    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;">Hi <strong>${escapeHtml(o.customer.name)}</strong>, thank you for ordering from FeastFleet.</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:20px;">
+      ${detailRow('Order ID', escapeHtml(o.id))}
+      ${detailRow('Restaurant', escapeHtml(o.restaurant.name))}
+      ${detailRow('Delivered amount', `<span style="font-size:20px;color:${BRAND_COLOR};">${formatCurrency(o.total)}</span>`)}
+      ${detailRow('Order time', escapeHtml(formatDateTime(o.createdAt)))}
+    </table>
+    <div style="border-top:1px solid #eeeeee;margin:0 0 18px;"></div>
+    <h2 style="font-size:18px;margin:0 0 12px;color:#222;">Order summary</h2>
+    ${renderItemsTable(o.items)}
+    <div style="margin-top:20px;padding:14px 16px;background:#effaf4;border-left:4px solid #10b981;border-radius:6px;color:#28523c;font-weight:700;">
+      We hope you enjoyed the meal. Please order again soon.
+    </div>
+  `;
+
+  return {
+    to: o.customer.email,
+    subject: `Thanks for ordering: ${o.id}`,
+    html: baseTemplate({
+      title: o.restaurant.name,
+      alert: 'ORDER DELIVERED',
+      preheader: `Your order ${o.id} has been delivered`,
+      content,
+      footerRestaurant: o.restaurant,
+    }),
+  };
+}
+
 function buildAdminOrderEventEmail(order, eventTitle, alert, reason) {
   const o = normalizeOrder(order);
   const content = `
@@ -370,6 +401,10 @@ async function sendCustomerOrderCancelledEmail(order, reason) {
   return sendEmailSafely('customerCancellation', buildCustomerCancelledEmail(order, reason));
 }
 
+async function sendCustomerOrderDeliveredEmail(order) {
+  return sendEmailSafely('customerDeliveryThanks', buildCustomerDeliveredEmail(order));
+}
+
 async function sendAdminOrderEvent(order, eventTitle, alert, reason) {
   return sendEmailSafely('admin', buildAdminOrderEventEmail(order, eventTitle, alert, reason));
 }
@@ -378,10 +413,12 @@ module.exports = {
   transporter,
   sendOrderNotifications,
   sendCustomerOrderCancelledEmail,
+  sendCustomerOrderDeliveredEmail,
   sendAdminOrderEvent,
   buildRestaurantEmail,
   buildDeliveryPartnerEmail,
   buildCustomerEmail,
   buildCustomerCancelledEmail,
+  buildCustomerDeliveredEmail,
   buildAdminOrderEventEmail,
 };

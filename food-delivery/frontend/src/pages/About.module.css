@@ -67,6 +67,10 @@
   overflow-wrap: anywhere;
 }
 
+.contactBand a:hover {
+  color: #ff6b35;
+}
+
 @media (max-width: 600px) {
   .page {
     padding-top: 26px;

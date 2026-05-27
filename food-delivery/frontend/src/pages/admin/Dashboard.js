@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   listenToAllOrders, getAllUsers, getRestaurants, getAllPromos,
@@ -139,7 +139,7 @@ export default function AdminDashboard() {
         </div>
 
         {tab === 'Overview'     && <Overview orders={orders} totalRevenue={totalRevenue} activeOrders={activeOrders} totalCustomers={totalCustomers} deliveredCount={deliveredCount} restaurants={restaurants} users={users} />}
-        {tab === 'Orders'       && <Orders orders={orders} users={users} adminId={user.id} />}
+        {tab === 'Orders'       && <Orders orders={orders} users={users} restaurants={restaurants} adminId={user.id} />}
         {tab === 'Restaurants'  && <Restaurants restaurants={restaurants} onEdit={setEditRestaurant} onDelete={async (id) => { await deleteRestaurant(id); loadData(); }} onToggleVisibility={async (restaurant) => {
           await updateRestaurant(restaurant.id, { isHiddenFromCustomers: restaurant.isHiddenFromCustomers !== true });
           await loadData();
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
         {tab === 'Users'        && <Users users={users} adminId={user.id} onCredentialsSaved={loadData} />}
         {tab === 'Delivery Partners' && <DeliveryPartners users={users} orders={orders} adminId={user.id} onUpdate={loadData} />}
         {tab === 'Wallets'      && <Wallets users={users} orders={orders} />}
-        {tab === 'Settlements'  && <Settlements orders={orders} />}
+        {tab === 'Settlements'  && <Settlements orders={orders} adminId={user.id} onUpdate={loadData} />}
         {tab === 'Settings'     && <Settings config={appConfig} onSave={async (data) => {
           await updateAppConfig(data, user.id);
           setAppConfig({ ...(appConfig || {}), ...data });
@@ -354,11 +354,31 @@ function StatCard({ icon, label, value, color }) {
 
 /* ── Orders ──────────────────────────────────────────────────────────────── */
 
-function Orders({ orders, users, adminId }) {
+function Orders({ orders, users, restaurants, adminId }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
   const [updating, setUpdating] = useState('');
   const deliveryPartners = users.filter(u => u.role === 'delivery');
+  const restaurantPhoneById = useMemo(() => {
+    const map = new Map();
+    restaurants.forEach(restaurant => {
+      const phone = String(restaurant.contactPhone || restaurant.phone || '').trim();
+      if (phone) map.set(restaurant.id, phone);
+    });
+    return map;
+  }, [restaurants]);
+
+  const cleanPhone = (phone) => String(phone || '').replace(/[^\d+]/g, '').replace(/^\+/, '');
+  const telHref = (phone) => {
+    const value = cleanPhone(phone);
+    return value ? `tel:${value}` : '';
+  };
+  const waHref = (phone, message) => {
+    const value = cleanPhone(phone);
+    return value ? `https://wa.me/${value}?text=${encodeURIComponent(message)}` : '';
+  };
+  const contactLabel = (order) => `Order ${String(order.id || '').slice(0, 8).toUpperCase()}`;
+
   const STATUS_COLOR = {
     [ORDER_STATUS.PLACED]:'#dbeafe',
     [ORDER_STATUS.RESTAURANT_ACCEPTED]:'#fef3c7',
@@ -411,6 +431,19 @@ function Orders({ orders, users, adminId }) {
     }
   };
 
+  const getRestaurantPhone = (order) => restaurantPhoneById.get(order.restaurantId) || order.restaurantPhone || '';
+  const getDeliveryPartnerPhone = (order) => {
+    const agent = deliveryPartners.find(p => p.id === order.deliveryAgentId);
+    return String(agent?.phone || order.deliveryPartnerPhone || order.deliveryAgentPhone || '').trim();
+  };
+  const getCustomerPhone = (order) => String(order.customerPhone || '').trim();
+  const makeOrderMessage = (order, channel) => {
+    const orderId = String(order.id || '').slice(0, 8).toUpperCase();
+    if (channel === 'cancelled') return `Hi ${order.customerName || 'Customer'}, sorry your order #${orderId} was cancelled. We are trying to help immediately.`;
+    if (channel === 'delivered') return `Hi ${order.customerName || 'Customer'}, thanks for ordering from FeastFleet. Your order #${orderId} has been delivered. Enjoy your meal!`;
+    return `Hi ${order.customerName || 'Customer'}, about your FeastFleet order #${orderId}.`;
+  };
+
   return (
     <div>
       <div className={styles.filterBar}>
@@ -424,6 +457,10 @@ function Orders({ orders, users, adminId }) {
         <tbody>
           {filtered.map(o => {
             const status = normalizeOrderStatus(o.status);
+            const customerPhone = getCustomerPhone(o);
+            const restaurantPhone = getRestaurantPhone(o);
+            const deliveryPhone = getDeliveryPartnerPhone(o);
+            const customerMessage = makeOrderMessage(o, status === ORDER_STATUS.CANCELLED ? 'cancelled' : status === ORDER_STATUS.DELIVERED ? 'delivered' : 'order');
             return (
               <tr key={o.id}>
                 <td className={styles.mono}>#{o.id?.slice(0,8)?.toUpperCase()}</td>
@@ -455,6 +492,16 @@ function Orders({ orders, users, adminId }) {
                   </select>
                 </td>
                 <td className={styles.dateCell}>{o.placedAt ? new Date(o.placedAt?.seconds ? o.placedAt.seconds*1000 : o.placedAt).toLocaleDateString('en-IN') : '—'}</td>
+                <td>
+                  <div className={styles.contactGroup}>
+                    {customerPhone && <a className={styles.contactCall} href={telHref(customerPhone)}>Call Customer</a>}
+                    {customerPhone && <a className={styles.contactWhatsApp} href={waHref(customerPhone, customerMessage)} target="_blank" rel="noreferrer">WhatsApp Customer</a>}
+                    {restaurantPhone && <a className={styles.contactCall} href={telHref(restaurantPhone)}>Call Restaurant</a>}
+                    {restaurantPhone && <a className={styles.contactWhatsApp} href={waHref(restaurantPhone, `Hi ${o.restaurantName || 'Restaurant'}, regarding ${contactLabel(o)}.`)} target="_blank" rel="noreferrer">WhatsApp Restaurant</a>}
+                    {deliveryPhone && <a className={styles.contactCall} href={telHref(deliveryPhone)}>Call Delivery</a>}
+                    {deliveryPhone && <a className={styles.contactWhatsApp} href={waHref(deliveryPhone, `Hi ${deliveryPartners.find(p => p.id === o.deliveryAgentId)?.name || 'Delivery Partner'}, please check ${contactLabel(o)}.`)} target="_blank" rel="noreferrer">WhatsApp Delivery</a>}
+                  </div>
+                </td>
               </tr>
             );
           })}
@@ -920,12 +967,24 @@ function Wallets({ users, orders }) {
   );
 }
 
-function Settlements({ orders }) {
+function Settlements({ orders, adminId, onUpdate }) {
   const delivered = orders.filter(o => normalizeOrderStatus(o.status) === ORDER_STATUS.DELIVERED);
   const gross = delivered.reduce((sum, o) => sum + Number(o.subtotal || 0), 0);
   const commission = delivered.reduce((sum, o) => sum + Number(o.platformCommission || ((o.subtotal || 0) * 0.15)), 0);
   const net = delivered.reduce((sum, o) => sum + Number(o.netSettlementAmount || ((o.subtotal || 0) * 0.85)), 0);
   const deliveryEarnings = delivered.reduce((sum, o) => sum + Number(o.deliveryEarningAmount || (o.deliveryAgentId ? 40 : 0)), 0);
+
+  const updateSettlement = async (orderId, party, status) => {
+    await fetch(`/api/orders/${orderId}/settlement`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-id': adminId,
+      },
+      body: JSON.stringify({ party, status, adminId }),
+    });
+    await onUpdate?.();
+  };
 
   return (
     <div>
@@ -936,12 +995,14 @@ function Settlements({ orders }) {
         <StatCard icon="🚴" label="Delivery Earnings" value={`₹${deliveryEarnings.toFixed(0)}`} color="#f59e0b" />
       </div>
       <table className={styles.table}>
-        <thead><tr><th>Order</th><th>Restaurant</th><th>Gross</th><th>Commission</th><th>Net Settlement</th><th>Status</th></tr></thead>
+        <thead><tr><th>Order</th><th>Restaurant</th><th>Gross</th><th>Commission</th><th>Net Settlement</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
           {delivered.map(o => {
             const grossAmount = Number(o.subtotal || 0);
             const platformCommission = Number(o.platformCommission || (grossAmount * 0.15));
             const netSettlement = Number(o.netSettlementAmount || (grossAmount - platformCommission));
+            const restaurantStatus = String(o.settlementStatus || 'pending');
+            const deliveryStatus = String(o.deliverySettlementStatus || 'pending');
             return (
               <tr key={o.id}>
                 <td className={styles.mono}>#{o.id?.slice(0,8)?.toUpperCase()}</td>
@@ -949,7 +1010,20 @@ function Settlements({ orders }) {
                 <td>₹{grossAmount.toFixed(0)}</td>
                 <td>₹{platformCommission.toFixed(0)}</td>
                 <td>₹{netSettlement.toFixed(0)}</td>
-                <td><span className={styles.statusPill}>{o.settlementStatus || 'pending'}</span></td>
+                <td>
+                  <span className={styles.statusPill}>{`R: ${restaurantStatus}`}</span>
+                  <span className={styles.statusPill} style={{ marginLeft: 6 }}>{`D: ${deliveryStatus}`}</span>
+                </td>
+                <td>
+                  <div className={styles.contactGroup}>
+                    <button className={styles.contactCall} onClick={() => updateSettlement(o.id, 'restaurant', restaurantStatus === 'settled' ? 'pending' : 'settled')}>
+                      {restaurantStatus === 'settled' ? 'Unset Restaurant' : 'Settle Restaurant'}
+                    </button>
+                    <button className={styles.contactWhatsApp} onClick={() => updateSettlement(o.id, 'delivery', deliveryStatus === 'settled' ? 'pending' : 'settled')}>
+                      {deliveryStatus === 'settled' ? 'Unset Delivery' : 'Settle Delivery'}
+                    </button>
+                  </div>
+                </td>
               </tr>
             );
           })}

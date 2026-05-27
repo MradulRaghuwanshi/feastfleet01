@@ -6,6 +6,7 @@ const { sendOrderPlacedNotifications } = require('../lib/orderNotifications');
 const {
   sendAdminOrderEvent,
   sendCustomerOrderCancelledEmail,
+  sendCustomerOrderDeliveredEmail,
   sendOrderNotifications,
 } = require('../lib/emailService');
 const { calculateBill } = require('../lib/orderEconomics');
@@ -674,12 +675,14 @@ router.patch('/:id/status', async (req, res) => {
       if (status === 'Delivered') {
         order.deliveredAt = order.deliveredAt || new Date().toISOString();
         try {
+          const payload = await hydrateEmailOrderPayload(order, req.params.id);
           await sendAdminOrderEvent(
-            await hydrateEmailOrderPayload(order, req.params.id),
+            payload,
             'Order delivered',
             'ORDER DELIVERED',
             'Delivery partner marked this order as delivered.'
           );
+          await sendCustomerOrderDeliveredEmail(payload);
         } catch (emailError) {
           console.warn('Could not send admin delivered email:', emailError.message);
         }
@@ -703,12 +706,14 @@ router.patch('/:id/status', async (req, res) => {
 
     if (status === 'Delivered') {
       try {
+        const payload = await hydrateEmailOrderPayload({ ...doc.data(), ...updates }, req.params.id);
         await sendAdminOrderEvent(
-          await hydrateEmailOrderPayload({ ...doc.data(), ...updates }, req.params.id),
+          payload,
           'Order delivered',
           'ORDER DELIVERED',
           'Delivery partner marked this order as delivered.'
         );
+        await sendCustomerOrderDeliveredEmail(payload);
       } catch (emailError) {
         console.warn('Could not send admin delivered email:', emailError.message);
       }
@@ -788,12 +793,14 @@ router.patch('/:id/admin-status', async (req, res) => {
 
     if (status === 'Delivered') {
       try {
+        const payload = await hydrateEmailOrderPayload({ ...order, ...updates }, req.params.id);
         await sendAdminOrderEvent(
-          await hydrateEmailOrderPayload({ ...order, ...updates }, req.params.id),
+          payload,
           'Order delivered',
           'ORDER DELIVERED',
           'Admin marked this order as delivered.'
         );
+        await sendCustomerOrderDeliveredEmail(payload);
       } catch (emailError) {
         console.warn('Could not send admin delivered email:', emailError.message);
       }
@@ -938,6 +945,63 @@ router.patch('/:id/return', async (req, res) => {
     return res.json({ id: updated.id, ...updated.data() });
   } catch (error) {
     console.error('Return order error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch('/:id/settlement', async (req, res) => {
+  try {
+    const { party, status, adminId } = req.body || {};
+    const actingAdminId = String(req.headers['x-admin-id'] || adminId || '').trim();
+    const normalizedParty = String(party || '').toLowerCase();
+    const normalizedStatus = String(status || '').toLowerCase();
+
+    if (!actingAdminId) return res.status(403).json({ error: 'Admin access required' });
+    if (!['restaurant', 'delivery'].includes(normalizedParty)) {
+      return res.status(400).json({ error: 'party must be restaurant or delivery' });
+    }
+    if (!['pending', 'settled'].includes(normalizedStatus)) {
+      return res.status(400).json({ error: 'status must be pending or settled' });
+    }
+
+    const now = new Date().toISOString();
+    const settlementField = normalizedParty === 'restaurant' ? 'settlementStatus' : 'deliverySettlementStatus';
+    const settledAtField = normalizedParty === 'restaurant' ? 'settledAt' : 'deliverySettledAt';
+
+    if (!db) {
+      const { orders, users } = require('../data/db');
+      const adminUser = users.find(u => u.id === actingAdminId && u.role === 'admin');
+      if (!adminUser) return res.status(403).json({ error: 'Admin access required' });
+      const order = orders.find(o => o.id === req.params.id);
+      if (!order) return res.status(404).json({ error: 'Order not found' });
+      order[settlementField] = normalizedStatus;
+      order[settledAtField] = normalizedStatus === 'settled' ? now : null;
+      order.updatedAt = now;
+      order.statusHistory = (order.statusHistory || []).concat([{ status: `Settlement ${normalizedParty} ${normalizedStatus}`, actorId: actingAdminId, note: 'Admin updated settlement status', time: now }]);
+      return res.json(order);
+    }
+
+    const adminDoc = await db.collection('users').doc(actingAdminId).get();
+    if (!adminDoc.exists || adminDoc.data().role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const orderRef = db.collection('orders').doc(req.params.id);
+    const orderDoc = await orderRef.get();
+    if (!orderDoc.exists) return res.status(404).json({ error: 'Order not found' });
+
+    const updates = {
+      [settlementField]: normalizedStatus,
+      [settledAtField]: normalizedStatus === 'settled' ? now : null,
+      updatedAt: now,
+      statusHistory: (orderDoc.data().statusHistory || []).concat([{ status: `Settlement ${normalizedParty} ${normalizedStatus}`, actorId: actingAdminId, note: 'Admin updated settlement status', time: now }]),
+    };
+
+    await orderRef.update(updates);
+    const updatedSnap = await orderRef.get();
+    return res.json({ id: updatedSnap.id, ...updatedSnap.data() });
+  } catch (error) {
+    console.error('Update settlement error:', error);
     res.status(500).json({ error: error.message });
   }
 });

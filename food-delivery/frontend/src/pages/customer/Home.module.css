@@ -681,6 +681,22 @@
   box-shadow: 0 10px 22px rgba(16, 24, 40, 0.16);
 }
 
+.searchSaveBtn {
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 999px;
+  background: #fff;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.08);
+}
+
+.searchSaveActive {
+  background: #fff1eb;
+  color: #ff6b35;
+  border-color: #ffc9ab;
+}
+
 .searchQty {
   display: grid;
   grid-template-columns: 34px 32px 34px;
@@ -903,5 +919,21 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
+  }
+}
+
+@media (min-width: 1100px) {
+  .heroContest {
+    min-height: 320px;
+    padding: 30px clamp(28px, 4vw, 54px) 74px;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 270px);
+  }
+
+  .heroContest h1 {
+    font-size: clamp(28px, 4vw, 50px);
+  }
+
+  .searchWrap {
+    margin-top: -52px;
   }
 }

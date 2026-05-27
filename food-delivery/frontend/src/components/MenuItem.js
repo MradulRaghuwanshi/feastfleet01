@@ -1,8 +1,9 @@
 import React from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { FlameIcon, SparkleIcon } from './Icons';
+import { FlameIcon, HeartIcon, SparkleIcon } from './Icons';
 import { resolveMenuItemImage } from '../utils/menuImages';
+import { updateUser } from '../firebase/services';
 import PriceDisplay from './PriceDisplay';
 import styles from './MenuItem.module.css';
 
@@ -16,11 +17,30 @@ export default function MenuItem({
 }) {
   const { cart, addItem, removeItem } = useCart();
   const { user } = useAuth();
+  const [saved, setSaved] = React.useState(false);
   const cartItem = cart.items.find(i => i.id === item.id);
   const qty = cartItem ? cartItem.quantity : 0;
   const isAvailableToOrder = canOrder && item.available;
   const image = resolveMenuItemImage(item);
   const isNewUser = Boolean(user?.isNewUser);
+
+  React.useEffect(() => {
+    setSaved(Array.isArray(user?.savedItems) && user.savedItems.some(savedItem => savedItem?.id === item.id && savedItem?.restaurantId === restaurantId));
+  }, [item.id, restaurantId, user?.savedItems]);
+
+  const handleToggleSaved = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!user?.id) return;
+
+    const current = Array.isArray(user.savedItems) ? user.savedItems : [];
+    const exists = current.some(savedItem => savedItem?.id === item.id && savedItem?.restaurantId === restaurantId);
+    const next = exists
+      ? current.filter(savedItem => !(savedItem?.id === item.id && savedItem?.restaurantId === restaurantId))
+      : [{ id: item.id, restaurantId, restaurantName, name: item.name, price: item.price, image, category: item.category, addedAt: new Date().toISOString() }, ...current];
+    setSaved(!exists);
+    await updateUser(user.id, { savedItems: next });
+  };
 
   return (
     <div className={`${styles.card} ${!isAvailableToOrder ? styles.unavailable : ''}`}>
@@ -43,6 +63,14 @@ export default function MenuItem({
             Popular
           </span>
         )}
+        <button
+          type="button"
+          className={`${styles.saveBtn} ${saved ? styles.saveActive : ''}`}
+          onClick={handleToggleSaved}
+          title={saved ? 'Remove from wishlist' : 'Save to wishlist'}
+        >
+          <HeartIcon className={styles.saveIcon} />
+        </button>
       </div>
 
       <div className={styles.info}>

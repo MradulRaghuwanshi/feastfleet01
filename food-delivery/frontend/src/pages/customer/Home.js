@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import RestaurantCard from '../../components/RestaurantCard';
 import { FlameIcon, SparkleIcon, TagIcon, TruckIcon } from '../../components/Icons';
 import { useCart } from '../../context/CartContext';
-import { getRestaurants, getActivePromos, getRestaurant, getCachedRestaurantsSnapshot, searchRestaurants } from '../../firebase/services';
+import { getRestaurants, getActivePromos, getRestaurant, getCachedRestaurantsSnapshot, searchRestaurants, getFavourites, toggleFavourite, updateUser } from '../../firebase/services';
 import { hasVegItems, isVegItem } from '../../utils/diet';
 import { withMenuItemImage } from '../../utils/menuImages';
 import styles from './Home.module.css';
@@ -14,6 +15,7 @@ const TRENDING_SEARCHES = ['Paneer roll', 'Cold coffee', 'Veg thali', 'Maggi', '
 
 export default function Home() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { totalItems, subtotal } = useCart();
   const [restaurants, setRestaurants] = useState(() => getCachedRestaurantsSnapshot('') || []);
   const [loading, setLoading] = useState(() => !(getCachedRestaurantsSnapshot('') || []).length);
@@ -26,6 +28,8 @@ export default function Home() {
   const [menuIndex, setMenuIndex] = useState([]);
   const [indexLoading, setIndexLoading] = useState(false);
   const [activeCuisine, setActiveCuisine] = useState('All');
+  const [favouriteIds, setFavouriteIds] = useState([]);
+  const [savedItems, setSavedItems] = useState([]);
   const [recentSearches, setRecentSearches] = useState(() => {
     try { return JSON.parse(localStorage.getItem('ff_recent_searches') || '[]'); }
     catch { return []; }
@@ -54,6 +58,44 @@ export default function Home() {
       .then(data => setPromos(data || []))
       .catch(() => setPromos([]));
   }, []);
+
+  useEffect(() => {
+    if (!user?.id || user.role !== 'customer') {
+      setFavouriteIds([]);
+      setSavedItems([]);
+      return undefined;
+    }
+    let alive = true;
+    getFavourites(user.id)
+      .then(data => { if (alive) setFavouriteIds((data || []).map(item => item.id)); })
+      .catch(() => { if (alive) setFavouriteIds([]); });
+    setSavedItems(Array.isArray(user.savedItems) ? user.savedItems : []);
+    return () => { alive = false; };
+  }, [user?.id, user?.role]);
+
+  const handleToggleFavourite = async (restaurantId) => {
+    if (!user?.id) {
+      navigate('/login');
+      return;
+    }
+    const isFav = favouriteIds.includes(restaurantId);
+    await toggleFavourite(user.id, restaurantId, isFav);
+    setFavouriteIds(prev => isFav ? prev.filter(id => id !== restaurantId) : [...prev, restaurantId]);
+  };
+
+  const handleToggleSavedItem = async (item) => {
+    if (!user?.id) {
+      navigate('/login');
+      return;
+    }
+    const current = Array.isArray(savedItems) ? savedItems : [];
+    const exists = current.some(savedItem => savedItem?.id === item.id && savedItem?.restaurantId === item.restaurantId);
+    const next = exists
+      ? current.filter(savedItem => !(savedItem?.id === item.id && savedItem?.restaurantId === item.restaurantId))
+      : [{ id: item.id, restaurantId: item.restaurantId, restaurantName: item.restaurantName, name: item.name, price: item.price, image: item.image, category: item.category, addedAt: new Date().toISOString() }, ...current];
+    setSavedItems(next);
+    await updateUser(user.id, { savedItems: next });
+  };
 
   useEffect(() => {
     const query = searchQuery.trim();
@@ -291,7 +333,7 @@ export default function Home() {
       {searchBox}
 
       {searchQuery.trim() ? (
-        <SearchResults restaurants={searchResults.restaurants} dishes={searchResults.dishes} loading={searchLoading} />
+        <SearchResults restaurants={searchResults.restaurants} dishes={searchResults.dishes} loading={searchLoading} savedItems={savedItems} onToggleSavedItem={handleToggleSavedItem} />
       ) : (
         <>
           <section className={styles.categoryRail} aria-label="Food categories">
@@ -374,7 +416,13 @@ export default function Home() {
                   </div>
                   <div className={styles.grid}>
                     {ownDelivery.map((r, index) => (
-                      <RestaurantCard key={r.id} restaurant={r} priority={index < 2} />
+                      <RestaurantCard
+                        key={r.id}
+                        restaurant={r}
+                        priority={index < 2}
+                        isFavourite={favouriteIds.includes(r.id)}
+                        onToggleFavourite={() => handleToggleFavourite(r.id)}
+                      />
                     ))}
                   </div>
                 </section>
@@ -388,7 +436,13 @@ export default function Home() {
                   </div>
                   <div className={styles.grid}>
                     {platformDelivery.map((r, index) => (
-                      <RestaurantCard key={r.id} restaurant={r} priority={ownDelivery.length === 0 && index < 2} />
+                      <RestaurantCard
+                        key={r.id}
+                        restaurant={r}
+                        priority={ownDelivery.length === 0 && index < 2}
+                        isFavourite={favouriteIds.includes(r.id)}
+                        onToggleFavourite={() => handleToggleFavourite(r.id)}
+                      />
                     ))}
                   </div>
                 </section>
@@ -415,7 +469,7 @@ export default function Home() {
   );
 }
 
-function SearchResults({ restaurants, dishes, loading }) {
+function SearchResults({ restaurants, dishes, loading, savedItems, onToggleSavedItem }) {
   const { cart, addItem, removeItem } = useCart();
 
   if (loading) {
@@ -436,7 +490,13 @@ function SearchResults({ restaurants, dishes, loading }) {
           </div>
           <div className={styles.grid}>
             {restaurants.map((r, index) => (
-              <RestaurantCard key={r.id} restaurant={r} priority={index < 2} />
+              <RestaurantCard
+                key={r.id}
+                restaurant={r}
+                priority={index < 2}
+                isFavourite={favouriteIds.includes(r.id)}
+                onToggleFavourite={() => handleToggleFavourite(r.id)}
+              />
             ))}
           </div>
         </section>
@@ -474,6 +534,14 @@ function SearchResults({ restaurants, dishes, loading }) {
                 </div>
                 <div className={styles.searchItemAction}>
                   <div className={styles.searchItemPrice}>Rs {Number(item.price || 0).toFixed(0)}</div>
+                  <button
+                    type="button"
+                    className={`${styles.searchSaveBtn} ${savedItems.some(savedItem => savedItem?.id === item.id && savedItem?.restaurantId === item.restaurantId) ? styles.searchSaveActive : ''}`}
+                    onClick={(event) => { event.preventDefault(); event.stopPropagation(); onToggleSavedItem(item); }}
+                    title="Save to wishlist"
+                  >
+                    ♡
+                  </button>
                   {canOrder ? (
                     qty === 0 ? (
                       <button type="button" onClick={handleAdd}>Add</button>

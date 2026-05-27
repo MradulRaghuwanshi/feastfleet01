@@ -74,6 +74,7 @@ export function AuthProvider({ children }) {
     wallet: 0,
     feastCoins: 0,
     favourites: [],
+    savedItems: [],
     createdAt: new Date().toISOString(),
     provider: authUser.providerData?.[0]?.providerId || 'firebase-auth',
   });
@@ -112,6 +113,7 @@ export function AuthProvider({ children }) {
       wallet: merged.wallet ?? 0,
       feastCoins: merged.feastCoins ?? 0,
       favourites: Array.isArray(merged.favourites) ? merged.favourites : [],
+      savedItems: Array.isArray(merged.savedItems) ? merged.savedItems : [],
       provider: authUser.providerData?.[0]?.providerId || merged.provider || 'firebase-auth',
       updatedAt: new Date().toISOString(),
     };
@@ -158,6 +160,7 @@ export function AuthProvider({ children }) {
               wallet: 0,
               feastCoins: 0,
               favourites: [],
+              savedItems: [],
               createdAt: new Date().toISOString(),
               provider: 'legacy',
             };
@@ -285,6 +288,7 @@ export function AuthProvider({ children }) {
       wallet: existingProfile?.wallet ?? 0,
       feastCoins: existingProfile?.feastCoins ?? 0,
       favourites: Array.isArray(existingProfile?.favourites) ? existingProfile.favourites : [],
+      savedItems: Array.isArray(existingProfile?.savedItems) ? existingProfile.savedItems : [],
       provider: 'password',
       createdAt: existingProfile?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),

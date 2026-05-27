@@ -1,6 +1,7 @@
 ﻿import React, { useState } from 'react';
 import styles from './LocationPicker.module.css';
 import { buildGoogleMapsViewUrl, GOOGLE_MAPS_API_KEY } from '../utils/googleMaps';
+import { DEFAULT_DELIVERY_LOCATION } from '../context/LocationContext';
 
 async function geocode(query) {
   const res = await fetch(
@@ -30,10 +31,10 @@ async function reverseGeocode(lat, lng) {
 export default function LocationPicker({ initialLocation, onConfirm, onClose }) {
   const [search, setSearch]     = useState('');
   const [results, setResults]   = useState([]);
-  const [selected, setSelected] = useState(initialLocation || null);
+  const [selected, setSelected] = useState(initialLocation || DEFAULT_DELIVERY_LOCATION);
   const [loading, setLoading]   = useState(false);
-  const [manualLat, setManualLat] = useState(initialLocation?.lat || '');
-  const [manualLng, setManualLng] = useState(initialLocation?.lng || '');
+  const [manualLat, setManualLat] = useState(initialLocation?.lat || DEFAULT_DELIVERY_LOCATION.lat);
+  const [manualLng, setManualLng] = useState(initialLocation?.lng || DEFAULT_DELIVERY_LOCATION.lng);
 
   const handleSearch = async () => {
     if (!search.trim()) return;
@@ -65,8 +66,8 @@ export default function LocationPicker({ initialLocation, onConfirm, onClose }) 
   const mapUrl = selected
     ? buildGoogleMapsViewUrl({ lat: selected.lat, lng: selected.lng, zoom: 15 })
       || `https://www.openstreetmap.org/export/embed.html?bbox=${selected.lng - 0.01},${selected.lat - 0.01},${selected.lng + 0.01},${selected.lat + 0.01}&layer=mapnik&marker=${selected.lat},${selected.lng}`
-    : buildGoogleMapsViewUrl({ lat: 19.076, lng: 72.877, zoom: 12 })
-      || `https://www.openstreetmap.org/export/embed.html?bbox=72.8,19.0,72.95,19.15&layer=mapnik`;
+    : buildGoogleMapsViewUrl({ lat: DEFAULT_DELIVERY_LOCATION.lat, lng: DEFAULT_DELIVERY_LOCATION.lng, zoom: 13 })
+      || `https://www.openstreetmap.org/export/embed.html?bbox=${DEFAULT_DELIVERY_LOCATION.lng - 0.01},${DEFAULT_DELIVERY_LOCATION.lat - 0.01},${DEFAULT_DELIVERY_LOCATION.lng + 0.01},${DEFAULT_DELIVERY_LOCATION.lat + 0.01}&layer=mapnik&marker=${DEFAULT_DELIVERY_LOCATION.lat},${DEFAULT_DELIVERY_LOCATION.lng}`;
 
   return (
     <div className={styles.overlay}>

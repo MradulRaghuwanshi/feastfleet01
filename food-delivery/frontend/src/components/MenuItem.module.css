@@ -71,6 +71,32 @@
 
 .badgeIcon { width: 13px; height: 13px; color: #fb923c; }
 
+.saveBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(16, 24, 40, 0.08);
+  color: #64748b;
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.12);
+}
+
+.saveActive {
+  background: #fff1eb;
+  color: #ff6b35;
+  border-color: rgba(255, 107, 53, 0.22);
+}
+
+.saveIcon {
+  width: 16px;
+  height: 16px;
+}
+
 .info {
   min-width: 0;
   display: flex;
@@ -208,4 +234,5 @@
   .info p { font-size: 12px; }
   .price { font-size: 15px; }
   .addBtn { min-width: 66px; padding: 7px 12px; }
+  .saveBtn { width: 30px; height: 30px; }
 }

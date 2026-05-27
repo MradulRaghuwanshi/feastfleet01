@@ -1,9 +1,16 @@
 ﻿import React, { createContext, useContext, useState } from 'react';
 
 const LocationContext = createContext();
+export const DEFAULT_DELIVERY_LOCATION = {
+  lat: 31.253,
+  lng: 75.706,
+  address: 'Law Gate, LPU, Jalandhar, Punjab, India',
+  city: 'Law Gate',
+  postcode: '',
+};
 
 export function LocationProvider({ children }) {
-  const [location, setLocation] = useState(null);
+  const [location, setLocation] = useState(DEFAULT_DELIVERY_LOCATION);
   // location: { lat, lng, address, city, postcode }
 
   const detectLocation = () => {
@@ -51,7 +58,7 @@ export function LocationProvider({ children }) {
   };
 
   const setManualLocation = (loc) => setLocation(loc);
-  const clearLocation = () => setLocation(null);
+  const clearLocation = () => setLocation(DEFAULT_DELIVERY_LOCATION);
 
   return (
     <LocationContext.Provider value={{ location, detectLocation, setManualLocation, clearLocation }}>

@@ -318,11 +318,6 @@ function Overview({ orders, totalRevenue, activeOrders, totalCustomers, delivere
                 <td>{o.restaurantName}</td>
                 <td>₹{o.total}</td>
                 <td><span className={styles.statusPill} style={{ background: STATUS_COLOR[normalizeOrderStatus(o.status)] || '#f0f0f0' }}>{normalizeOrderStatus(o.status)}</span></td>
-                <td>
-                  {[ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED, ORDER_STATUS.RETURNED].includes(status) ? '-' : (
-                    <button className={styles.deleteBtn} disabled={updating === o.id} onClick={() => handleCancel(o)}>Cancel</button>
-                  )}
-                </td>
               </tr>
             ))}
           </tbody>

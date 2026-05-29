@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import ReviewModal from '../../components/ReviewModal';
 import { getOrdersByCustomer } from '../../firebase/services';
 import styles from './MyOrders.module.css';
 
@@ -19,6 +20,7 @@ export default function MyOrders() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reviewOrder, setReviewOrder] = useState(null);
   const [filter, setFilter] = useState('All');
 
   const fetchOrders = () => {
@@ -98,12 +100,23 @@ export default function MyOrders() {
                     <button className={styles.reorderBtn} onClick={() => handleReorder(order)}>
                       🔄 Reorder
                     </button>
+                    {order.status === 'Delivered' && !order.reviewed && (
+                      <button className={styles.reviewBtn} onClick={() => setReviewOrder(order)}>
+                        ⭐ Review
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {reviewOrder && (
+        <ReviewModal order={reviewOrder}
+          onClose={() => setReviewOrder(null)}
+          onSubmitted={() => { setReviewOrder(null); fetchOrders(); }} />
       )}
     </div>
   );

@@ -87,6 +87,7 @@ export default function RestaurantCard({
           </div>
         )}
         <div className={styles.footerRow}>
+          <span>{restaurant.reviewCount || 0} reviews</span>
           <strong>{acceptingOrders ? 'Order now' : (restaurant.orderStatusReason || 'Temporarily closed')}</strong>
         </div>
       </Link>

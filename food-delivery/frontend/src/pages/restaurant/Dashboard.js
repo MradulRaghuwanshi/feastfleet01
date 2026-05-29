@@ -20,6 +20,7 @@ import { fileToDataUrl } from '../../utils/imageFile';
 import { fetchMenuItemGoogleImage, fetchMenuItemImage } from '../../utils/menuImages';
 import styles from './Dashboard.module.css';
 
+const ReviewSection = React.lazy(() => import('../../components/ReviewSection'));
 const LiveTrackingMap = React.lazy(() => import('../../components/LiveTrackingMap'));
 
 const NEXT_ACTION = {
@@ -394,6 +395,7 @@ export default function RestaurantDashboard() {
           { key: 'history',   label: 'Order History' },
           // { key: 'prizes',    label: 'Prizes & Rewards' },
           { key: 'analytics', label: 'Analytics' },
+          { key: 'reviews',   label: 'Reviews' },
         ].map(t => (
           <button key={t.key}
             className={`${styles.tab} ${tab === t.key ? styles.activeTab : ''}`}
@@ -491,6 +493,13 @@ export default function RestaurantDashboard() {
 
       {/* Analytics */}
       {tab === 'analytics' && <AnalyticsTab orders={orders} restaurant={restaurant} />}
+
+      {/* Reviews */}
+      {tab === 'reviews' && (
+        <div className={styles.reviewsTab}>
+          <ReviewSection restaurantId={user.restaurantId} />
+        </div>
+      )}
 
       {/* Tracking modal */}
       {trackingOrderId && (

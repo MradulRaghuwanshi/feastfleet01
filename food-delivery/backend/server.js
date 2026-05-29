@@ -12,6 +12,7 @@ app.use('/api/users',         require('./routes/users'));
 app.use('/api/restaurants',   require('./routes/restaurants'));
 app.use('/api/orders',        require('./routes/orders'));
 app.use('/api/promos',        require('./routes/promos'));
+app.use('/api/reviews',       require('./routes/reviews'));
 app.use('/api/favourites',    require('./routes/favourites'));
 app.use('/api/search',        require('./routes/search'));
 app.use('/api/tracking',      require('./routes/tracking'));

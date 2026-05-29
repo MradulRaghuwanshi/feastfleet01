@@ -1184,34 +1184,50 @@ export const listenToOrdersByAgent = (agentId, cb) => {
 
 // ─── REVIEWS ──────────────────────────────────────────────────────────────────
 export const getReviews = async (restaurantId) => {
-  void restaurantId;
-  return [];
+  const q = query(collection(db, 'reviews'), where('restaurantId', '==', restaurantId));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      return bTime - aTime;
+    });
 };
 
 export const getAllReviews = async () => {
-  return [];
+  const snap = await getDocs(query(collection(db, 'reviews')));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
 };
 
 export const addReview = async (reviewData) => {
-  void reviewData;
-  throw new Error('Reviews are disabled');
+  const ref_ = await addDoc(collection(db, 'reviews'), {
+    ...reviewData,
+    createdAt: serverTimestamp(),
+    ownerReply: null
+  });
+  return { id: ref_.id, ...reviewData };
 };
 
 export const replyToReview = async (reviewId, reply) => {
-  void reviewId;
-  void reply;
-  throw new Error('Reviews are disabled');
+  await updateDoc(doc(db, 'reviews', reviewId), { ownerReply: reply });
 };
 
 export const updateReview = async (reviewId, reviewData) => {
-  void reviewId;
-  void reviewData;
-  throw new Error('Reviews are disabled');
+  await updateDoc(doc(db, 'reviews', reviewId), {
+    ...reviewData,
+    updatedAt: new Date().toISOString(),
+  });
 };
 
 export const deleteReview = async (reviewId) => {
-  void reviewId;
-  throw new Error('Reviews are disabled');
+  await deleteDoc(doc(db, 'reviews', reviewId));
 };
 
 // ─── PROMOS ───────────────────────────────────────────────────────────────────

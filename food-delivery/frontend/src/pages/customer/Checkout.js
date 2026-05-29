@@ -4,7 +4,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useDeliveryLocation } from '../../context/LocationContext';
 const LocationPicker = React.lazy(() => import('../../components/LocationPicker'));
-import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES, getRestaurant, getAppConfig } from '../../firebase/services';
+import { placeOrder, validatePromo, listenToWallet, calculateBill, PLATFORM_FEES, getRestaurant, getAppConfig, updateUser } from '../../firebase/services';
 import { apiUrl } from '../../utils/apiConfig';
 import OfferBanner from '../../components/OfferBanner';
 import PriceDisplay from '../../components/PriceDisplay';
@@ -30,6 +30,7 @@ export default function Checkout() {
   const { location, setManualLocation } = useDeliveryLocation();
   const navigate = useNavigate();
   const isGuest = !user?.id;
+  const needsSavedContactNumber = !isGuest && user?.provider === 'google.com' && !String(user?.phone || '').trim();
 
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [promoInput, setPromoInput] = useState('');
@@ -44,6 +45,7 @@ export default function Checkout() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [restaurantStatus, setRestaurantStatus] = useState(null);
   const [paymentOnlineEnabled, setPaymentOnlineEnabled] = useState(true);
+  const [contactPhone, setContactPhone] = useState(user?.phone || '');
   const [guestInfo, setGuestInfo] = useState({
     name: user?.name || '',
     phone: user?.phone || '',
@@ -52,12 +54,19 @@ export default function Checkout() {
 
   useEffect(() => {
     if (!user) return;
+    setContactPhone(user.phone || '');
     setGuestInfo({
       name: user.name || '',
       phone: user.phone || '',
       email: user.email || '',
     });
   }, [user]);
+
+  useEffect(() => {
+    if (!needsSavedContactNumber) {
+      setContactPhone(user?.phone || '');
+    }
+  }, [needsSavedContactNumber, user?.phone]);
 
   useEffect(() => {
     if (location?.address) setDeliveryAddress(location.address);
@@ -318,12 +327,23 @@ export default function Checkout() {
 
     const customer = {
       name: (isGuest ? guestInfo.name : user?.name) || '',
-      phone: (isGuest ? guestInfo.phone : user?.phone) || '',
+      phone: (isGuest ? guestInfo.phone : (needsSavedContactNumber ? contactPhone : user?.phone)) || '',
       email: (isGuest ? guestInfo.email : user?.email) || '',
     };
 
     if (!customer.name.trim()) return setError('Name is required.');
     if (!customer.phone.trim()) return setError('Phone number is required.');
+    if (needsSavedContactNumber) {
+      const normalizedPhone = customer.phone.replace(/\D/g, '').slice(-10);
+      if (!normalizedPhone) return setError('Phone number is required.');
+
+      try {
+        await updateUser(user.id, { phone: customer.phone.trim(), normalizedPhone });
+      } catch (saveError) {
+        setError(saveError?.message || 'Unable to save contact number. Please try again.');
+        return;
+      }
+    }
     if (!deliveryAddress.trim()) return setError('Delivery address is required.');
 
     setLoading(true);
@@ -563,10 +583,31 @@ export default function Checkout() {
               </label>
             </>
           ) : (
-            <div className={styles.customerInfo}>
-              <span>{user.avatar}</span>
-              <div><strong>{user.name}</strong><p>{user.email}</p></div>
-            </div>
+            <>
+              <div className={styles.customerInfo}>
+                <span>{user.avatar}</span>
+                <div>
+                  <strong>{user.name}</strong>
+                  <p>{user.email}</p>
+                </div>
+              </div>
+              {needsSavedContactNumber && (
+                <div className={styles.contactPrompt}>
+                  <h4>Add your contact number</h4>
+                  <p>This Google account does not have a saved phone number yet. Add it now before placing your first order.</p>
+                  <label>
+                    Contact number
+                    <input
+                      required
+                      type="tel"
+                      placeholder="Enter mobile number"
+                      value={contactPhone}
+                      onChange={e => setContactPhone(e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
+            </>
           )}
           <label>Delivery Address
             <div className={styles.addressRow}>

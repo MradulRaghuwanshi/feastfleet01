@@ -126,6 +126,18 @@
 .customerInfo span { font-size: 24px; }
 .customerInfo strong { display: block; font-size: 13px; color: #101828; }
 .customerInfo p { color: #667085; font-size: 11px; margin-top: 2px; }
+.contactPrompt {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.contactPrompt h4 { font-size: 14px; font-weight: 900; color: #9a3412; }
+.contactPrompt p { font-size: 12px; color: #9a3412; line-height: 1.5; }
+.contactPrompt label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 800; color: #7c2d12; }
 .form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 800; color: #344054; }
 .form input,
 .form textarea { border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 12px; font-size: 14px; resize: vertical; background: #f8fafc; }

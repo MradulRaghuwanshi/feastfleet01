@@ -83,25 +83,23 @@ function AppRoutes() {
 
   if (!user) return (
     <>
-      <Navbar />
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/"                       element={<Home />} />
-          <Route path="/contest"               element={<Contest />} />
           <Route path="/login"                  element={<Login />} />
-          <Route path="/about"                  element={<About />} />
-          <Route path="/restaurant/:id"         element={<RestaurantMenu />} />
-          <Route path="/checkout"               element={<Checkout />} />
-          <Route path="/order-confirmation/:id" element={<OrderConfirmation />} />
+          <Route path="/"                       element={<Navigate to="/login" />} />
+          <Route path="/contest"               element={<Navigate to="/login" />} />
+          <Route path="/about"                  element={<Navigate to="/login" />} />
+          <Route path="/restaurant/:id"         element={<Navigate to="/login" />} />
+          <Route path="/checkout"               element={<Navigate to="/login" />} />
+          <Route path="/order-confirmation/:id" element={<Navigate to="/login" />} />
           <Route path="/orders"                 element={<Navigate to="/login" />} />
           <Route path="/favourites"             element={<Navigate to="/login" />} />
           <Route path="/wallet"                 element={<Navigate to="/login" />} />
           <Route path="/wallet/terms"           element={<Navigate to="/login" />} />
           <Route path="/admin"                  element={<Navigate to="/login" />} />
-          <Route path="*"                       element={<Navigate to="/" />} />
+          <Route path="*"                       element={<Navigate to="/login" />} />
         </Routes>
       </Suspense>
-      <BottomNav />
       {notificationLayer}
     </>
   );

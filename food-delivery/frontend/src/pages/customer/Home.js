@@ -302,12 +302,15 @@ export default function Home() {
 
   return (
     <div className={styles.page}>
-      <section className={styles.heroContest} aria-labelledby="contest-hero-title">
-        <div className={styles.heroContestGlow} aria-hidden="true" />
+      <section
+        className={styles.heroContest}
+        aria-labelledby="contest-hero-title"
+        style={{ '--hero-contest-image': `url(${process.env.PUBLIC_URL}/images/ankit-first.png)` }}
+      >
         <div className={styles.heroContestText}>
-          <span className={styles.heroContestBadge}><SparkleIcon /> Live contest</span>
-          <h1 id="contest-hero-title">Beat the Fleet and claim FeastCoins.</h1>
-          <p>Compare the same delivered order across apps. If FeastFleet is not the cheapest option, submit your proof and earn rewards after review.</p>
+          <span className={styles.heroContestBadge}><SparkleIcon /> Live price challenge</span>
+          <h1 id="contest-hero-title">Beat the Fleet. Win FeastCoins.</h1>
+          <p>Find the same delivered cart cheaper on another app? Send your proof, pass review, and get rewarded with FeastCoins.</p>
           <div className={styles.heroContestStats}>
             <span><FlameIcon /> Up to 100% order value</span>
             <span><TruckIcon /> Manual verification</span>
@@ -318,11 +321,26 @@ export default function Home() {
             <a href="https://forms.gle/QrPFo1WhiDB91ak89" target="_blank" rel="noreferrer" className={styles.heroContestSecondary}>Register / Claim</a>
           </div>
         </div>
-        <div className={styles.heroContestPanel} aria-hidden="true">
-          <span>Tonight's reward</span>
-          <strong>100% FeastCoins</strong>
-          <p>For the same delivered cart, if another app is cheaper.</p>
-          <div className={styles.heroContestNote}>Submit screenshots, order proof, and your claim form together.</div>
+        <div className={styles.heroContestVisual} aria-hidden="true">
+          <div className={styles.heroContestPanel}>
+            <div className={styles.heroPanelTop}>
+              <span>Contest reward</span>
+              <strong>100%</strong>
+            </div>
+            <p>FeastCoins back on approved same-cart claims.</p>
+            <div className={styles.priceBattle}>
+              <div className={styles.priceCard}>
+                <span>Other app</span>
+                <strong>Rs 499</strong>
+              </div>
+              <div className={styles.versusBadge}>VS</div>
+              <div className={`${styles.priceCard} ${styles.winnerCard}`}>
+                <span>FeastFleet</span>
+                <strong>Rs 459</strong>
+              </div>
+            </div>
+            <div className={styles.heroContestNote}>Compare, upload proof, claim FeastCoins.</div>
+          </div>
         </div>
       </section>
       {searchBox}

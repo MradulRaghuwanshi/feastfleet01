@@ -19,6 +19,12 @@ const AuthContext = createContext();
 
 // Generate a simple unique ID
 const genId = () => 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
+const normalizePhone = (value) => String(value || '').replace(/\D/g, '').slice(-10);
+const makeUsername = (name, email = '') => {
+  const source = String(name || email?.split('@')?.[0] || '').trim().toLowerCase();
+  return source.replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
+};
 
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
@@ -86,6 +92,40 @@ export function AuthProvider({ children }) {
     return { id: snap.docs[0].id, ...snap.docs[0].data() };
   };
 
+  const findLoginRecordByIdentifier = async (identifier) => {
+    const raw = String(identifier || '').trim();
+    const normalizedIdentifier = normalizeEmail(raw);
+    const username = makeUsername(raw);
+    const phone = normalizePhone(raw);
+    const lookups = [
+      { field: 'email', value: normalizedIdentifier },
+      { field: 'username', value: username },
+      { field: 'nameKey', value: username },
+      { field: 'normalizedPhone', value: phone },
+      { field: 'phone', value: raw },
+      { field: 'name', value: raw },
+    ].filter(item => item.value);
+
+    const seen = new Set();
+    for (const { field, value } of lookups) {
+      const key = `${field}:${value}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const credentialsSnap = await getDocs(query(collection(db, 'loginCredentials'), where(field, '==', value)));
+      if (!credentialsSnap.empty) {
+        return { id: credentialsSnap.docs[0].id, ...credentialsSnap.docs[0].data(), source: 'credentials' };
+      }
+
+      const usersSnap = await getDocs(query(collection(db, 'users'), where(field, '==', value)));
+      if (!usersSnap.empty) {
+        return { id: usersSnap.docs[0].id, uid: usersSnap.docs[0].id, ...usersSnap.docs[0].data(), source: 'users' };
+      }
+    }
+
+    return null;
+  };
+
   const hydrateUserFromAuth = async (authUser) => {
     const authEmail = authUser.email?.trim().toLowerCase() || '';
     let profile = null;
@@ -108,6 +148,9 @@ export function AuthProvider({ children }) {
       name: merged.name || authUser.displayName || authEmail.split('@')[0] || 'Guest',
       email: merged.email || authUser.email || '',
       phone: merged.phone || authUser.phoneNumber || '',
+      normalizedPhone: merged.normalizedPhone || normalizePhone(merged.phone || authUser.phoneNumber || ''),
+      username: merged.username || makeUsername(merged.name || authUser.displayName, merged.email || authUser.email),
+      nameKey: merged.nameKey || makeUsername(merged.name || authUser.displayName, merged.email || authUser.email),
       role: merged.role || 'customer',
       avatar: merged.avatar || authUser.photoURL || pickAvatar(authEmail || authUser.uid),
       wallet: merged.wallet ?? 0,
@@ -124,6 +167,10 @@ export function AuthProvider({ children }) {
         uid: nextUser.id,
         authUid: authUser.uid,
         email: nextUser.email,
+        phone: nextUser.phone,
+        normalizedPhone: nextUser.normalizedPhone,
+        username: nextUser.username,
+        nameKey: nextUser.nameKey,
         name: nextUser.name,
         avatar: nextUser.avatar,
         role: nextUser.role,
@@ -137,26 +184,43 @@ export function AuthProvider({ children }) {
   };
 
   // ── Login ──────────────────────────────────────────────────────────────────
-  const login = async (email, password) => {
-    const normalizedEmail = String(email || '').trim().toLowerCase();
+  const login = async (identifier, password) => {
+    const normalizedIdentifier = normalizeEmail(identifier);
+    const emailIdentifier = normalizedIdentifier.includes('@') ? normalizedIdentifier : '';
+    let loginRecord = null;
+    let resolvedEmail = emailIdentifier;
+
+    if (!normalizedIdentifier) throw new Error('Email, phone, or username is required');
 
     try {
-      const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      loginRecord = await findLoginRecordByIdentifier(normalizedIdentifier);
+      resolvedEmail = loginRecord?.email || resolvedEmail;
+    } catch (lookupError) {
+      console.warn('Login identifier lookup failed:', lookupError);
+    }
+
+    try {
+      if (!resolvedEmail) {
+        throw new Error('No account found for that email, phone, or username');
+      }
+      const credential = await signInWithEmailAndPassword(auth, normalizeEmail(resolvedEmail), password);
       return await hydrateUserFromAuth(credential.user);
     } catch (authError) {
       try {
-        const q = query(collection(db, 'loginCredentials'), where('email', '==', normalizedEmail));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const creds = snap.docs[0].data();
+        const creds = loginRecord || await findLoginRecordByIdentifier(normalizedIdentifier);
+        if (creds) {
           if (creds.password === password) {
             const profile = await getUserProfile(creds.uid) || {
               id: creds.uid,
               authUid: null,
-              name: creds.name || normalizedEmail.split('@')[0] || 'Guest',
-              email: normalizedEmail,
+              name: creds.name || normalizedIdentifier.split('@')[0] || 'Guest',
+              email: creds.email || resolvedEmail || '',
+              phone: creds.phone || '',
+              normalizedPhone: creds.normalizedPhone || normalizePhone(creds.phone || ''),
+              username: creds.username || makeUsername(creds.name, creds.email),
+              nameKey: creds.nameKey || makeUsername(creds.name, creds.email),
               role: creds.role || 'customer',
-              avatar: creds.avatar || pickAvatar(normalizedEmail || creds.uid),
+              avatar: creds.avatar || pickAvatar(normalizedIdentifier || creds.uid),
               wallet: 0,
               feastCoins: 0,
               favourites: [],
@@ -168,13 +232,30 @@ export function AuthProvider({ children }) {
             const nextProfile = {
               ...profile,
               id: profile.id || creds.uid,
-              email: profile.email || normalizedEmail,
+              email: profile.email || creds.email || resolvedEmail || '',
+              phone: profile.phone || creds.phone || '',
+              normalizedPhone: profile.normalizedPhone || creds.normalizedPhone || normalizePhone(profile.phone || creds.phone || ''),
+              username: profile.username || creds.username || makeUsername(profile.name || creds.name, profile.email || creds.email),
+              nameKey: profile.nameKey || creds.nameKey || makeUsername(profile.name || creds.name, profile.email || creds.email),
               role: profile.role || 'customer',
               authUid: profile.authUid || null,
               updatedAt: new Date().toISOString(),
             };
 
             await setDoc(doc(db, 'users', nextProfile.id), nextProfile, { merge: true });
+            await setDoc(doc(db, 'loginCredentials', nextProfile.id), {
+              uid: nextProfile.id,
+              authUid: nextProfile.authUid || null,
+              email: nextProfile.email,
+              phone: nextProfile.phone,
+              normalizedPhone: nextProfile.normalizedPhone,
+              username: nextProfile.username,
+              nameKey: nextProfile.nameKey,
+              name: nextProfile.name,
+              avatar: nextProfile.avatar,
+              role: nextProfile.role,
+              provider: nextProfile.provider || 'legacy',
+            }, { merge: true });
             setUser(nextProfile);
             localStorage.setItem('fd_user', JSON.stringify(nextProfile));
             return nextProfile;
@@ -187,7 +268,9 @@ export function AuthProvider({ children }) {
         }
       }
 
-      throw authError;
+      const message = authError?.message || 'Unable to sign in';
+      if (/No account found/i.test(message)) throw authError;
+      throw new Error('Invalid login details. Use your email, phone, or username with the correct password.');
     }
   };
 
@@ -268,13 +351,15 @@ export function AuthProvider({ children }) {
 
   // ── Register ───────────────────────────────────────────────────────────────
   const register = async ({ name, email, phone, password }) => {
-    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedPhone = normalizePhone(phone);
 
     const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
     const authUser = credential.user;
     const existingProfile = await findProfileByEmail(normalizedEmail);
     const profileId = existingProfile?.id || authUser.uid;
     const avatar = existingProfile?.avatar || pickAvatar(normalizedEmail || authUser.uid);
+    const username = existingProfile?.username || makeUsername(name, normalizedEmail);
 
     const profile = {
       ...(existingProfile || {}),
@@ -283,6 +368,9 @@ export function AuthProvider({ children }) {
       name: existingProfile?.name || name,
       email: existingProfile?.email || normalizedEmail,
       phone: existingProfile?.phone || phone,
+      normalizedPhone: existingProfile?.normalizedPhone || normalizedPhone,
+      username,
+      nameKey: existingProfile?.nameKey || makeUsername(existingProfile?.name || name, normalizedEmail),
       role: existingProfile?.role || 'customer',
       avatar,
       wallet: existingProfile?.wallet ?? 0,
@@ -300,6 +388,10 @@ export function AuthProvider({ children }) {
         uid: profile.id,
         authUid: authUser.uid,
         email: profile.email,
+        phone: profile.phone,
+        normalizedPhone: profile.normalizedPhone,
+        username: profile.username,
+        nameKey: profile.nameKey,
         name: profile.name,
         avatar: profile.avatar,
         role: profile.role,

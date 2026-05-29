@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&family=Syne:wght@800&display=swap');
-
 .page {
   max-width: 1180px;
   margin: 0 auto;
@@ -8,19 +6,21 @@
 
 .heroContest {
   position: relative;
-  min-height: 360px;
+  min-height: 430px;
   margin: 0 -18px;
-  padding: 36px clamp(20px, 5vw, 62px) 84px;
+  padding: 48px clamp(22px, 5vw, 64px) 96px;
   color: #fff;
   overflow: hidden;
   isolation: isolate;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(240px, 300px);
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 0.72fr);
   align-items: center;
-  gap: 28px;
+  gap: clamp(28px, 5vw, 64px);
   background:
-    linear-gradient(120deg, rgba(12, 14, 24, 0.92), rgba(52, 18, 14, 0.66) 48%, rgba(255, 107, 53, 0.72)),
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 800' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' x2='1'><stop offset='0' stop-color='%23ff8a50'/><stop offset='1' stop-color='%23ff3b30'/></linearGradient></defs><rect width='1200' height='800' fill='url(%23g)'/><g transform='translate(100,380)'><rect x='0' y='0' width='360' height='180' rx='20' fill='%23000000' opacity='0.06'/></g><g transform='translate(600,240)'><path d='M20 66c0 10 8 18 18 18s18-8 18-18-8-18-18-18-18 8-18 18z' fill='%23fff' opacity='0.9'/><rect x='80' y='40' width='220' height='120' rx='16' fill='%23fff' opacity='0.9'/><path d='M48 60 L100 40 L160 80 L128 120 Z' fill='%23fff' opacity='0.95'/></g><text x='80' y='160' fill='%23fff' font-size='40' font-family='DM Sans, sans-serif' font-weight='800'>Faster Food, Happier Customers</text></svg>");
+    radial-gradient(circle at 84% 18%, rgba(255, 217, 140, 0.28), transparent 28%),
+    radial-gradient(circle at 14% 86%, rgba(255, 107, 53, 0.32), transparent 30%),
+    linear-gradient(115deg, rgba(14, 18, 32, 0.96) 0%, rgba(44, 20, 17, 0.9) 44%, rgba(217, 64, 33, 0.8) 100%),
+    var(--hero-contest-image);
   background-size: cover;
   background-position: center;
 }
@@ -29,13 +29,25 @@
   content: '';
   position: absolute;
   inset: auto 0 0;
-  height: 120px;
+  height: 140px;
   background: linear-gradient(180deg, transparent, rgba(255, 250, 246, 0.98));
   z-index: -1;
 }
 
+.heroContest::before {
+  content: '';
+  position: absolute;
+  width: min(46vw, 560px);
+  aspect-ratio: 1;
+  right: -150px;
+  top: -210px;
+  border-radius: 50%;
+  border: 74px solid rgba(255, 255, 255, 0.08);
+  z-index: -1;
+}
+
 .heroContestText {
-  max-width: 640px;
+  max-width: 690px;
   animation: riseIn 0.55s ease both;
 }
 
@@ -69,17 +81,18 @@
 
 .heroContest h1 {
   font-family: 'Poppins', 'Inter', sans-serif;
-  font-size: clamp(30px, 5vw, 56px);
-  line-height: 0.98;
+  font-size: clamp(38px, 6vw, 74px);
+  line-height: 0.94;
   letter-spacing: 0;
   font-weight: 900;
-  overflow-wrap: anywhere;
+  max-width: 760px;
+  text-wrap: balance;
 }
 
 .heroContest p {
-  font-size: clamp(14px, 1.8vw, 16px);
+  font-size: clamp(15px, 1.7vw, 18px);
   line-height: 1.58;
-  max-width: 520px;
+  max-width: 570px;
   margin-top: 16px;
   color: rgba(255, 255, 255, 0.88);
 }
@@ -141,19 +154,45 @@
   transform: translateY(-1px);
 }
 
-.heroContestPanel {
+.heroContestVisual {
   justify-self: end;
-  width: min(100%, 300px);
+  width: min(100%, 390px);
+}
+
+.heroContestPanel {
+  position: relative;
+  justify-self: end;
+  width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 24px;
+  border-radius: 22px;
   padding: 22px;
   background:
-    radial-gradient(circle at top right, rgba(255, 172, 98, 0.38), transparent 36%),
-    rgba(255, 255, 255, 0.12);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08)),
+    radial-gradient(circle at top right, rgba(255, 198, 111, 0.44), transparent 38%);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   animation: floatCard 4.8s ease-in-out infinite;
+}
+
+.heroContestPanel::before {
+  content: '';
+  position: absolute;
+  width: 86px;
+  height: 86px;
+  right: -24px;
+  top: -24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffd166, #ff6b35);
+  box-shadow: 0 16px 38px rgba(255, 107, 53, 0.38);
+  z-index: -1;
+}
+
+.heroPanelTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
 }
 
 .heroContestPanel span,
@@ -167,21 +206,80 @@
 
 .heroContestPanel strong {
   display: block;
-  margin: 10px 0 5px;
-  font-size: 26px;
+  margin: 0;
+  font-size: 54px;
   line-height: 1.05;
   font-weight: 900;
 }
 
+.priceBattle {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.priceCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 68px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(16, 24, 40, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.priceCard span {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.priceCard strong {
+  font-size: 26px;
+}
+
+.winnerCard {
+  background: #fff;
+  color: #101828;
+}
+
+.winnerCard span,
+.winnerCard strong {
+  color: #101828;
+}
+
+.versusBadge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #ff6b35;
+  color: #fff;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.22);
+}
+
 .heroContestNote {
   margin-top: 16px;
-  padding: 14px 15px;
+  padding: 13px 15px;
   border-radius: 16px;
   background: rgba(16, 24, 40, 0.26);
   border: 1px solid rgba(255, 255, 255, 0.14);
   color: rgba(255, 255, 255, 0.88);
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.45;
+  font-weight: 900;
 }
 
 .searchWrap {
@@ -832,12 +930,19 @@
 @media (max-width: 760px) {
   .heroContest {
     grid-template-columns: 1fr;
-    min-height: 380px;
-    padding: 28px 18px 96px;
+    min-height: 0;
+    padding: 32px 18px 104px;
+    gap: 24px;
+  }
+
+  .heroContestVisual {
+    justify-self: stretch;
+    width: min(100%, 420px);
   }
 
   .heroContestPanel {
-    display: none;
+    padding: 18px;
+    animation: none;
   }
 
   .searchWrap {
@@ -863,15 +968,41 @@
 
   .heroContest {
     margin-inline: -14px;
-    min-height: 360px;
+    padding-bottom: 98px;
   }
 
   .heroContest h1 {
-    font-size: 32px;
+    font-size: 39px;
   }
 
   .heroContest p {
     font-size: 14px;
+  }
+
+  .heroContestStats span {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .heroContestPrimary,
+  .heroContestSecondary {
+    width: 100%;
+  }
+
+  .heroPanelTop {
+    align-items: center;
+  }
+
+  .heroContestPanel strong {
+    font-size: 42px;
+  }
+
+  .priceCard {
+    min-height: 60px;
+  }
+
+  .priceCard strong {
+    font-size: 22px;
   }
 
   .searchBar {
@@ -924,13 +1055,13 @@
 
 @media (min-width: 1100px) {
   .heroContest {
-    min-height: 320px;
-    padding: 30px clamp(28px, 4vw, 54px) 74px;
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 270px);
+    min-height: 430px;
+    padding: 48px clamp(32px, 4vw, 64px) 96px;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 390px);
   }
 
   .heroContest h1 {
-    font-size: clamp(28px, 4vw, 50px);
+    font-size: clamp(48px, 5.5vw, 74px);
   }
 
   .searchWrap {

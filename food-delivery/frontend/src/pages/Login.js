@@ -12,7 +12,7 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showReset, setShowReset] = useState(false);
 
-  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [loginForm, setLoginForm] = useState({ identifier: '', password: '' });
   const [signupForm, setSignupForm] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
   const [resetEmail, setResetEmail] = useState('');
 
@@ -21,7 +21,7 @@ export default function Login() {
     setLoading(true);
     setError('');
     setNotice('');
-    try { await login(loginForm.email, loginForm.password); }
+    try { await login(loginForm.identifier, loginForm.password); }
     catch (err) { setError(err.message); }
     finally { setLoading(false); }
   };
@@ -45,7 +45,8 @@ export default function Login() {
     setError('');
     setNotice('');
     try {
-      const result = await requestPasswordReset(resetEmail || loginForm.email || signupForm.email);
+      const identifierEmail = loginForm.identifier.includes('@') ? loginForm.identifier : '';
+      const result = await requestPasswordReset(resetEmail || identifierEmail || signupForm.email);
       setNotice(result.message);
       setShowReset(false);
     } catch (err) {
@@ -92,7 +93,7 @@ export default function Login() {
       </section>
       <div className={styles.card}>
         <div className={styles.brand}>FeastFleet</div>
-        <p className={styles.tagline}>Premium local food delivery, tuned for speed.</p>
+        <p className={styles.tagline}>Sign in first, then order faster with saved details.</p>
         <div className={styles.downloadSection}>
           <button className={styles.downloadAppBtn} onClick={handleInstall}>
             <DownloadAppIcon className={styles.downloadIcon} />
@@ -112,7 +113,7 @@ export default function Login() {
           <>
             <div className={styles.socialRow}>
               <button type="button" onClick={handleGoogle} disabled={googleLoading}>{googleLoading ? 'Connecting...' : 'Continue with Google'}</button>
-              <button type="button" onClick={() => setShowReset(v => !v)}>{showReset ? 'Hide reset' : 'Reset password'}</button>
+            <button type="button" onClick={() => setShowReset(v => !v)}>{showReset ? 'Hide reset' : 'Reset password'}</button>
             </div>
             {showReset && (
               <form onSubmit={handleResetPassword} className={styles.resetPanel}>
@@ -121,7 +122,7 @@ export default function Login() {
                     type="email"
                     required
                     placeholder="you@example.com"
-                    value={resetEmail || loginForm.email}
+                    value={resetEmail}
                     onChange={e => setResetEmail(e.target.value)}
                   />
                 </label>
@@ -130,9 +131,9 @@ export default function Login() {
               </form>
             )}
             <form onSubmit={handleLogin} className={styles.form}>
-              <label>Email Address
-                <input type="email" required placeholder="you@example.com"
-                  value={loginForm.email} onChange={e => setLoginForm({ ...loginForm, email: e.target.value })} />
+              <label>Email, Phone, or Username
+                <input type="text" required placeholder="you@example.com, 9876543210, or priya.sharma"
+                  value={loginForm.identifier} onChange={e => setLoginForm({ ...loginForm, identifier: e.target.value })} />
               </label>
               <label>Password
                 <input type="password" required placeholder="Enter your password"

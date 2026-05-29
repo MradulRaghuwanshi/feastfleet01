@@ -19,7 +19,7 @@ messaging.onBackgroundMessage((payload) => {
   const { title, body } = payload.notification;
   self.registration.showNotification(title, {
     body,
-    tag: 'promo-notification',
+    tag: payload.data?.orderId || payload.data?.promoCode || 'feastfleet-notification',
     data: payload.data,
     actions: [
       { action: 'open', title: '🛒 Order Now' },
@@ -32,6 +32,10 @@ messaging.onBackgroundMessage((payload) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   if (event.action === 'open' || !event.action) {
-    event.waitUntil(clients.openWindow('/'));
+    const data = event.notification.data || {};
+    const target = data.orderId && data.audience === 'customer'
+      ? `/order-confirmation/${data.orderId}`
+      : '/';
+    event.waitUntil(clients.openWindow(target));
   }
 });

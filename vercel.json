@@ -1,0 +1,11 @@
+{
+  "installCommand": "cd food-delivery/frontend && npm install",
+  "buildCommand": "cd food-delivery/frontend && npm run build",
+  "outputDirectory": "food-delivery/frontend/build",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

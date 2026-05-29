@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useVegMode } from '../../context/VegModeContext';
 import RestaurantCard from '../../components/RestaurantCard';
 import { FlameIcon, SparkleIcon, TagIcon, TruckIcon } from '../../components/Icons';
 import { useCart } from '../../context/CartContext';
@@ -16,6 +17,7 @@ const TRENDING_SEARCHES = ['Paneer roll', 'Cold coffee', 'Veg thali', 'Maggi', '
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { vegMode } = useVegMode();
   const { totalItems, subtotal } = useCart();
   const [restaurants, setRestaurants] = useState(() => getCachedRestaurantsSnapshot('') || []);
   const [loading, setLoading] = useState(() => !(getCachedRestaurantsSnapshot('') || []).length);
@@ -227,25 +229,29 @@ export default function Home() {
     return ['All', ...Array.from(new Set([...detected, ...DEFAULT_CUISINES.filter(c => c !== 'All')])).slice(0, 10)];
   }, [restaurants]);
 
+  const vegRestaurantIds = useMemo(() => new Set(menuIndex.filter(isVegItem).map(item => item.restaurantId)), [menuIndex]);
+  const pureVegMode = vegMode || activeCuisine === 'Pure Veg';
+
   const filteredRestaurants = useMemo(() => {
-    if (activeCuisine === 'All') return restaurants;
-    if (activeCuisine === 'Pure Veg') {
-      const vegRestaurantIds = new Set(menuIndex.filter(isVegItem).map(item => item.restaurantId));
-      return restaurants.filter(r => hasVegItems(r.menu || []) || vegRestaurantIds.has(r.id));
-    }
-    return restaurants.filter(r => {
+    const visibleRestaurants = pureVegMode
+      ? restaurants.filter(r => hasVegItems(r.menu || []) || vegRestaurantIds.has(r.id))
+      : restaurants;
+
+    if (activeCuisine === 'All' || activeCuisine === 'Pure Veg') return visibleRestaurants;
+
+    return visibleRestaurants.filter(r => {
       const haystack = `${r.cuisine || ''} ${(r.tags || []).join(' ')}`.toLowerCase();
       return haystack.includes(activeCuisine.toLowerCase());
     });
-  }, [activeCuisine, menuIndex, restaurants]);
+  }, [activeCuisine, pureVegMode, restaurants, vegRestaurantIds]);
 
   const trendingDishes = useMemo(() => {
     return restaurants
       .flatMap(r => (r.menu || []).map(item => ({ ...withMenuItemImage(item), restaurantId: r.id, restaurantName: r.name })))
-      .filter(item => activeCuisine !== 'Pure Veg' || isVegItem(item))
+      .filter(item => !pureVegMode || isVegItem(item))
       .filter(item => item.isPopular || Number(item.rating || 0) >= 4)
       .slice(0, 8);
-  }, [restaurants]);
+  }, [pureVegMode, restaurants]);
 
   const ownDelivery = filteredRestaurants.filter(r => r.hasOwnDelivery);
   const platformDelivery = filteredRestaurants.filter(r => !r.hasOwnDelivery);
@@ -346,7 +352,14 @@ export default function Home() {
       {searchBox}
 
       {searchQuery.trim() ? (
-        <SearchResults restaurants={searchResults.restaurants} dishes={searchResults.dishes} loading={searchLoading} savedItems={savedItems} onToggleSavedItem={handleToggleSavedItem} />
+        <SearchResults
+          restaurants={searchResults.restaurants}
+          dishes={searchResults.dishes}
+          loading={searchLoading}
+          savedItems={savedItems}
+          onToggleSavedItem={handleToggleSavedItem}
+          vegOnly={pureVegMode}
+        />
       ) : (
         <>
           <section className={styles.categoryRail} aria-label="Food categories">
@@ -482,27 +495,29 @@ export default function Home() {
   );
 }
 
-function SearchResults({ restaurants, dishes, loading, savedItems, onToggleSavedItem }) {
+function SearchResults({ restaurants, dishes, loading, savedItems, onToggleSavedItem, vegOnly }) {
   const { cart, addItem, removeItem } = useCart();
+  const visibleRestaurants = vegOnly ? restaurants.filter(r => !Array.isArray(r.menu) || hasVegItems(r.menu || [])) : restaurants;
+  const visibleDishes = vegOnly ? dishes.filter(isVegItem) : dishes;
 
   if (loading) {
     return <div className={styles.searchEmpty}>Searching restaurants and menu items...</div>;
   }
 
-  if (!restaurants.length && !dishes.length) {
+  if (!visibleRestaurants.length && !visibleDishes.length) {
     return <div className={styles.searchEmpty}>No matches found. Try a restaurant name, item or category.</div>;
   }
 
   return (
     <div className={styles.searchResults}>
-      {restaurants.length > 0 && (
+      {visibleRestaurants.length > 0 && (
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <h2>Restaurants</h2>
-            <span>{restaurants.length} match{restaurants.length === 1 ? '' : 'es'}</span>
+            <span>{visibleRestaurants.length} match{visibleRestaurants.length === 1 ? '' : 'es'}</span>
           </div>
           <div className={styles.grid}>
-            {restaurants.map((r, index) => (
+            {visibleRestaurants.map((r, index) => (
               <RestaurantCard
                 key={r.id}
                 restaurant={r}
@@ -515,14 +530,14 @@ function SearchResults({ restaurants, dishes, loading, savedItems, onToggleSaved
         </section>
       )}
 
-      {dishes.length > 0 && (
+      {visibleDishes.length > 0 && (
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <h2>Items and Categories</h2>
-            <span>{dishes.length} match{dishes.length === 1 ? '' : 'es'}</span>
+            <span>{visibleDishes.length} match{visibleDishes.length === 1 ? '' : 'es'}</span>
           </div>
           <div className={styles.searchItemList}>
-            {dishes.map(item => {
+            {visibleDishes.map(item => {
               const qty = cart.restaurantId === item.restaurantId
                 ? cart.items.find(i => i.id === item.id)?.quantity || 0
                 : 0;

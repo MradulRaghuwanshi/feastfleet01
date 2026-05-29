@@ -4,6 +4,7 @@ import MenuItem from '../../components/MenuItem';
 import ReviewSection from '../../components/ReviewSection';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import { useVegMode } from '../../context/VegModeContext';
 import { getRestaurant } from '../../firebase/services';
 import { isVegItem } from '../../utils/diet';
 import { getInflatedPrice } from '../../utils/offerPricing';
@@ -17,7 +18,7 @@ export default function RestaurantMenu() {
   const navigate = useNavigate();
   const [restaurant, setRestaurant] = useState(null);
   const [activeCategory, setActiveCategory] = useState('All');
-  const [vegOnly, setVegOnly] = useState(false);
+  const { vegMode, setVegMode } = useVegMode();
   const { cart, totalItems } = useCart();
   const { user } = useAuth();
 
@@ -29,7 +30,7 @@ export default function RestaurantMenu() {
 
   const canOrder = restaurant.isAcceptingOrdersNow ?? restaurant.isOpen;
   const isNewUser = Boolean(user?.isNewUser);
-  const visibleMenu = vegOnly ? restaurant.menu.filter(isVegItem) : restaurant.menu;
+  const visibleMenu = vegMode ? restaurant.menu.filter(isVegItem) : restaurant.menu;
   const categories = ['All', ...new Set(visibleMenu.map(i => i.category).filter(Boolean))];
   const filtered = activeCategory === 'All' ? visibleMenu : visibleMenu.filter(i => i.category === activeCategory);
   const recommended = visibleMenu.filter(item => item.isPopular).slice(0, 4);
@@ -99,13 +100,13 @@ export default function RestaurantMenu() {
         <div className={styles.categories}>
           <button
             type="button"
-            className={`${styles.catBtn} ${vegOnly ? styles.active : ''}`}
+            className={`${styles.catBtn} ${vegMode ? styles.active : ''}`}
             onClick={() => {
-              setVegOnly(value => !value);
+              setVegMode(value => !value);
               setActiveCategory('All');
             }}
           >
-            Pure Veg
+            Veg Mode
           </button>
           {categories.map(c => (
             <button key={c} className={`${styles.catBtn} ${activeCategory === c ? styles.active : ''}`}

@@ -2,6 +2,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useVegMode } from '../context/VegModeContext';
 import LocationBar from './LocationBar';
 import { CartIcon, HeartIcon, HistoryIcon, CoinIcon } from './Icons';
 import styles from './Navbar.module.css';
@@ -10,6 +11,7 @@ export default function Navbar() {
   // Using logo.png instead of svg for better browser compatibility
   const { user, logout } = useAuth();
   const { totalItems } = useCart();
+  const { vegMode, setVegMode } = useVegMode();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [wallet, setWallet] = useState(null);
@@ -48,6 +50,15 @@ export default function Navbar() {
       <div className={styles.right}>
         {user?.role === 'customer' && (
           <>
+            <button
+              type="button"
+              className={`${styles.vegToggle} ${vegMode ? styles.vegToggleActive : ''}`}
+              onClick={() => setVegMode(value => !value)}
+              aria-pressed={vegMode}
+              title="Show only veg items"
+            >
+              {vegMode ? 'Veg mode on' : 'Veg mode off'}
+            </button>
             <Link to="/favourites" className={styles.iconLink} title="Favourites"><HeartIcon /></Link>
             <Link to="/orders" className={styles.link}>My Orders</Link>
             <Link to="/wallet" className={styles.wallet}><CoinIcon /> {Math.floor(feastCoins)} Coins</Link>

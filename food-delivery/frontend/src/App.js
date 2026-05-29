@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { LocationProvider } from './context/LocationContext';
+import { VegModeProvider } from './context/VegModeContext';
 
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
@@ -179,12 +180,14 @@ export default function App() {
       <AuthProvider>
         <LocationProvider>
           <CartProvider>
-            <BrowserRouter basename="/">
-              <AppRoutes />
-              <Suspense fallback={null}>
-                <PWAInstall />
-              </Suspense>
-            </BrowserRouter>
+            <VegModeProvider>
+              <BrowserRouter basename="/">
+                <AppRoutes />
+                <Suspense fallback={null}>
+                  <PWAInstall />
+                </Suspense>
+              </BrowserRouter>
+            </VegModeProvider>
           </CartProvider>
         </LocationProvider>
       </AuthProvider>

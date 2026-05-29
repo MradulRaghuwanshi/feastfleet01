@@ -117,12 +117,7 @@ const RESTAURANTS = [
   },
 ];
 
-const REVIEWS = [
-  { id:'rev-001', restaurantId:'r1', userId:'u2', userName:'Rahul Verma',  avatar:'👨', rating:5, comment:'Best butter chicken in Mumbai! Dal makhani was absolutely divine.', ownerReply:'Shukriya Rahul bhai! Aate rehna 🙏', orderId:null },
-  { id:'rev-002', restaurantId:'r1', userId:'u1', userName:'Priya Sharma', avatar:'👩', rating:4, comment:'Paneer tikka was amazing. Delivery was slightly late but food was hot.', ownerReply:null, orderId:'ord-001' },
-  { id:'rev-003', restaurantId:'r2', userId:'u1', userName:'Priya Sharma', avatar:'👩', rating:4, comment:'Vada pav burger is a genius idea! Crispy and filling.', ownerReply:'Thank you Priya ji! 😊', orderId:null },
-  { id:'rev-004', restaurantId:'r3', userId:'u2', userName:'Rahul Verma',  avatar:'👨', rating:5, comment:'Hyderabadi biryani is the real deal. Dum cooked to perfection!', ownerReply:null, orderId:null },
-];
+const REVIEWS = [];
 
 const ORDERS = [
   {
@@ -261,7 +256,7 @@ async function seed() {
   console.log('   • loginCredentials   (6 documents)');
   console.log('   • restaurants        (5 documents + menu subcollections)');
   console.log('   • orders             (2 documents)');
-  console.log('   • reviews            (4 documents)');
+  console.log('   • reviews            (0 documents)');
   console.log('   • promoCodes         (4 documents)');
   console.log('   • appConfig          (1 document)');
   console.log('\n🔑 Demo login credentials:');

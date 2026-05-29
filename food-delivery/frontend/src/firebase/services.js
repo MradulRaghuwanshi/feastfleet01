@@ -1184,50 +1184,34 @@ export const listenToOrdersByAgent = (agentId, cb) => {
 
 // ─── REVIEWS ──────────────────────────────────────────────────────────────────
 export const getReviews = async (restaurantId) => {
-  const q = query(collection(db, 'reviews'), where('restaurantId', '==', restaurantId));
-  const snap = await getDocs(q);
-  return snap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .sort((a, b) => {
-      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-      return bTime - aTime;
-    });
+  void restaurantId;
+  return [];
 };
 
 export const getAllReviews = async () => {
-  const snap = await getDocs(query(collection(db, 'reviews')));
-  return snap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .sort((a, b) => {
-      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
-      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
-      return bTime - aTime;
-    });
+  return [];
 };
 
 export const addReview = async (reviewData) => {
-  const ref_ = await addDoc(collection(db, 'reviews'), {
-    ...reviewData,
-    createdAt: serverTimestamp(),
-    ownerReply: null
-  });
-  return { id: ref_.id, ...reviewData };
+  void reviewData;
+  throw new Error('Reviews are disabled');
 };
 
 export const replyToReview = async (reviewId, reply) => {
-  await updateDoc(doc(db, 'reviews', reviewId), { ownerReply: reply });
+  void reviewId;
+  void reply;
+  throw new Error('Reviews are disabled');
 };
 
 export const updateReview = async (reviewId, reviewData) => {
-  await updateDoc(doc(db, 'reviews', reviewId), {
-    ...reviewData,
-    updatedAt: new Date().toISOString(),
-  });
+  void reviewId;
+  void reviewData;
+  throw new Error('Reviews are disabled');
 };
 
 export const deleteReview = async (reviewId) => {
-  await deleteDoc(doc(db, 'reviews', reviewId));
+  void reviewId;
+  throw new Error('Reviews are disabled');
 };
 
 // ─── PROMOS ───────────────────────────────────────────────────────────────────

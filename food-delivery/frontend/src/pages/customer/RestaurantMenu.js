@@ -1,7 +1,6 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import MenuItem from '../../components/MenuItem';
-import ReviewSection from '../../components/ReviewSection';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useVegMode } from '../../context/VegModeContext';
@@ -126,10 +125,6 @@ export default function RestaurantMenu() {
             />
           ))}
         </div>
-      </div>
-
-      <div style={{maxWidth:900,margin:'0 auto',padding:'0 16px'}}>
-        <ReviewSection restaurantId={restaurant.id} />
       </div>
 
       <section className={styles.similar}>

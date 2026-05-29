@@ -17,13 +17,7 @@ const promoCodes = [
 ];
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
-const reviews = [
-  { id: 'rev-001', restaurantId: 'r1', userId: 'u2', userName: 'Rahul Verma',   avatar: '👨', rating: 5, comment: 'Best butter chicken in Mumbai! Dal makhani was absolutely divine.', createdAt: new Date(Date.now() - 3*24*60*60*1000).toISOString(), ownerReply: 'Shukriya Rahul bhai! Aate rehna 🙏', orderId: null },
-  { id: 'rev-002', restaurantId: 'r1', userId: 'u1', userName: 'Priya Sharma',  avatar: '👩', rating: 4, comment: 'Paneer tikka was amazing. Delivery was slightly late but food was hot.', createdAt: new Date(Date.now() - 1*24*60*60*1000).toISOString(), ownerReply: null, orderId: 'ord-001' },
-  { id: 'rev-003', restaurantId: 'r2', userId: 'u1', userName: 'Priya Sharma',  avatar: '👩', rating: 4, comment: 'Vada pav burger is a genius idea! Crispy and filling.', createdAt: new Date(Date.now() - 5*24*60*60*1000).toISOString(), ownerReply: 'Thank you Priya ji! 😊', orderId: null },
-  { id: 'rev-004', restaurantId: 'r3', userId: 'u2', userName: 'Rahul Verma',   avatar: '👨', rating: 5, comment: 'Hyderabadi biryani is the real deal. Dum cooked to perfection!', createdAt: new Date(Date.now() - 2*24*60*60*1000).toISOString(), ownerReply: null, orderId: null },
-  { id: 'rev-005', restaurantId: 'r4', userId: 'u1', userName: 'Priya Sharma',  avatar: '👩', rating: 3, comment: 'Dosa was good but chutney could be better. Will try again.', createdAt: new Date(Date.now() - 7*24*60*60*1000).toISOString(), ownerReply: null, orderId: null },
-];
+const reviews = [];
 
 // ─── Restaurants ──────────────────────────────────────────────────────────────
 const restaurants = [

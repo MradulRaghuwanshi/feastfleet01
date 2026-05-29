@@ -12,10 +12,8 @@ import {
   normalizeOrderStatus,
   ORDER_STATUS,
   reassignDeliveryPartner,
-  getAllReviews,
 } from '../../firebase/services';
 import DeliveryPartners from './DeliveryPartners';
-import Reviews from './Reviews';
 import styles from './Dashboard.module.css';
 import { fileToDataUrl } from '../../utils/imageFile';
 import * as XLSX from 'xlsx';
@@ -32,10 +30,10 @@ function generateCredentials(name = 'user') {
   return { email, password: pw };
 }
 
-const TABS = ['Overview', 'Orders', 'Restaurants', 'Reviews', 'Promos', 'Users', 'Delivery Partners', 'Wallets', 'Settlements', 'Settings'];
+const TABS = ['Overview', 'Orders', 'Restaurants', 'Promos', 'Users', 'Delivery Partners', 'Wallets', 'Settlements', 'Settings'];
 
 function tabIcon(t) {
-  return { Overview:'📊', Orders:'📦', Restaurants:'🍽️', Reviews:'⭐', Promos:'🏷️', Users:'👥', 'Delivery Partners':'🚴', Wallets:'🪙', Settlements:'₹', Settings:'⚙️' }[t];
+  return { Overview:'📊', Orders:'📦', Restaurants:'🍽️', Promos:'🏷️', Users:'👥', 'Delivery Partners':'🚴', Wallets:'🪙', Settlements:'₹', Settings:'⚙️' }[t];
 }
 
 export default function AdminDashboard() {
@@ -45,7 +43,6 @@ export default function AdminDashboard() {
   const [orders, setOrders]     = useState([]);
   const [users, setUsers]       = useState([]);
   const [restaurants, setRestaurants] = useState([]);
-  const [reviews, setReviews]   = useState([]);
   const [promos, setPromos]     = useState([]);
   const [loading, setLoading]   = useState(true);
 
@@ -57,15 +54,14 @@ export default function AdminDashboard() {
 
   const loadData = useCallback(async () => {
     try {
-      const [u, r, rev, p, cfg] = await Promise.allSettled([getAllUsers(), getRestaurants('', { includeHidden: true }), getAllReviews(), getAllPromos(), getAppConfig()]);
+      const [u, r, p, cfg] = await Promise.allSettled([getAllUsers(), getRestaurants('', { includeHidden: true }), getAllPromos(), getAppConfig()]);
 
       if (u.status === 'fulfilled') setUsers(u.value);
       if (r.status === 'fulfilled') setRestaurants(r.value);
-      if (rev.status === 'fulfilled') setReviews(rev.value);
       if (p.status === 'fulfilled') setPromos(p.value);
       if (cfg.status === 'fulfilled') setAppConfig(cfg.value);
 
-      const failures = [u, r, rev, p, cfg].filter(result => result.status === 'rejected');
+      const failures = [u, r, p, cfg].filter(result => result.status === 'rejected');
       if (failures.length) {
         console.warn('Admin dashboard refresh had partial failures:', failures.map(result => result.reason?.message || result.reason));
       }
@@ -148,7 +144,6 @@ export default function AdminDashboard() {
           await updateRestaurant(restaurant.id, { isHiddenFromCustomers: restaurant.isHiddenFromCustomers !== true });
           await loadData();
         }} />}
-        {tab === 'Reviews'      && <Reviews reviews={reviews} restaurants={restaurants} onRefresh={loadData} />}
         {tab === 'Promos' && <Promos promos={promos}
           onToggle={async (code, active) => {
             await updatePromo(code, { active });

@@ -1195,6 +1195,17 @@ export const getReviews = async (restaurantId) => {
     });
 };
 
+export const getAllReviews = async () => {
+  const snap = await getDocs(query(collection(db, 'reviews')));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+      const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
+};
+
 export const addReview = async (reviewData) => {
   const ref_ = await addDoc(collection(db, 'reviews'), {
     ...reviewData,
@@ -1206,6 +1217,17 @@ export const addReview = async (reviewData) => {
 
 export const replyToReview = async (reviewId, reply) => {
   await updateDoc(doc(db, 'reviews', reviewId), { ownerReply: reply });
+};
+
+export const updateReview = async (reviewId, reviewData) => {
+  await updateDoc(doc(db, 'reviews', reviewId), {
+    ...reviewData,
+    updatedAt: new Date().toISOString(),
+  });
+};
+
+export const deleteReview = async (reviewId) => {
+  await deleteDoc(doc(db, 'reviews', reviewId));
 };
 
 // ─── PROMOS ───────────────────────────────────────────────────────────────────

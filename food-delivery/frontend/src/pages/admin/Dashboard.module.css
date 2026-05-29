@@ -52,6 +52,8 @@
 .statusPill { padding: 3px 9px; border-radius: 10px; font-size: 11px; font-weight: 600; }
 .promoTag { background: #fff5f0; color: #ff6b35; padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 600; }
 .empty { text-align: center; padding: 40px; color: #aaa; }
+.reviewCell { max-width: 360px; white-space: pre-wrap; word-break: break-word; }
+.reviewActions { display: flex; gap: 6px; flex-wrap: wrap; }
 .userAvatar,
 .userCardAvatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; display: inline-flex; align-items: center; justify-content: center; background: #f1f5f9; font-size: 18px; }
 .userCardAvatar { width: 42px; height: 42px; flex-shrink: 0; }
@@ -134,8 +136,9 @@
 .modalFooter { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 20px; border-top: 1px solid #f0f0f0; }
 .formGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .formGrid label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 500; color: #444; }
-.formGrid input, .formGrid select { border: 1.5px solid #e0e0e0; border-radius: 7px; padding: 8px 10px; font-size: 13px; font-family: inherit; }
-.formGrid input:focus, .formGrid select:focus { border-color: #ff6b35; outline: none; }
+.formGrid input, .formGrid select, .formGrid textarea { border: 1.5px solid #e0e0e0; border-radius: 7px; padding: 8px 10px; font-size: 13px; font-family: inherit; }
+.formGrid textarea { resize: vertical; min-height: 96px; }
+.formGrid input:focus, .formGrid select:focus, .formGrid textarea:focus { border-color: #ff6b35; outline: none; }
 .fullWidth { grid-column: 1 / -1; }
 .checkLabel { flex-direction: row !important; align-items: center; gap: 8px !important; font-size: 13px !important; cursor: pointer; }
 .cancelBtn { background: #f0f0f0; color: #555; padding: 9px 18px; border-radius: 9px; font-weight: 600; font-size: 13px; }
